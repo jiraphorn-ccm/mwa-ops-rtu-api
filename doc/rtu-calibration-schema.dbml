@@ -1,0 +1,235 @@
+// RTU Calibration Domain — PostgreSQL schema `rtu`
+// Source of truth: migrations/000001_init_rtu_schema.up.sql
+//                  migrations/000002_add_audit_columns.up.sql
+//                  migrations/000003_add_panel_images.up.sql
+// API service: RTU API (Go) — /api/rtu/v1
+// Engine: PostgreSQL >= 14
+
+Project rtu_calibration {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Schema นี้เป็น subset ของ Database Design v1.2 (PM/CM Platform)
+    ครอบคลุม master data ตู้/อุปกรณ์ + ใบสอบเทียบ standalone
+    ไม่รวม work_order, pm_report, cm_report, users (อยู่ MWA auth / PM/CM service อื่น)
+  '''
+}
+
+// ---------------------------------------------------------------------------
+// Shared function
+// ---------------------------------------------------------------------------
+// Function rtu.set_updated_at() — BEFORE UPDATE trigger บนทุกตารางที่มี updated_at
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+Table rtu.panels {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสประจำตู้ RTU']
+  code varchar(20) [not null, unique, note: 'รหัสตู้ RTU (business key)']
+  location text [note: 'รายละเอียดตำแหน่งติดตั้งตู้ RTU']
+  latitude numeric(10,7) [note: 'ละติจูด (−90 … 90)']
+  longitude numeric(10,7) [note: 'ลองจิจูด (−180 … 180)']
+  active boolean [not null, default: true, note: 'สถานะการใช้งาน (soft delete = false)']
+  created_at timestamptz [not null, default: `now()`, note: 'วันที่สร้างข้อมูล']
+  updated_at timestamptz [not null, default: `now()`, note: 'วันที่แก้ไขล่าสุด (trigger)']
+  created_by varchar(100) [note: 'JWT user_id ตอนสร้าง (nullable)']
+  updated_by varchar(100) [note: 'JWT user_id ตอนแก้ไขล่าสุด (nullable)']
+
+  Indexes {
+    code [unique, name: 'uk_panels_code']
+    active [name: 'idx_panels_active']
+    created_at [name: 'idx_panels_created_at']
+  }
+
+  Note: '''
+    CHECK ck_panels_latitude, ck_panels_longitude
+    Trigger trg_panels_updated_at
+    อ้างอิง Design Doc: rtu (rtu_id, rtu_code, station_name, location, lat/lng)
+    Screen 09 Web / Screen 03 PM Checklist item 13 (GPS)
+  '''
+}
+
+Table rtu.device_models {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสรุ่นอุปกรณ์']
+  code varchar(30) [not null, unique, note: 'รหัสอ้างอิงรุ่นอุปกรณ์']
+  name varchar(100) [not null, note: 'ชื่อประเภทอุปกรณ์']
+  manufacturer varchar(100) [note: 'ผู้ผลิต']
+  model varchar(100) [note: 'ชื่อรุ่น']
+  description text [note: 'รายละเอียดเพิ่มเติม']
+  active boolean [not null, default: true, note: 'สถานะการใช้งานรุ่น']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100)
+
+  Indexes {
+    code [unique, name: 'uk_device_model_code']
+    active [name: 'idx_device_models_active']
+  }
+
+  Note: '''
+    Master รุ่นอุปกรณ์ — แยกจาก instance ที่ติดตั้งในตู้ (panel_devices)
+    Design Doc equipment รวม manufacturer/model ไว้ในแถวเดียว
+  '''
+}
+
+Table rtu.panel_devices {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสอุปกรณ์ที่ติดตั้ง']
+  panel_id uuid [not null, ref: > rtu.panels.id, note: 'ตู้ RTU ที่ติดตั้ง']
+  device_model_id uuid [not null, ref: > rtu.device_models.id, note: 'รุ่นอุปกรณ์']
+  tag_name varchar(100) [note: 'Tag Name ภายในตู้ — unique ต่อ panel']
+  serial_number varchar(100) [unique, note: 'Serial Number (unique ทั้งระบบ)']
+  asset_code varchar(100) [note: 'รหัสครุภัณฑ์/ทรัพย์สิน']
+  firmware_version varchar(50) [note: 'เวอร์ชัน Firmware']
+  communication_status varchar(20) [not null, default: 'UNKNOWN', note: 'ONLINE|OFFLINE|DEGRADED|UNKNOWN']
+  health_status varchar(20) [not null, default: 'UNKNOWN', note: 'NORMAL|WARNING|CRITICAL|UNKNOWN']
+  installed_at date [note: 'วันที่ติดตั้ง']
+  last_seen_at timestamptz [note: 'เวลาส่งข้อมูล telemetry ล่าสุด']
+  note text [note: 'หมายเหตุ']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100)
+
+  Indexes {
+    panel_id [name: 'idx_panel_devices_panel_id']
+    device_model_id [name: 'idx_panel_devices_device_model_id']
+    (panel_id, device_model_id) [name: 'idx_panel_devices_panel_model']
+    active [name: 'idx_panel_devices_active']
+    last_seen_at [name: 'idx_panel_devices_last_seen_at']
+    serial_number [unique, name: 'uk_device_serial']
+    (panel_id, tag_name) [unique, name: 'uk_panel_device_tag', note: 'partial WHERE tag_name IS NOT NULL']
+  }
+
+  Note: '''
+    FK ON DELETE RESTRICT ไป panels, device_models
+    POST /panel-devices/{id}/status อัปเดต communication/health/last_seen_at
+    อ้างอิง Design Doc: equipment + TAGs ใน CM Screen
+  '''
+}
+
+Table rtu.calibration_instruments {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสเครื่องมือมาตรฐานอ้างอิง']
+  name varchar(100) [not null, note: 'ชื่อเครื่องมือ เช่น Fluke 754']
+  manufacturer varchar(100)
+  model varchar(100)
+  serial_number varchar(100) [unique, note: 'Serial — unique ทั้งระบบ']
+  calibration_date date [note: 'วันที่สอบเทียบเครื่องมือ']
+  expire_date date [note: 'วันหมดอายุใบรับรอง']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100)
+
+  Indexes {
+    serial_number [unique, name: 'uk_instrument_serial']
+    active [name: 'idx_calibration_instruments_active']
+    expire_date [name: 'idx_calibration_instruments_expire_date']
+  }
+
+  Note: '''
+    CHECK expire_date > calibration_date (เมื่อทั้งคู่ไม่ null)
+    List มี is_expired, days_until_expiry (computed)
+    อ้างอิง Design Doc: pm_calibration.ref_* / pm_power_test.ref_*
+    Mobile PM Calibration Section B (Reference Equipment)
+  '''
+}
+
+Table rtu.calibrations {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสรายการสอบเทียบ']
+  panel_device_id uuid [not null, ref: > rtu.panel_devices.id, note: 'อุปกรณ์ที่ถูกสอบเทียบ (EUT)']
+  instrument_id uuid [not null, ref: > rtu.calibration_instruments.id, note: 'เครื่องมือที่ใช้สอบเทียบ']
+  performed_by varchar(100) [note: 'ชื่อผู้ดำเนินการ (business field — ไม่ใช่ created_by)']
+  performed_at timestamptz [not null, note: 'วันเวลาที่สอบเทียบ']
+  result varchar(20) [not null, note: 'PASS | FAIL | ADJUSTED']
+  remark text [note: 'หมายเหตุ']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100)
+
+  Indexes {
+    panel_device_id [name: 'idx_calibrations_panel_device_id']
+    instrument_id [name: 'idx_calibrations_instrument_id']
+    performed_at [name: 'idx_calibrations_performed_at']
+    (panel_device_id, performed_at) [name: 'idx_calibrations_device_performed_at']
+  }
+
+  Note: '''
+    ไม่มี active — DELETE = hard delete
+    Business rules: device active, instrument valid ณ performed_at
+    อ้างอิง Design Doc: pm_calibration (header) แต่ไม่มี channel_type/as_found ใน schema นี้
+    pm_calibration_point → calibration_readings
+  '''
+}
+
+Table rtu.calibration_readings {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสแถวค่าที่วัด']
+  calibration_id uuid [not null, ref: > rtu.calibrations.id, note: 'ใบสอบเทียบ']
+  sequence smallint [not null, note: 'ลำดับจุดวัด (>= 1, unique ต่อใบ)']
+  item_label varchar(150) [note: 'ชื่อหัวข้อ/จุดวัด']
+  parameter_key varchar(50) [not null, note: 'รหัสพารามิเตอร์ เช่น pressure, flow']
+  value numeric [note: 'ค่าที่วัด']
+  unit varchar(20) [note: 'หน่วย เช่น bar, mA, %']
+  created_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100) [note: 'อัปเดตเมื่อ PATCH reading — ไม่มี updated_at']
+
+  Indexes {
+    calibration_id [name: 'idx_calibration_readings_calibration_id']
+    parameter_key [name: 'idx_calibration_readings_parameter_key']
+    (calibration_id, sequence) [unique, name: 'uk_calibration_reading_sequence']
+  }
+
+  Note: '''
+    FK ON DELETE CASCADE จาก calibrations
+    สูงสุด 500 แถวต่อใบ (application layer)
+    Design Doc pm_calibration_point มีคอลัมน์เฉพาะทางมากกว่า (as_found_inc, input_mmh2o ฯลฯ)
+  '''
+}
+
+Table rtu.panel_images {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'รหัสรูปภาพ']
+  panel_id uuid [not null, ref: > rtu.panels.id, note: 'ตู้ RTU ที่รูปนี้เกี่ยวข้อง']
+  panel_device_id uuid [ref: > rtu.panel_devices.id, note: 'อุปกรณ์ในตู้ (เฉพาะ image_type=DEVICE)']
+  image_type varchar(20) [not null, note: 'EXTERIOR | INTERIOR | DEVICE']
+  s3_bucket varchar(100) [not null, note: 'ชื่อ S3 bucket']
+  s3_key varchar(500) [not null, note: 'object key ภายใต้ S3_APP_PREFIX']
+  original_name varchar(255) [note: 'ชื่อไฟล์ต้นฉบับ']
+  mime_type varchar(100) [not null, note: 'image/jpeg, image/png, ...']
+  file_size bigint [not null, note: 'ขนาดไฟล์ (bytes, max 10 MB)']
+  caption text [note: 'คำอธิบายรูป']
+  sort_order smallint [not null, default: 0, note: 'ลำดับการแสดงผล']
+  active boolean [not null, default: true, note: 'soft delete']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by varchar(100)
+  updated_by varchar(100)
+
+  Indexes {
+    panel_id [name: 'idx_panel_images_panel']
+    panel_device_id [name: 'idx_panel_images_device']
+    active [name: 'idx_panel_images_active']
+    (panel_id, sort_order) [name: 'idx_panel_images_sort']
+  }
+
+  Note: '''
+    ไฟล์จริงเก็บ S3: {S3_APP_PREFIX}/images/rtu/panels/{panel_code}/...
+    DEVICE: .../devices/{panel_device_id}/{uuid}.ext
+    CHECK ck_panel_images_type, ck_panel_images_device_type, ck_panel_images_file_size
+  '''
+}
+
+// ---------------------------------------------------------------------------
+// Relationships (explicit)
+// ---------------------------------------------------------------------------
+
+Ref: rtu.panel_devices.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.panel_devices.device_model_id > rtu.device_models.id [delete: restrict, update: cascade]
+Ref: rtu.calibrations.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
+Ref: rtu.calibrations.instrument_id > rtu.calibration_instruments.id [delete: restrict, update: cascade]
+Ref: rtu.calibration_readings.calibration_id > rtu.calibrations.id [delete: cascade, update: cascade]
+Ref: rtu.panel_images.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.panel_images.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]

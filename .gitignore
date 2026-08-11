@@ -1,0 +1,15 @@
+.env
+*.env
+!.env.example
+
+bin/
+dist/
+tmp/
+
+*.exe
+*.test
+*.out
+coverage.*
+*.log
+server_err.log
+server_out.log

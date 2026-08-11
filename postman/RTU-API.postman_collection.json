@@ -1,0 +1,3371 @@
+{
+  "info": {
+    "_postman_id": "rtu-api-mwa-collection",
+    "name": "RTU API",
+    "description": "MWA RTU calibration REST API.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** to populate collection variables\n\nAlternate URLs for the same handler are saved as **Examples** on the primary request.\nHealth routes return raw JSON. API routes use the MWA envelope.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.request.headers.has('Content-Type') && pm.request.body && pm.request.body.mode === 'raw') {",
+          "    pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:5020"
+    },
+    {
+      "key": "api_prefix",
+      "value": "/api/rtu/v1"
+    },
+    {
+      "key": "panel_id",
+      "value": ""
+    },
+    {
+      "key": "panel_code",
+      "value": "PNL-DEMO"
+    },
+    {
+      "key": "device_model_id",
+      "value": ""
+    },
+    {
+      "key": "device_model_code",
+      "value": "DM-DEMO"
+    },
+    {
+      "key": "panel_device_id",
+      "value": ""
+    },
+    {
+      "key": "instrument_id",
+      "value": ""
+    },
+    {
+      "key": "calibration_id",
+      "value": ""
+    },
+    {
+      "key": "reading_id",
+      "value": ""
+    },
+    {
+      "key": "image_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 — Health & Info",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": []
+            }
+          },
+          "description": "Service root.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Service root', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.name).to.eql('RTU API');",
+                  "    pm.expect(json.api_prefix).to.eql('/api/rtu/v1');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 503]));",
+                  "pm.test('Health JSON', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.be.oneOf(['ok', 'degraded']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /health/live",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Liveness', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /health/ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 503]));",
+                  "pm.test('Health JSON', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.be.oneOf(['ok', 'degraded']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            }
+          },
+          "description": "Prometheus text format when METRICS_ENABLED=true.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Prometheus text', () => {",
+                  "    pm.expect(pm.response.text()).to.match(/http_requests_total|HELP/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "No auth required while AUTH_ENABLED=false."
+    },
+    {
+      "name": "01 — Smoke Flow (run in order)",
+      "item": [
+        {
+          "name": "1. Create Panel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{panel_code}}\",\n  \"location\": \"Pump Station 1\",\n  \"latitude\": 13.8622,\n  \"longitude\": 100.5601,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const d = pm.response.json().data;",
+                  "    if (d?.id) pm.collectionVariables.set('panel_id', d.id);",
+                  "    if (d?.code) pm.collectionVariables.set('panel_code', d.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Create Device Model",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{device_model_code}}\",\n  \"name\": \"RTU Controller\",\n  \"manufacturer\": \"Siemens\",\n  \"model\": \"S7-1200\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const d = pm.response.json().data;",
+                  "    if (d?.id) pm.collectionVariables.set('device_model_id', d.id);",
+                  "    if (d?.code) pm.collectionVariables.set('device_model_code', d.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Create Panel Device",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "devices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-101\",\n  \"serial_number\": \"SN-DEMO-001\",\n  \"installed_at\": \"2025-01-15\",\n  \"communication_status\": \"ONLINE\",\n  \"health_status\": \"NORMAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('panel_device_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Create Instrument",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fluke 754\",\n  \"manufacturer\": \"Fluke\",\n  \"serial_number\": \"INS-DEMO-001\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('instrument_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Create Calibration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"instrument_id\": \"{{instrument_id}}\",\n  \"performed_by\": \"Somchai\",\n  \"performed_at\": \"2026-08-01T09:30:00+07:00\",\n  \"result\": \"PASS\",\n  \"readings\": [\n    {\n      \"item_label\": \"Zero\",\n      \"parameter_key\": \"pressure\",\n      \"value\": 0.02,\n      \"unit\": \"bar\"\n    },\n    {\n      \"item_label\": \"Span\",\n      \"parameter_key\": \"pressure\",\n      \"value\": 9.98,\n      \"unit\": \"bar\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('calibration_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Get Calibration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "summary"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "API Root",
+      "item": [
+        {
+          "name": "GET /api/rtu/v1/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}"
+              ]
+            }
+          },
+          "description": "Service root under API prefix.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Panels",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "active",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PNL-NEW\",\n  \"location\": \"Site A\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const d = pm.response.json().data;",
+                  "    if (d?.id) pm.collectionVariables.set('panel_id', d.id);",
+                  "    if (d?.code) pm.collectionVariables.set('panel_code', d.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/code/{{panel_code}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "code",
+                "{{panel_code}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Building A\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Building B\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Device",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "devices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-102\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('panel_device_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Panel Images",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "image_type",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "List panel photos. Each item includes presigned `url`.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "description": "Select a local image (jpeg/png/webp/gif, max 10 MB)",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "image_type",
+                  "value": "EXTERIOR",
+                  "type": "text"
+                },
+                {
+                  "key": "caption",
+                  "value": "Front view",
+                  "type": "text"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "0",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "description": "multipart/form-data — `file` and `image_type` required.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('image_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            }
+          },
+          "description": "Detail with presigned `url`.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"caption\": \"Updated caption\",\n  \"sort_order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Partial metadata update (JSON).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image_type\": \"EXTERIOR\",\n  \"sort_order\": 0,\n  \"caption\": \"Full replace caption\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Full metadata replace (JSON). Use example for multipart file replace.",
+          "response": [
+            {
+              "name": "Replace file (multipart)",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images/{{image_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "panels",
+                    "{{panel_id}}",
+                    "images",
+                    "{{image_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "description": "New image file to replace existing",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "caption",
+                      "value": "Updated photo",
+                      "type": "text",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            }
+          },
+          "description": "Permanent delete — removes DB row and S3 object.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Panel photos stored in S3. Requires S3_BUCKET in server .env."
+    },
+    {
+      "name": "Device Models",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "manufacturer",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DM-NEW\",\n  \"name\": \"Controller\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const d = pm.response.json().data;",
+                  "    if (d?.id) pm.collectionVariables.set('device_model_id', d.id);",
+                  "    if (d?.code) pm.collectionVariables.set('device_model_code', d.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/code/{{device_model_code}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "code",
+                "{{device_model_code}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"y\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/device-models/{{device_model_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "device-models",
+                "{{device_model_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Panel Devices",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "panel_id",
+                  "value": "{{panel_id}}"
+                },
+                {
+                  "key": "communication_status",
+                  "value": ""
+                },
+                {
+                  "key": "health_status",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"panel_id\": \"{{panel_id}}\",\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-200\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('panel_device_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"ok\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"ok2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Record Status",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"communication_status\": \"DEGRADED\",\n  \"health_status\": \"WARNING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Calibrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}/calibrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}",
+                "calibrations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Calibration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}/calibrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}",
+                "calibrations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instrument_id\": \"{{instrument_id}}\",\n  \"performed_by\": \"Somchai\",\n  \"performed_at\": \"2026-08-01T09:30:00+07:00\",\n  \"result\": \"PASS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('calibration_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panel-devices/{{panel_device_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panel-devices",
+                "{{panel_device_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Calibration Instruments",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "expired",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fluke 754\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('instrument_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fluke\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fluke\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibration-instruments/{{instrument_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibration-instruments",
+                "{{instrument_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Calibrations",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "result",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "summary"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"instrument_id\": \"{{instrument_id}}\",\n  \"performed_by\": \"Somchai\",\n  \"performed_at\": \"2026-08-01T09:30:00+07:00\",\n  \"result\": \"PASS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('calibration_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remark\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remark\": \"y\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Readings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Reading",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parameter_key\": \"humidity\",\n  \"value\": 60,\n  \"unit\": \"%\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('reading_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace Readings",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"readings\": [\n    {\n      \"parameter_key\": \"temperature\",\n      \"value\": 25.5,\n      \"unit\": \"C\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Reading",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings/{{reading_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings",
+                "{{reading_id}}"
+              ]
+            }
+          },
+          "description": "Nested route. Flat `/calibration-readings/{id}` is in Examples.",
+          "response": [
+            {
+              "name": "Flat route",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/calibration-readings/{{reading_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "calibration-readings",
+                    "{{reading_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Reading PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings/{{reading_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings",
+                "{{reading_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 0.01\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "response": [
+            {
+              "name": "Flat route",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/calibration-readings/{{reading_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "calibration-readings",
+                    "{{reading_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"value\": 0.01\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Reading PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings/{{reading_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings",
+                "{{reading_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parameter_key\": \"pressure\",\n  \"value\": 0.02,\n  \"unit\": \"bar\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "response": [
+            {
+              "name": "Flat route",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/calibration-readings/{{reading_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "calibration-readings",
+                    "{{reading_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"parameter_key\": \"pressure\",\n  \"value\": 0.02,\n  \"unit\": \"bar\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Reading",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/calibrations/{{calibration_id}}/readings/{{reading_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "calibrations",
+                "{{calibration_id}}",
+                "readings",
+                "{{reading_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "response": [
+            {
+              "name": "Flat route",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/calibration-readings/{{reading_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "calibration-readings",
+                    "{{reading_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

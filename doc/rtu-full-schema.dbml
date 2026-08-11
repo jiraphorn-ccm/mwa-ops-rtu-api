@@ -1,0 +1,941 @@
+// =====================================================================
+// RTU Full Schema — Core (implemented, migrations 000001-000005) +
+//                    PM/CM Report Domain (proposed, not yet migrated)
+// Schema: rtu | PostgreSQL >= 14
+// พร้อม paste เข้า https://dbdiagram.io ตรงๆ (ไฟล์เดียว ไม่ต้อง merge เอง)
+//
+// สีที่ควรอ่าน:
+//   - ตารางที่มี "[IMPLEMENTED]" ใน note = มีจริงใน DB แล้ว (migration 000001-000005)
+//   - ตารางที่มี "[PROPOSED]" ใน note   = ออกแบบไว้ ยังไม่มี migration
+//   - rtu.calibrations และ rtu.panels ผสมคอลัมน์เดิม (มีจริง) + คอลัมน์ใหม่ (proposed)
+//     ไว้ในตารางเดียว — คอลัมน์ใหม่ทำเครื่องหมาย [เพิ่มใหม่] ใน note ของแต่ละ field
+//
+// ทุกตาราง (ที่ไม่ใช่ immutable log) มี created_at + updated_at + created_by + updated_by
+// created_by/updated_by = audit "ใครแก้ record นี้ในระบบ" เป็น uuid ไม่มี FK (users อยู่ MWA auth อื่น)
+// ฟิลด์ actor ทางธุรกิจ (assigned_to, reviewer_id, reported_by, ...) ก็เป็น uuid ไม่มี FK เช่นกัน
+// =====================================================================
+
+Project rtu_full {
+  database_type: 'PostgreSQL'
+  Note: '''
+    RTU Calibration + PM/CM Report Platform — schema `rtu`
+    Core (panels/devices/calibration/images): implemented, migration 000001-000005
+    Report domain (work orders/PM/CM reports): proposed, migration 000006+ (ยังไม่ implement)
+  '''
+}
+
+// =====================================================================
+// ENUMS
+// =====================================================================
+
+// --- Core (implemented — DB ใช้ varchar + CHECK, ไม่ใช่ PostgreSQL ENUM type จริง) ---
+
+Enum operational_status {
+  NORMAL     [note: 'ปกติ — online + healthy (computed, ไม่มี column ใน DB)']
+  MONITORING [note: 'ติดตาม — warning/degraded/unknown']
+  ABNORMAL   [note: 'ผิดปกติ — critical/offline']
+}
+
+Enum communication_status {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  UNKNOWN
+}
+
+Enum health_status {
+  NORMAL
+  WARNING
+  CRITICAL
+  UNKNOWN
+}
+
+Enum calibration_result {
+  PASS
+  FAIL
+  ADJUSTED
+}
+
+Enum panel_image_type {
+  EXTERIOR
+  INTERIOR
+  DEVICE
+}
+
+// --- PM/CM Report domain (proposed) ---
+
+Enum work_order_type {
+  PM
+  CM
+}
+
+Enum pm_schedule_type {
+  THREE_MONTH
+  SIX_MONTH
+}
+
+Enum work_order_status {
+  ASSIGNED
+  IN_PROGRESS
+  PENDING
+  PENDING_APPROVAL
+  COMPLETED
+  CONDITIONAL
+  CANCELLED
+}
+
+Enum work_order_priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+Enum work_order_source {
+  WORKFLOW
+  LEGACY_IMPORT
+}
+
+Enum work_order_activity_action {
+  ASSIGNED    [note: 'มอบหมายรอบใหม่ — ทั้งตอนสร้าง work_order ครั้งแรก (round 1) และตอนเปิดรอบใหม่หลัง reject (round 2+)']
+  REASSIGNED  [note: 'เปลี่ยนคนภายในรอบเดิม (ก่อน check-in) — ไม่เปิดรอบใหม่ ดู note rtu.work_order_rounds']
+  CHECKED_IN
+  CHECKED_OUT
+  SUBMITTED
+  STATUS_CHANGED
+  APPROVED
+  APPROVED_COND
+  REJECTED
+  CANCELLED
+  CM_SPAWNED
+}
+
+Enum wo_approval_decision {
+  APPROVED
+  APPROVED_CONDITION
+  REJECTED
+}
+
+Enum pm_report_status {
+  DRAFT
+  SUBMITTED
+}
+
+Enum checklist_action_type {
+  MAINTENANCE
+  MEASUREMENT
+  VISUAL_INSPECTION
+}
+
+Enum applicable_pm {
+  PM3
+  PM6
+  BOTH
+}
+
+Enum ground_test_result {
+  PASS
+  FAIL
+}
+
+Enum power_test_equipment_role {
+  CIRCUIT_BREAKER
+  DC_POWER_SUPPLY
+}
+
+Enum power_test_result {
+  ACCEPT
+  NOT_ACCEPTED
+}
+
+Enum calibration_channel_type {
+  PRESSURE
+  FLOW
+  LEVEL
+  RTU_READBACK
+}
+
+Enum calibration_result_type {
+  TESTED
+  CALIBRATED_AND_TESTED
+  OTHER
+}
+
+Enum attachment_entity_type {
+  WORK_ORDER
+  PM_REPORT
+  CM_REPORT
+  CALIBRATION
+  PM_GROUND_TEST
+  PM_POWER_TEST_POINT
+  PANEL_DEVICE
+}
+
+Enum notification_type {
+  NEW_ASSIGNMENT
+  PENDING_WORK
+  PENDING_APPROVAL
+  COMPLETED
+  CM_PENDING
+}
+
+// =====================================================================
+// CORE — [IMPLEMENTED] migration 000001-000005
+// =====================================================================
+
+Table rtu.panels {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสประจำตู้ RTU']
+  code varchar(20) [not null, unique, note: 'รหัสตู้ RTU (business key)']
+  location text [note: 'รายละเอียดตำแหน่งติดตั้งตู้ RTU']
+  latitude numeric(10,7) [note: 'ละติจูด (−90…90)']
+  longitude numeric(10,7) [note: 'ลองจิจูด (−180…180)']
+
+  install_date date [note: '[เพิ่มใหม่ - PROPOSED] วันที่ติดตั้งตู้ RTU']
+  last_pm_date date [note: '[เพิ่มใหม่ - PROPOSED] denormalized — sync จาก work_orders ล่าสุด type=PM AND status=COMPLETED']
+  next_pm_date date [note: '[เพิ่มใหม่ - PROPOSED] denormalized — last_pm_date + รอบ PM ล่าสุด (3/6 เดือน)']
+
+  active boolean [not null, default: true, note: 'สถานะการใช้งาน (soft delete = false)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    code [unique, name: 'uk_panels_code']
+    active [name: 'idx_panels_active']
+  }
+
+  Note: '''
+    [IMPLEMENTED] CHECK ck_panels_latitude, ck_panels_longitude | Trigger trg_panels_updated_at
+    API field (computed, ไม่มี column): operational_status = aggregate จาก panel_devices.active
+      Priority: MONITORING > ABNORMAL > NORMAL
+  '''
+}
+
+Table rtu.device_models {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสรุ่นอุปกรณ์']
+  code varchar(30) [not null, unique]
+  name varchar(100) [not null]
+  manufacturer varchar(100)
+  model varchar(100)
+  description text
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    code [unique, name: 'uk_device_model_code']
+    active [name: 'idx_device_models_active']
+  }
+}
+
+Table rtu.panel_devices {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสอุปกรณ์ที่ติดตั้ง']
+  panel_id uuid [not null]
+  device_model_id uuid [not null]
+  tag_name varchar(100) [note: 'unique ต่อ panel']
+  serial_number varchar(100) [note: 'unique ทั้งระบบ']
+  asset_code varchar(100)
+  firmware_version varchar(50)
+  communication_status communication_status [not null, default: 'UNKNOWN']
+  health_status health_status [not null, default: 'UNKNOWN']
+  installed_at date
+  last_seen_at timestamptz
+  note text
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    panel_id [name: 'idx_panel_devices_panel_id']
+    device_model_id [name: 'idx_panel_devices_device_model_id']
+    serial_number [unique, name: 'uk_device_serial']
+    (panel_id, device_model_id) [name: 'idx_panel_devices_panel_model']
+    (panel_id, tag_name) [unique, name: 'uk_panel_device_tag']
+    active [name: 'idx_panel_devices_active']
+  }
+
+  Note: '''
+    [IMPLEMENTED] API field (computed): operational_status = map(communication_status, health_status)
+      CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL
+  '''
+}
+
+Table rtu.calibration_instruments {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสเครื่องมือสอบเทียบ/ทดสอบ']
+  name varchar(100) [not null]
+  manufacturer varchar(100)
+  model varchar(100)
+  serial_number varchar(100) [unique]
+  calibration_date date
+  expire_date date [note: 'block submit หากหมดอายุ (ที่ชั้น service)']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    serial_number [unique, name: 'uk_instrument_serial']
+    active [name: 'idx_calibration_instruments_active']
+    expire_date [name: 'idx_calibration_instruments_expire_date']
+  }
+
+  Note: '[IMPLEMENTED] "อุปกรณ์ที่นำมาสอบเทียบ" — reuse ใน rtu.calibrations.instrument_id และ rtu.pm_power_tests.instrument_id'
+}
+
+Table rtu.calibrations {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสรายการสอบเทียบ']
+  panel_device_id uuid [not null, note: 'อุปกรณ์ที่ถูกสอบเทียบ']
+  instrument_id uuid [not null, note: 'เครื่องมือมาตรฐานที่ใช้สอบเทียบ = "อุปกรณ์ที่นำมาสอบเทียบ"']
+
+  work_order_id uuid [note: '[เพิ่มใหม่ - PROPOSED] ใบงาน PM ที่เกิดการสอบเทียบนี้ (nullable — standalone ยังใช้ได้)']
+  pm_report_id uuid [note: '[เพิ่มใหม่ - PROPOSED] รายงาน PM ที่เกิดการสอบเทียบนี้']
+  channel_type calibration_channel_type [note: '[เพิ่มใหม่ - PROPOSED] แยก Calibration Sensor (pressure/flow/level) กับ Calibration RTU (rtu_readback)']
+  eut_manufacturer varchar(255) [note: '[เพิ่มใหม่ - PROPOSED] snapshot อุปกรณ์ที่ทดสอบ ณ เวลานั้น']
+  eut_model varchar(255) [note: '[เพิ่มใหม่ - PROPOSED]']
+  eut_serial_no varchar(255) [note: '[เพิ่มใหม่ - PROPOSED]']
+  eut_input_range varchar(100) [note: '[เพิ่มใหม่ - PROPOSED] เช่น 0-25,000 mmH2O']
+  eut_accuracy_class varchar(100) [note: '[เพิ่มใหม่ - PROPOSED]']
+  eut_power_supply varchar(100) [note: '[เพิ่มใหม่ - PROPOSED]']
+  eut_output_range varchar(100) [note: '[เพิ่มใหม่ - PROPOSED]']
+  result_type calibration_result_type [note: '[เพิ่มใหม่ - PROPOSED] tested/calibrated_and_tested/other']
+  result_other_text varchar(255) [note: '[เพิ่มใหม่ - PROPOSED] กรอกเมื่อ result_type=OTHER']
+
+  performed_by varchar(100) [note: 'ผู้ดำเนินการสอบเทียบ (ชื่อ/รหัส business — ไม่ใช่ created_by) — WHO']
+  performed_at timestamptz [not null, note: 'WHEN']
+  result calibration_result [not null]
+  remark text
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    panel_device_id [name: 'idx_calibrations_panel_device_id']
+    instrument_id [name: 'idx_calibrations_instrument_id']
+    work_order_id [name: 'idx_calibrations_work_order_id']
+    pm_report_id [name: 'idx_calibrations_pm_report_id']
+    performed_at [name: 'idx_calibrations_performed_at']
+    (panel_device_id, performed_at) [name: 'idx_calibrations_device_performed_at']
+  }
+
+  Note: '''
+    [IMPLEMENTED core, PROPOSED extended columns]
+    work_order_id/pm_report_id ใช้เฉพาะ PM 6 เดือน — System Design ระบุตรงๆ
+      "Calibration Section (แสดงเฉพาะเมื่อ PM Type = 6 เดือน)" — retry loop (Calibrate ใหม่) = insert แถวใหม่
+      หลายแถว performed_at ต่างกัน จนกว่า result=PASS (ไม่ update แถวเดิม เพื่อเก็บ audit trail การ retry)
+  '''
+}
+
+Table rtu.calibration_readings {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสรายการค่าที่วัดได้']
+  calibration_id uuid [not null]
+  sequence smallint [not null, note: '>=1, unique ต่อใบ (1-5 จุดทดสอบ)']
+  item_label varchar(150)
+  parameter_key varchar(50) [not null, note: '''มาตรฐาน: input_mmh2o, desired_output_ma, as_found_inc,
+    as_found_dec, as_left_inc, as_left_dec, generate_input_ma, current_pressure_m,
+    current_flow_forward, current_flow_reverse (ตาม channel_type)''']
+  value numeric
+  unit varchar(20)
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    calibration_id [name: 'idx_calibration_readings_calibration_id']
+    parameter_key [name: 'idx_calibration_readings_parameter_key']
+    (calibration_id, sequence) [unique, name: 'uk_calibration_reading_sequence']
+  }
+
+  Note: '[IMPLEMENTED] FK calibrations ON DELETE CASCADE'
+}
+
+Table rtu.panel_images {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[IMPLEMENTED] รหัสรูปภาพ']
+  panel_id uuid [not null]
+  image_type panel_image_type [not null]
+  s3_bucket varchar(100) [not null]
+  s3_key varchar(500) [not null]
+  original_name varchar(255)
+  mime_type varchar(100) [not null]
+  file_size bigint [not null, note: 'สูงสุด 10 MB']
+  caption text
+  sort_order smallint [not null, default: 0]
+  active boolean [not null, default: true]
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    panel_id [name: 'idx_panel_images_panel_id']
+    (panel_id, image_type) [name: 'idx_panel_images_panel_type']
+    (panel_id, sort_order) [name: 'idx_panel_images_panel_sort']
+    active [name: 'idx_panel_images_active']
+  }
+
+  Note: '[IMPLEMENTED] ไม่มี panel_device_id — ยืดหยุ่นสูงสุด | CHECK file_size BETWEEN 1 AND 10485760'
+}
+
+// =====================================================================
+// MASTER DATA — [PROPOSED] (ไม่ใช่ auth user)
+// =====================================================================
+
+Table rtu.engineers {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสวิศวกรควบคุมงาน']
+  full_name varchar(255) [not null, note: 'ชื่อ-นามสกุล สำหรับพิมพ์บนรายงาน PM']
+  license_no varchar(100) [note: 'เลขใบอนุญาต กว.']
+  position varchar(255)
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    active [name: 'idx_engineers_active']
+  }
+
+  Note: '[PROPOSED] Master data พิมพ์ชื่อวิศวกรบนรายงาน PM — ไม่ใช่ user login, ไม่มี workflow'
+}
+
+Table rtu.checklist_items {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสรายการตรวจสอบ']
+  code varchar(20) [not null, unique, note: 'รหัสอ้างอิงคงที่ เช่น CL-01..CL-13']
+  name varchar(255) [not null]
+  action_type checklist_action_type [not null]
+  applicable_pm applicable_pm [not null, default: 'BOTH']
+  sort_order smallint [not null]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    code [unique, name: 'uk_checklist_items_code']
+    sort_order [name: 'idx_checklist_items_sort_order']
+  }
+
+  Note: '[PROPOSED] มาตรฐาน 13 ข้อ ตาม System Design Screen 03'
+}
+
+// =====================================================================
+// WORK ORDER CORE — [PROPOSED] (PM + CM รวมตารางเดียว)
+// =====================================================================
+
+Table rtu.work_orders {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสใบงาน']
+  work_order_no varchar(100) [not null, unique, note: 'auto-generate เช่น PM-U120-4, CM-P51-1']
+
+  work_order_type work_order_type [not null]
+  pm_schedule_type pm_schedule_type [note: 'บังคับเมื่อ type=PM, NULL เมื่อ type=CM (CHECK)']
+
+  panel_id uuid [not null]
+  panel_device_id uuid [note: 'อุปกรณ์หลักที่เกี่ยวข้อง (โดยเฉพาะ CM)']
+
+  title varchar(255)
+  description text
+
+  status work_order_status [not null, default: 'ASSIGNED']
+  priority work_order_priority [not null, default: 'MEDIUM']
+  source work_order_source [not null, default: 'WORKFLOW']
+
+  requested_by uuid [not null, note: 'ผู้สร้างใบงาน — WHO']
+
+  current_round_id uuid [note: '''[เพิ่มใหม่] FK → work_order_rounds.id ของรอบล่าสุด/ที่กำลังดำเนินการ
+    nullable เฉพาะ "ระหว่าง" transaction สร้างใหม่ (insert work_orders → insert round 1 → update ค่านี้)
+    หลัง commit ต้องไม่เป็น NULL อีก (invariant — ทุก work_order มีอย่างน้อย 1 รอบเสมอเพราะ default status=ASSIGNED)
+    "ใครรับผิดชอบตอนนี้" = JOIN work_order_rounds ผ่านคอลัมน์นี้ (ไม่เก็บ assigned_to ซ้ำบน work_orders
+    เพราะไม่มี trigger บังคับ sync — เก็บ 2 ที่มีแต่เสี่ยง drift โดยไม่มีประโยชน์ join ราคาถูกอยู่แล้ว, PK lookup)'''
+  ]
+
+  related_work_order_id uuid [note: 'เชื่อม PM<->CM — FK self']
+
+  planned_date date
+  due_date date
+
+  closed_at timestamptz
+  active boolean [not null, default: true, note: 'false = ยกเลิก/soft delete']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    work_order_no [unique, name: 'uk_work_orders_no']
+    (work_order_type, status) [name: 'idx_work_orders_type_status']
+    panel_id [name: 'idx_work_orders_panel_id']
+    panel_device_id [name: 'idx_work_orders_panel_device_id']
+    related_work_order_id [name: 'idx_work_orders_related']
+    current_round_id [name: 'idx_work_orders_current_round']
+    requested_by [name: 'idx_work_orders_requested_by']
+    planned_date [name: 'idx_work_orders_planned_date']
+    (status, due_date) [name: 'idx_work_orders_status_due']
+  }
+
+  Note: '''
+    [PROPOSED] CHECK ck_work_orders_pm_schedule
+    PM: Assigned → In Progress → [spawn/reuse CM, Pending] → Pending Approval → Completed/Conditional
+    CM: Assigned → In Progress → Pending → Pending Approval → Completed/Conditional
+    ก่อนสร้าง CM ใหม่: เช็คมี CM status≠Completed ผูก panel_id เดียวกันหรือไม่ → มี=reuse, ไม่มี=สร้างใหม่
+
+    1 work_order ทำได้หลาย "รอบ" (round) — ทุกครั้งที่ reject แล้วส่งงานใหม่ (คนเดิม/คนใหม่ก็ได้) = รอบใหม่
+    assigned_to/check-in/check-out/submit ของแต่ละรอบ → rtu.work_order_rounds ทั้งหมด (ไม่เก็บซ้ำบน work_orders
+      เพราะไม่มี trigger บังคับ sync — join ผ่าน current_round_id ราคาถูกอยู่แล้ว ดีกว่าเสี่ยง cache ค้าง)
+  '''
+}
+
+Table rtu.work_order_rounds {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[เพิ่มใหม่] รหัสรอบการเข้าไปทำงาน (1 work_order มีได้หลายรอบ)']
+  work_order_id uuid [not null]
+  round_no smallint [not null, note: '1, 2, 3... เพิ่มทุกครั้งที่รอบก่อนถูก reject แล้วเริ่มรอบใหม่']
+
+  assigned_to uuid [not null, note: 'ผู้รับผิดชอบรอบนี้ (คนเดิมหรือคนใหม่ก็ได้ถ้า reassign) — WHO']
+  assigned_by uuid [not null, note: 'WHO มอบหมายรอบนี้']
+  assigned_at timestamptz [not null, note: 'WHEN — "เปิดงาน/มอบหมาย" ของรอบนี้']
+
+  check_in_at timestamptz [note: 'WHEN เริ่มงาน (Mobile check-in)']
+  check_in_lat numeric(10,7) [note: 'ตรวจรัศมี ≤50m จากตู้']
+  check_in_lng numeric(10,7)
+  check_out_at timestamptz [note: 'WHEN เสร็จงาน (Mobile check-out)']
+  check_out_lat numeric(10,7)
+  check_out_lng numeric(10,7)
+
+  submitted_at timestamptz [note: 'WHEN submit PM/CM report ของรอบนี้ → เข้าสถานะ Pending Approval']
+
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    (work_order_id, round_no) [unique, name: 'uk_wo_rounds_wo_round_no']
+    work_order_id [name: 'idx_wo_rounds_wo_id']
+    assigned_to [name: 'idx_wo_rounds_assigned_to']
+  }
+
+  Note: '''
+    [เพิ่มใหม่] แก้ปัญหา: "งานเดียวทำได้หลายรอบ (reject→reassign→ทำใหม่) ต้องเก็บประวัติทุกรอบ"
+    ผลอนุมัติของรอบนี้ = rtu.wo_approvals.work_order_round_id (1:1) — ยังไม่มี wo_approvals row = รอบที่กำลังทำอยู่/รอ approve
+    pm_reports/cm_reports ของรอบนี้ → work_order_round_id (1 รอบ = submit ได้ 1 รายงาน)
+    รีแอสไซน์ก่อน check-in (ยังไม่เริ่มงานจริง) → update assigned_to/by/at ของรอบปัจจุบันได้เลย ไม่ต้องเปิดรอบใหม่
+      เปิดรอบใหม่ (round_no+1) เฉพาะตอนรอบก่อนถูก submit+reject ไปแล้วเท่านั้น
+  '''
+}
+
+Table rtu.work_order_activity_logs {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัส log']
+  work_order_id uuid [not null]
+  work_order_round_id uuid [note: '[เพิ่มใหม่] รอบที่ event นี้เกิดขึ้น (nullable — บาง action ไม่ผูกรอบ เช่น CANCELLED ทั้งใบงาน)']
+
+  action work_order_activity_action [not null, note: 'WHAT']
+  from_status work_order_status
+  to_status work_order_status
+  from_assignee uuid [note: 'ผู้รับผิดชอบเดิม']
+  to_assignee uuid [note: 'ผู้รับผิดชอบใหม่ — WHO ถูกมอบหมาย']
+  note text
+
+  actor_id uuid [not null, note: 'ผู้กระทำ action นี้ — WHO ทำ']
+  created_at timestamptz [not null, default: `now()`, note: 'WHEN']
+
+  Indexes {
+    work_order_id [name: 'idx_wo_activity_logs_wo_id']
+    (work_order_id, created_at) [name: 'idx_wo_activity_logs_wo_time']
+    work_order_round_id [name: 'idx_wo_activity_logs_round_id']
+    actor_id [name: 'idx_wo_activity_logs_actor']
+    action [name: 'idx_wo_activity_logs_action']
+  }
+
+  Note: '''
+    [PROPOSED] Immutable audit log — ไม่มี updated_at (log ไม่แก้ไข) — "ใครทำอะไรเมื่อไหร่ มอบหมายให้ใคร"
+    Timeline สถานะทั้งใบงาน (เปิดเมื่อไหร่/assigned เมื่อไหร่/เริ่มงานเมื่อไหร่/รออนุมัติเมื่อไหร่/reject เมื่อไหร่)
+      = query แถวนี้ทั้งหมด WHERE work_order_id=? ORDER BY created_at (from_status/to_status คือ transition แต่ละ step)
+  '''
+}
+
+Table rtu.wo_approvals {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสการอนุมัติ']
+  work_order_id uuid [not null, note: 'denormalized']
+  work_order_round_id uuid [not null, unique, note: '[เพิ่มใหม่] รอบที่ถูก approve/reject รอบนี้ — 1:1 กับรอบ']
+
+  reviewer_id uuid [not null, note: 'Operator ผู้อนุมัติ — WHO']
+  decision wo_approval_decision [not null]
+  repair_date date [note: 'กรณี rejected + อยู่ในความรับผิดชอบผู้รับเหมา']
+  new_work_order_id uuid [note: 'CM work order ใหม่/reuse เมื่อ reject']
+  note text
+
+  reviewed_at timestamptz [not null, default: `now()`, note: 'WHEN']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    work_order_id [name: 'idx_wo_approvals_wo_id']
+    work_order_round_id [unique, name: 'uk_wo_approvals_round_id']
+    new_work_order_id [name: 'idx_wo_approvals_new_wo_id']
+    reviewer_id [name: 'idx_wo_approvals_reviewer_id']
+  }
+
+  Note: '''
+    [PROPOSED] Single source of truth การอนุมัติ (ไม่ซ้ำ pm_reports.status/cm_reports)
+    type (PM/CM) ไม่ต้องเก็บ derive จาก work_order_id > work_orders.work_order_type ได้เลย (1 join)
+    APPROVED→COMPLETED | APPROVED_CONDITION→CONDITIONAL | REJECTED→PENDING หรือ CONDITIONAL
+
+    REJECTED มี 2 เคส แยกด้วย new_work_order_id (ต้อง pick 1):
+      1. งานเดิมต้องแก้ใหม่ (checklist/calibration ไม่ผ่าน, ยังอยู่ในความรับผิดชอบผู้รับเหมาเดิม)
+         → new_work_order_id = NULL, เปิด work_order_rounds รอบใหม่บน work_order เดิม (round_no+1)
+           assigned_to รอบใหม่ = คนเดิม (retry) หรือคนใหม่ (reassign) ก็ได้
+      2. ปัญหาไม่อยู่ในความรับผิดชอบ PM contractor (ต้องแยกเป็นงาน CM) — "Inform Sub-contractor (Include repair date)"
+         → new_work_order_id = CM work_order ใหม่/reuse, repair_date ต้องกรอก, work_order เดิม (PM) ไม่เปิดรอบใหม่
+           (ไปสถานะ CONDITIONAL/COMPLETED แทน — checklist ทำจบแล้ว แค่แยกปัญหาไปดูแลต่อ)
+  '''
+}
+
+// =====================================================================
+// PM REPORT DOMAIN — [PROPOSED]
+// =====================================================================
+
+Table rtu.pm_reports {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสรายงาน PM']
+  work_order_id uuid [not null, note: 'denormalized — 1 work_order อาจมีหลาย pm_reports ถ้ามีหลายรอบ (reject แล้วส่งใหม่)']
+  work_order_round_id uuid [not null, unique, note: '[เพิ่มใหม่] 1:1 กับรอบที่ submit รายงานนี้']
+  panel_id uuid [not null, note: 'denormalized']
+  engineer_id uuid [note: 'วิศวกรควบคุมงาน (master)']
+
+  submitted_by uuid [note: 'WHO ส่งรายงาน']
+  status pm_report_status [not null, default: 'DRAFT']
+  note text [note: 'หมายเหตุ/ข้อเสนอแนะ']
+
+  report_date timestamptz
+  submitted_at timestamptz [note: 'WHEN']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    work_order_id [name: 'idx_pm_reports_work_order_id']
+    work_order_round_id [unique, name: 'uk_pm_reports_round_id']
+    panel_id [name: 'idx_pm_reports_panel_id']
+    engineer_id [name: 'idx_pm_reports_engineer_id']
+  }
+
+  Note: '''
+    [PROPOSED] mA/calibration → rtu.calibrations (extended) | Voltage → pm_ground_tests/pm_power_tests | Approval → wo_approvals(type=PM)
+    PM 3 เดือน (work_orders.pm_schedule_type=THREE_MONTH) → checklist + ground test(optional) + power test
+    PM 6 เดือน (SIX_MONTH) → checklist + ground test(optional) + calibration (flow/pressure, rtu.calibrations)
+      "Calibration Section (แสดงเฉพาะเมื่อ PM Type = 6 เดือน)" — System Design ระบุตรงๆ
+  '''
+}
+
+Table rtu.checklist_results {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสผลตรวจสอบรายข้อ']
+  pm_report_id uuid [not null]
+  checklist_item_id uuid [not null]
+  panel_device_id uuid [note: 'อุปกรณ์ที่ตรวจ (ถ้ามี)']
+
+  status varchar(20) [note: 'PASS|FAIL หรือค่าที่วัดได้']
+  value varchar(255) [note: 'เช่น อุณหภูมิ (°C), ข้อ13=GPS lat,lng']
+  meter_no varchar(50) [note: 'ข้อ 12 MEA No.']
+  note text
+
+  checked_by uuid [note: 'WHO ตรวจ']
+  checked_at timestamptz [not null, default: `now()`, note: 'WHEN']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    (pm_report_id, checklist_item_id, panel_device_id) [unique, name: 'uk_checklist_results_report_item_device']
+    pm_report_id [name: 'idx_checklist_results_report_id']
+    checklist_item_id [name: 'idx_checklist_results_item_id']
+    panel_device_id [name: 'idx_checklist_results_panel_device_id']
+  }
+
+  Note: '''
+    [PROPOSED] item ส่วนใหญ่ (1-10,13) เป็นระดับตู้ → panel_device_id = NULL, 1 แถว/รายงาน
+    item ที่ตรวจได้หลายตัว (11: Transmitters) → 1 แถวต่ออุปกรณ์ที่ตรวจ (panel_device_id NOT NULL)
+    ⚠️ Postgres UNIQUE ธรรมดาไม่กันซ้ำตอน panel_device_id เป็น NULL (NULL ≠ NULL)
+       ต้องเพิ่ม partial unique index ที่ migration:
+       CREATE UNIQUE INDEX uk_checklist_results_report_item_null_device
+         ON rtu.checklist_results (pm_report_id, checklist_item_id) WHERE panel_device_id IS NULL;
+  '''
+}
+
+Table rtu.pm_ground_tests {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสการวัดกราวด์']
+  pm_report_id uuid [not null, unique]
+
+  resistance_lg numeric(10,3) [note: 'Ω — รองรับ OL (Over Limit) → NULL+note']
+  resistance_ng numeric(10,3)
+  voltage_lg numeric(10,3)
+  voltage_ng numeric(10,3)
+  result ground_test_result
+  note text
+
+  measured_by uuid [note: 'WHO']
+  measured_at timestamptz [note: 'WHEN']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    pm_report_id [unique, name: 'uk_pm_ground_tests_report_id']
+  }
+
+  Note: '[PROPOSED] Optional — ไม่ผูก PM Type ตายตัว'
+}
+
+Table rtu.pm_power_tests {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสชุดทดสอบไฟฟ้า']
+  pm_report_id uuid [not null]
+  instrument_id uuid [note: 'เครื่องมือมาตรฐาน — reuse rtu.calibration_instruments']
+
+  tested_by uuid [note: 'WHO']
+  tested_at timestamptz [note: 'WHEN']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    pm_report_id [unique, name: 'uk_pm_power_tests_report_id']
+    instrument_id [name: 'idx_pm_power_tests_instrument_id']
+  }
+
+  Note: '''
+    [PROPOSED] 1:1 กับ pm_report (1 เครื่องมือ/session ต่อรายงาน ตาม System Design header field เดียว)
+    block submit ถ้า instrument expire_date < today (service layer)
+    ตามปกติใช้เฉพาะ PM 3 เดือน (System Design Screen 03 field summary: "Power Test — For 3 months" vs
+      "Calibration — For 6 months") — ⚠️ ไม่ enforce เป็น CHECK เพราะเอกสารไม่ได้ระบุห้ามใช้กับ PM 6 เดือนชัดเจน
+      (ต่างจาก Calibration Section ที่ระบุ "แสดงเฉพาะเมื่อ PM Type = 6 เดือน" ตรงๆ) — ต้อง confirm กับ product owner
+  '''
+}
+
+Table rtu.pm_power_test_points {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสจุดทดสอบ']
+  pm_power_test_id uuid [not null]
+
+  equipment_role power_test_equipment_role [not null]
+  brand varchar(255)
+  model varchar(255)
+  input_accept_range varchar(100) [note: 'เช่น 217-223 VAC']
+  input_result_value numeric(10,3)
+  input_unit varchar(20) [default: 'VAC']
+  output_accept_range varchar(100) [note: 'เช่น 23-25 VDC']
+  output_result_value numeric(10,3)
+  output_unit varchar(20) [default: 'VDC']
+  result power_test_result
+  corrective_action text [note: 'กรอกเมื่อ result=NOT_ACCEPTED']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    pm_power_test_id [name: 'idx_pm_power_test_points_test_id']
+    (pm_power_test_id, equipment_role) [unique, name: 'uk_power_test_points_test_role']
+  }
+
+  Note: '[PROPOSED] 1 แถวต่อ role (CIRCUIT_BREAKER, DC_POWER_SUPPLY) — unique กัน submit ซ้ำ role เดิม'
+}
+
+// =====================================================================
+// CM REPORT DOMAIN — [PROPOSED]
+// =====================================================================
+
+Table rtu.cm_reports {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสรายงาน CM']
+  work_order_id uuid [note: '''nullable! NULL = แก้ไขจบในตัว ไม่มีใบงาน CM แยก (ดู note ตาราง)
+    NOT NULL = ผูกกับ CM work_order เต็มรูปแบบ — denormalized, อาจมีหลาย cm_reports/work_order ถ้ามีหลายรอบ''']
+  work_order_round_id uuid [unique, note: '[เพิ่มใหม่] รอบที่ submit รายงานนี้ — nullable เหมือน work_order_id (PM_ONSITE_FIX ไม่มีรอบของตัวเอง), 1:1 ถ้ามี']
+  pm_report_id uuid [note: '[เพิ่มใหม่] อ้างถึง PM report ต้นทางถ้าเกิดจากปุ่ม "แจ้งซ่อม" ระหว่างทำ PM (nullable — CM ที่ Operator แจ้งตรงไม่ต้องมีค่านี้)']
+  panel_id uuid [not null, note: 'denormalized']
+  panel_device_id uuid
+
+  reported_by uuid [not null, note: 'WHO แจ้ง']
+  tag_code varchar(100)
+  error_logs text
+  problem_detail text
+  root_cause text
+  reference_info text
+  corrective_action text
+  recommendation text
+  pending_reason text [note: 'กรอกเมื่อ status=PENDING']
+
+  repaired_by uuid [note: 'WHO ทำ — มักเท่ากับ work_order_rounds.assigned_to ของรอบนั้น']
+  reported_at timestamptz [note: 'WHEN รับแจ้ง']
+  started_at timestamptz [note: 'WHEN เริ่มซ่อม']
+  ended_at timestamptz [note: 'WHEN ซ่อมเสร็จ']
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    work_order_id [name: 'idx_cm_reports_work_order_id']
+    work_order_round_id [unique, name: 'uk_cm_reports_round_id']
+    pm_report_id [name: 'idx_cm_reports_pm_report_id']
+    panel_id [name: 'idx_cm_reports_panel_id']
+    panel_device_id [name: 'idx_cm_reports_panel_device_id']
+    reported_by [name: 'idx_cm_reports_reported_by']
+  }
+
+  Note: '''
+    [PROPOSED] ไม่มีคอลัมน์ status สำหรับ CM ที่มี work_order — work_orders.status คือ single source of truth
+    CHECK ck_cm_reports_origin: work_order_id IS NOT NULL OR pm_report_id IS NOT NULL (ต้องมีต้นทางอย่างน้อย 1 อย่าง)
+
+    3 ต้นทางของ CM report (แก้ตาม System Design "แจ้งซ่อม" flow, ไม่ใช่ 1 CM = 1 work_order เสมอ):
+      1. STANDALONE      — work_order_id NOT NULL, pm_report_id NULL — Operator แจ้งปัญหาตรง (ไม่ผ่าน PM)
+      2. PM_ONSITE_FIX   — work_order_id NULL, pm_report_id NOT NULL — กด "Report a Repair" ระหว่าง PM แล้วซ่อมจบในตัว
+         "แนบเป็นส่วนหนึ่งของใบงาน PM (สร้าง CM Sub-record, Status = Completed ทันที)" — ไม่ต้องเปิด work_orders แถวใหม่
+      3. PM_ESCALATED    — work_order_id NOT NULL, pm_report_id NOT NULL — กด "Report an issue" ระหว่าง PM (ซ่อมไม่ได้)
+         "Submit เป็น CM Work Order เต็มรูปแบบ (Status = Pending แยกเป็นใบงานของตัวเอง รอ CM Approval ทีหลัง)"
+    origin คำนวณจาก (work_order_id, pm_report_id) ไม่ต้องเก็บเป็น column แยก
+
+    สถานะ CM: STANDALONE/PM_ESCALATED (มี work_order_id) → ดูที่ work_orders.status ตามปกติ
+      PM_ONSITE_FIX (work_order_id NULL) → ไม่มี column status เพราะไม่มี state อื่นให้เป็น — record นี้จะถูกสร้าง
+      ก็ต่อเมื่อซ่อมสำเร็จแล้วเท่านั้น (ตามเอกสาร "สร้าง CM Sub-record, Status = Completed ทันที") ถือว่า
+      COMPLETED โดยนัยเสมอ ไม่ต้อง query ที่ไหนเพิ่ม
+  '''
+}
+
+// =====================================================================
+// ATTACHMENTS — [PROPOSED] (รวม report_image/cm_image/attachment/photo_url เดิม)
+// =====================================================================
+
+Table rtu.attachments {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสไฟล์แนบ']
+  entity_type attachment_entity_type [not null]
+  entity_id uuid [not null, note: 'polymorphic — ไม่มี FK บังคับระดับ DB']
+
+  s3_bucket varchar(100) [not null]
+  s3_key varchar(500) [not null]
+  original_name varchar(255)
+  mime_type varchar(100) [not null]
+  file_size bigint [not null, note: 'สูงสุด 10 MB']
+  caption text
+
+  created_by uuid [not null, note: 'WHO upload (เดิมชื่อ uploaded_by — เปลี่ยนให้ตรง convention กับตารางอื่น)']
+  created_at timestamptz [not null, default: `now()`, note: 'WHEN']
+  updated_at timestamptz [not null, default: `now()`]
+  updated_by uuid
+
+  Indexes {
+    (entity_type, entity_id) [name: 'idx_attachments_entity']
+    created_at [name: 'idx_attachments_created_at']
+  }
+
+  Note: '[PROPOSED] CHECK file_size BETWEEN 1 AND 10485760 | validate entity_type/entity_id ที่ service layer'
+}
+
+// =====================================================================
+// NOTIFICATIONS — [PROPOSED] (System Design Screen 06)
+// =====================================================================
+
+Table rtu.notifications {
+  id uuid [pk, default: `gen_random_uuid()`, note: '[PROPOSED] รหัสการแจ้งเตือน']
+  work_order_id uuid [not null]
+  recipient_id uuid [not null, note: 'WHO ได้รับแจ้งเตือน (operator หรือ sub-contractor ตาม type)']
+
+  type notification_type [not null]
+  title varchar(255)
+  message text
+
+  is_read boolean [not null, default: false]
+  read_at timestamptz [note: 'WHEN เปิดอ่าน']
+
+  created_at timestamptz [not null, default: `now()`, note: 'WHEN ส่ง']
+  updated_at timestamptz [not null, default: `now()`]
+  created_by uuid
+  updated_by uuid
+
+  Indexes {
+    work_order_id [name: 'idx_notifications_work_order_id']
+    (recipient_id, is_read) [name: 'idx_notifications_recipient_unread']
+    created_at [name: 'idx_notifications_created_at']
+  }
+
+  Note: '''
+    [PROPOSED] Screen 06 แจ้งเตือน: New Assignment / Pending Work / Pending Approval / Completed / CM Pending
+    ผู้รับแตกต่างกันตาม type: NEW_ASSIGNMENT→sub-contractor ที่ถูก assign,
+      PENDING_APPROVAL/COMPLETED→operator, CM_PENDING→operator (แจ้งเมื่อ sub-contractor กด Report an issue)
+    เกิดจาก work_order_activity_logs event บางประเภท (ไม่ทุก action ต้องมี notification)
+  '''
+}
+
+// =====================================================================
+// RELATIONSHIPS
+// =====================================================================
+
+// --- Core [IMPLEMENTED] ---
+Ref: rtu.panel_devices.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.panel_devices.device_model_id > rtu.device_models.id [delete: restrict, update: cascade]
+Ref: rtu.calibrations.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
+Ref: rtu.calibrations.instrument_id > rtu.calibration_instruments.id [delete: restrict, update: cascade]
+Ref: rtu.calibration_readings.calibration_id > rtu.calibrations.id [delete: cascade, update: cascade]
+Ref: rtu.panel_images.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+
+// --- Report domain [PROPOSED] ---
+Ref: rtu.work_orders.related_work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+Ref: rtu.work_order_rounds.work_order_id > rtu.work_orders.id [delete: cascade, update: cascade]
+Ref: rtu.work_orders.current_round_id > rtu.work_order_rounds.id [delete: set null, update: cascade]
+Ref: rtu.work_order_activity_logs.work_order_id > rtu.work_orders.id [delete: cascade, update: cascade]
+Ref: rtu.work_order_activity_logs.work_order_round_id > rtu.work_order_rounds.id [delete: set null, update: cascade]
+Ref: rtu.wo_approvals.work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+Ref: rtu.wo_approvals.work_order_round_id - rtu.work_order_rounds.id [delete: restrict, update: cascade]
+Ref: rtu.wo_approvals.new_work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+
+Ref: rtu.pm_reports.work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+Ref: rtu.pm_reports.work_order_round_id - rtu.work_order_rounds.id [delete: restrict, update: cascade]
+Ref: rtu.pm_reports.engineer_id > rtu.engineers.id [delete: restrict, update: cascade]
+
+Ref: rtu.checklist_results.pm_report_id > rtu.pm_reports.id [delete: cascade, update: cascade]
+Ref: rtu.checklist_results.checklist_item_id > rtu.checklist_items.id [delete: restrict, update: cascade]
+
+Ref: rtu.pm_ground_tests.pm_report_id - rtu.pm_reports.id [delete: cascade, update: cascade]
+
+Ref: rtu.pm_power_tests.pm_report_id > rtu.pm_reports.id [delete: cascade, update: cascade]
+Ref: rtu.pm_power_test_points.pm_power_test_id > rtu.pm_power_tests.id [delete: cascade, update: cascade]
+
+Ref: rtu.cm_reports.work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+Ref: rtu.cm_reports.work_order_round_id - rtu.work_order_rounds.id [delete: restrict, update: cascade]
+Ref: rtu.cm_reports.pm_report_id > rtu.pm_reports.id [delete: restrict, update: cascade]
+Ref: rtu.notifications.work_order_id > rtu.work_orders.id [delete: cascade, update: cascade]
+
+// --- Report domain → Core [PROPOSED FK เข้า IMPLEMENTED tables] ---
+Ref: rtu.work_orders.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.work_orders.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
+
+Ref: rtu.pm_reports.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.checklist_results.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
+
+Ref: rtu.cm_reports.panel_id > rtu.panels.id [delete: restrict, update: cascade]
+Ref: rtu.cm_reports.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
+
+Ref: rtu.pm_power_tests.instrument_id > rtu.calibration_instruments.id [delete: restrict, update: cascade]
+
+Ref: rtu.calibrations.work_order_id > rtu.work_orders.id [delete: restrict, update: cascade]
+Ref: rtu.calibrations.pm_report_id > rtu.pm_reports.id [delete: restrict, update: cascade]
+
+// attachments เป็น polymorphic — ไม่มี Ref บังคับ (validate ที่ service layer)
