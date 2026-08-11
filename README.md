@@ -1,6 +1,6 @@
 # RTU API
 
-REST API สำหรับงาน **RTU panel / device / calibration** ของ MWA
+REST API สำหรับงาน **RTU panel / device / calibration / PM / CM** ของ MWA
 เขียนด้วย Go + PostgreSQL และตอบกลับตาม envelope มาตรฐานเดียวกับ service อื่นในระบบ
 (ดู [`api-response-reference.md`](./api-response-reference.md))
 
@@ -93,15 +93,81 @@ make migrate-create NAME=add_alarm_table
 
 ## 4. Database
 
-Schema อยู่ใน PostgreSQL schema ชื่อ `rtu`
+Schema อยู่ใน PostgreSQL schema ชื่อ `rtu` — ออกแบบเต็มชุดใน [`doc/rtu-full-schema.dbml`](./doc/rtu-full-schema.dbml) (paste ลง dbdiagram.io ได้)
+
+### ER ภาพรวม
 
 ```
 panels ──< panel_devices >── device_models
-                │
-                └──< calibrations >── calibration_instruments
-                          │
-                          └──< calibration_readings
+   │              │
+   │              ├──< calibrations >── calibration_instruments
+   │              │         │
+   │              │         └──< calibration_readings
+   │              │
+   │              └──< cm_reports (PM_ONSITE_FIX origin)
+   │
+   ├──< panel_images
+   ├──< work_orders ──< work_order_rounds
+   │         │                  │
+   │         │                  ├──< pm_reports ──< checklist_results >── checklist_items
+   │         │                  │         ├── pm_ground_tests
+   │         │                  │         ├── pm_power_tests ──< pm_power_test_points
+   │         │                  │         └── (calibrations ผ่าน pm_report_id / work_order_id)
+   │         │                  │
+   │         │                  ├──< cm_reports (STANDALONE / PM_ESCALATED)
+   │         │                  └──< wo_approvals (1 ต่อ 1 ต่อ round)
+   │         │
+   │         ├──< work_order_activity_logs
+   │         └──< notifications
+   │
+   └── engineers (อ้างอิงจาก pm_reports / tests)
+
+attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
+              PM_GROUND_TEST, PM_POWER_TEST_POINT, PANEL_DEVICE)
 ```
+
+### ตารางทั้งหมด (21 ตาราง)
+
+| กลุ่ม | ตาราง | migration | หมายเหตุ |
+|-------|--------|-----------|----------|
+| Core RTU | `panels` | 000001 | + `install_date`, `last_pm_date`, `next_pm_date` ใน 000006 |
+| | `device_models` | 000001 | |
+| | `panel_devices` | 000001 | |
+| | `panel_images` | 000003 | S3 presigned URL |
+| Calibration | `calibration_instruments` | 000001 | |
+| | `calibrations` | 000001 | + PM link (`work_order_id`, `pm_report_id`, EUT fields) ใน 000006 |
+| | `calibration_readings` | 000001 | |
+| PM/CM master | `engineers` | 000006 | วิศวกรลงนามรายงาน PM |
+| | `checklist_items` | 000006 | master checklist (PM3 / PM6) |
+| Work order | `work_orders` | 000006 | PM / CM, `pm_schedule_type`, `current_round_id` |
+| | `work_order_rounds` | 000006 | multi-round visit / rework |
+| | `work_order_activity_logs` | 000006 | ASSIGNED, CHECK_IN, CM_SPAWNED, … |
+| | `wo_approvals` | 000006 | APPROVED / CONDITION / REJECTED (+ escalate CM) |
+| PM report | `pm_reports` | 000006 | 1 ต่อ 1 ต่อ round |
+| | `checklist_results` | 000006 | ผล checklist ต่อรายการ |
+| | `pm_ground_tests` | 000006 | ทดสอบ ground (optional) |
+| | `pm_power_tests` | 000006 | ทดสอบ power — **บังคับ PM 3 เดือน** |
+| | `pm_power_test_points` | 000006 | breaker / DC supply แต่ละจุด |
+| CM report | `cm_reports` | 000006 | 3 origins: STANDALONE, PM_ONSITE_FIX, PM_ESCALATED |
+| Files / notify | `attachments` | 000006 | polymorphic upload (S3) |
+| | `notifications` | 000006 | NEW_ASSIGNMENT, PENDING_APPROVAL, COMPLETED, CM_PENDING |
+
+### PM schedule type
+
+| `pm_schedule_type` | Checklist | Ground | Power test | Calibration |
+|--------------------|-----------|--------|------------|-------------|
+| `THREE_MONTH` | ✓ | optional | **required** (submit) | — |
+| `SIX_MONTH` | ✓ | optional | — | **≥1 ใบ** (submit) |
+
+`calibrations` ผูก PM 6 เดือนได้ผ่าน `work_order_id` และ/หรือ `pm_report_id` (ต้องเป็น SIX_MONTH PM)
+
+### CM report origins
+
+| Origin | `work_order_id` | `pm_report_id` | ใช้เมื่อ |
+|--------|-----------------|----------------|----------|
+| STANDALONE | ✓ | — | CM work order ปกติ |
+| PM_ONSITE_FIX | — | ✓ | ซ่อมหน้างานระหว่าง PM |
+| PM_ESCALATED | ✓ | ✓ | escalate จาก PM (Report issue) |
 
 ### สิ่งที่ปรับจาก DBML ตั้งต้น
 
@@ -265,6 +331,107 @@ Content-Type: application/json
 
 `PUT /calibrations/{id}/readings` แทนที่ทั้งใบในครั้งเดียว (ลบของเดิม + เขียนของใหม่ ใน transaction เดียว)
 
+สำหรับ PM 6 เดือน ส่ง `work_order_id` / `pm_report_id` ใน body ได้ (ต้องเป็น SIX_MONTH PM)
+
+Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query มาตรฐาน)
+
+### Work orders (PM / CM)
+
+| Method | Path |
+|--------|------|
+| GET · POST | `/work-orders` |
+| GET · PUT · PATCH · DELETE | `/work-orders/{id}` |
+| POST | `/work-orders/{id}/restore` |
+| POST | `/work-orders/{id}/reassign` |
+| POST | `/work-orders/{id}/check-in` |
+| POST | `/work-orders/{id}/check-out` |
+| GET | `/work-orders/{id}/rounds` |
+| GET | `/work-orders/{id}/activity` |
+| GET · POST | `/work-orders/{id}/approvals` |
+| GET · PUT | `/work-orders/{id}/pm-report` |
+| POST | `/work-orders/{id}/pm-report/submit` |
+| GET | `/work-orders/{id}/pm-reports` |
+| GET · PUT | `/work-orders/{id}/cm-report` |
+| POST | `/work-orders/{id}/cm-report/submit` |
+| GET | `/work-orders/{id}/cm-reports` |
+| GET · POST | `/work-orders/{id}/attachments` |
+
+Nested ใต้ panel / device:
+
+| Method | Path |
+|--------|------|
+| GET · POST | `/panels/{id}/work-orders` |
+| GET | `/panels/{id}/pm-reports` |
+| GET | `/panels/{id}/cm-reports` |
+| GET | `/panel-devices/{id}/work-orders` |
+| GET | `/panel-devices/{id}/cm-reports` |
+
+Filter work orders: `work_order_type`, `pm_schedule_type`, `status`, `priority`, `active`,
+`assigned_to`, `panel_id`, `panel_device_id`, `planned_from/to`, `due_from/to`
+
+Workflow สถานะ: `ASSIGNED` → `IN_PROGRESS` (check-in) → `PENDING` (check-out) →
+`PENDING_APPROVAL` (submit report) → `COMPLETED` / `CONDITIONAL` / rework (reject)
+
+### PM reports
+
+| Method | Path |
+|--------|------|
+| GET · DELETE | `/pm-reports/{id}` |
+| GET · POST | `/pm-reports/{id}/onsite-fixes` |
+| POST | `/pm-reports/{id}/escalate` |
+| GET · POST | `/pm-reports/{id}/attachments` |
+
+`PUT /work-orders/{id}/pm-report` บันทึก aggregate ทั้งชุด (checklist + ground + power) ขณะ DRAFT
+Submit บังคับ power test (PM3) หรือ calibration (PM6) ตาม `pm_schedule_type`
+
+### CM reports
+
+| Method | Path |
+|--------|------|
+| GET · PUT · PATCH · DELETE | `/cm-reports/{id}` |
+| GET · POST | `/cm-reports/{id}/attachments` |
+
+### Engineers & checklist master
+
+| Method | Path |
+|--------|------|
+| GET · POST | `/engineers` |
+| GET · PUT · PATCH · DELETE | `/engineers/{id}` |
+| DELETE | `/engineers/{id}/permanent` |
+| POST | `/engineers/{id}/restore` |
+| GET · POST | `/checklist-items` |
+| GET · PUT · PATCH · DELETE | `/checklist-items/{id}` |
+| DELETE | `/checklist-items/{id}/permanent` |
+| POST | `/checklist-items/{id}/restore` |
+
+### Attachments (polymorphic)
+
+| Method | Path | entity_type |
+|--------|------|-------------|
+| GET · POST | `/work-orders/{id}/attachments` | WORK_ORDER |
+| GET · POST | `/pm-reports/{id}/attachments` | PM_REPORT |
+| GET · POST | `/cm-reports/{id}/attachments` | CM_REPORT |
+| GET · POST | `/calibrations/{id}/attachments` | CALIBRATION |
+| GET · POST | `/panel-devices/{id}/attachments` | PANEL_DEVICE |
+| GET · POST | `/pm-ground-tests/{id}/attachments` | PM_GROUND_TEST |
+| GET · POST | `/pm-power-test-points/{id}/attachments` | PM_POWER_TEST_POINT |
+| GET · PUT · PATCH · DELETE | `/attachments/{id}` | — |
+
+Upload: multipart — `file` (required), `created_by` (required), `caption` (optional)
+
+### Notifications (Screen 06)
+
+| Method | Path |
+|--------|------|
+| GET · POST | `/notifications?recipient_id=` |
+| GET | `/notifications/unread-count?recipient_id=` |
+| POST | `/notifications/read-all?recipient_id=` |
+| GET · DELETE | `/notifications/{id}?recipient_id=` |
+| POST | `/notifications/{id}/read?recipient_id=` |
+
+Type: `NEW_ASSIGNMENT`, `PENDING_WORK`, `PENDING_APPROVAL`, `COMPLETED`, `CM_PENDING`
+(ระบบ emit อัตโนมัติเมื่อ assign / submit / approve / escalate)
+
 ### Panel images
 
 | Method | Path | Content-Type | ใช้เมื่อ |
@@ -297,6 +464,10 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 * สอบเทียบอุปกรณ์ที่ `active = false` ไม่ได้ (`E300_111`)
 * ใช้เครื่องมือที่ปิดใช้งาน (`E300_115`) หรือใบรับรองหมดอายุ ณ วันที่สอบเทียบ (`E300_116`) ไม่ได้
 * `expire_date` ต้องหลัง `calibration_date` (`E300_117`)
+* PM submit: power test บังคับสำหรับ `THREE_MONTH` (`E300_236`), calibration ≥1 สำหรับ `SIX_MONTH` (`E300_237`)
+* Calibration ผูก PM ได้เฉพาะ `SIX_MONTH` work order (`E300_240`)
+* Approval reject → rework เปิด round ใหม่; escalate → spawn/reuse CM work order
+* Panel `last_pm_date` / `next_pm_date` sync เมื่อ PM ถึง COMPLETED หรือ CONDITIONAL
 
 ---
 

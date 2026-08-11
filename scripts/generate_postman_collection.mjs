@@ -10,6 +10,7 @@ const OUT = join(__dir, "..", "postman", "RTU-API.postman_collection.json");
 const COLLECTION_VARS = [
   ["base_url", "http://127.0.0.1:5020"],
   ["api_prefix", "/api/rtu/v1"],
+  ["actor_id", "00000000-0000-0000-0000-000000000001"],
   ["panel_id", ""],
   ["panel_code", "PNL-DEMO"],
   ["device_model_id", ""],
@@ -19,6 +20,15 @@ const COLLECTION_VARS = [
   ["calibration_id", ""],
   ["reading_id", ""],
   ["image_id", ""],
+  ["engineer_id", ""],
+  ["checklist_item_id", ""],
+  ["work_order_id", ""],
+  ["pm_report_id", ""],
+  ["cm_report_id", ""],
+  ["notification_id", ""],
+  ["attachment_id", ""],
+  ["ground_test_id", ""],
+  ["power_test_point_id", ""],
 ];
 
 const API_TEST = `pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));
@@ -78,6 +88,28 @@ const SAVE_ID = {
 }`,
   image_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('image_id', pm.response.json().data.id);
+}`,
+  engineer_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('engineer_id', pm.response.json().data.id);
+}`,
+  checklist_item_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('checklist_item_id', pm.response.json().data.id);
+}`,
+  work_order_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);
+}`,
+  pm_report_id: `const d = pm.response.json().data;
+if (pm.response.code === 200 && d?.id) pm.collectionVariables.set('pm_report_id', d.id);
+if (d?.ground_test?.id) pm.collectionVariables.set('ground_test_id', d.ground_test.id);
+if (d?.power_test_points?.[0]?.id) pm.collectionVariables.set('power_test_point_id', d.power_test_points[0].id);`,
+  cm_report_id: `if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);
+}`,
+  notification_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('notification_id', pm.response.json().data.id);
+}`,
+  attachment_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('attachment_id', pm.response.json().data.id);
 }`,
 };
 
@@ -210,13 +242,41 @@ const IMAGE_REPLACE_FORM = [
   { key: "caption", value: "Updated photo", type: "text", disabled: true },
 ];
 
+const ATTACHMENT_FORM = [
+  {
+    key: "file",
+    description: "PDF or image (max 10 MB)",
+    type: "file",
+    src: [],
+  },
+  { key: "created_by", value: "{{actor_id}}", type: "text" },
+  { key: "caption", value: "Evidence photo", type: "text" },
+];
+
+const WO_PM_CREATE = {
+  work_order_type: "PM",
+  pm_schedule_type: "THREE_MONTH",
+  requested_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  title: "PM demo",
+};
+
+const WO_CM_CREATE = {
+  work_order_type: "CM",
+  requested_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  title: "CM demo",
+};
+
 function build() {
   return {
     info: {
       _postman_id: "rtu-api-mwa-collection",
       name: "RTU API",
       description: [
-        "MWA RTU calibration REST API.",
+        "MWA RTU operations API — calibration + PM/CM workflow.",
         "",
         "**Setup**",
         "1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)",
@@ -381,6 +441,30 @@ function build() {
             },
             saveVar: "panel_device_id",
           },
+        ),
+        req(
+          "List Work Orders",
+          "GET",
+          [...api, "panels", "{{panel_id}}", "work-orders"],
+          { query: q([{ key: "work_order_type", value: "" }]) },
+        ),
+        req(
+          "Create Work Order",
+          "POST",
+          [...api, "panels", "{{panel_id}}", "work-orders"],
+          { body: WO_PM_CREATE, saveVar: "work_order_id" },
+        ),
+        req(
+          "List PM Report History",
+          "GET",
+          [...api, "panels", "{{panel_id}}", "pm-reports"],
+          { query: q() },
+        ),
+        req(
+          "List CM Report History",
+          "GET",
+          [...api, "panels", "{{panel_id}}", "cm-reports"],
+          { query: q() },
         ),
       ]),
       folder(
@@ -570,6 +654,33 @@ function build() {
           "{{panel_device_id}}",
           "permanent",
         ]),
+        req(
+          "List Work Orders",
+          "GET",
+          [...api, "panel-devices", "{{panel_device_id}}", "work-orders"],
+          { query: q() },
+        ),
+        req(
+          "List CM Report History",
+          "GET",
+          [...api, "panel-devices", "{{panel_device_id}}", "cm-reports"],
+          { query: q() },
+        ),
+        req(
+          "List Attachments",
+          "GET",
+          [...api, "panel-devices", "{{panel_device_id}}", "attachments"],
+        ),
+        req(
+          "Upload Attachment",
+          "POST",
+          [...api, "panel-devices", "{{panel_device_id}}", "attachments"],
+          {
+            formdata: ATTACHMENT_FORM,
+            saveVar: "attachment_id",
+            desc: "Requires S3_BUCKET in server .env.",
+          },
+        ),
       ]),
       folder("Calibration Instruments", [
         req("List", "GET", [...api, "calibration-instruments"], {
@@ -685,6 +796,488 @@ function build() {
           examples: [
             example("Flat route", "DELETE", flatReading(["{{reading_id}}"])),
           ],
+        }),
+        req(
+          "List Attachments",
+          "GET",
+          [...api, "calibrations", "{{calibration_id}}", "attachments"],
+        ),
+        req(
+          "Upload Attachment",
+          "POST",
+          [...api, "calibrations", "{{calibration_id}}", "attachments"],
+          { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+        ),
+      ]),
+      folder("Engineers", [
+        req("List", "GET", [...api, "engineers"], {
+          query: q([{ key: "active", value: "" }]),
+        }),
+        req("Create", "POST", [...api, "engineers"], {
+          body: {
+            full_name: "Somchai Engineer",
+            license_no: "ENG-001",
+            position: "Field Engineer",
+          },
+          saveVar: "engineer_id",
+        }),
+        req("Get by ID", "GET", [...api, "engineers", "{{engineer_id}}"]),
+        req("Update PATCH", "PATCH", [...api, "engineers", "{{engineer_id}}"], {
+          body: { position: "Senior Engineer" },
+        }),
+        req("Update PUT", "PUT", [...api, "engineers", "{{engineer_id}}"], {
+          body: { full_name: "Somchai Engineer", position: "Senior Engineer" },
+        }),
+        req("Soft Delete", "DELETE", [...api, "engineers", "{{engineer_id}}"]),
+        req("Restore", "POST", [...api, "engineers", "{{engineer_id}}", "restore"]),
+        req("Hard Delete", "DELETE", [
+          ...api,
+          "engineers",
+          "{{engineer_id}}",
+          "permanent",
+        ]),
+      ]),
+      folder("Checklist Items", [
+        req("List", "GET", [...api, "checklist-items"], {
+          query: [{ key: "active", value: "" }],
+        }),
+        req("Create", "POST", [...api, "checklist-items"], {
+          body: {
+            code: "PM-01",
+            name: "Visual inspection",
+            action_type: "VISUAL_INSPECTION",
+            applicable_pm: "BOTH",
+            sort_order: 1,
+          },
+          saveVar: "checklist_item_id",
+        }),
+        req("Get by ID", "GET", [
+          ...api,
+          "checklist-items",
+          "{{checklist_item_id}}",
+        ]),
+        req(
+          "Update PATCH",
+          "PATCH",
+          [...api, "checklist-items", "{{checklist_item_id}}"],
+          { body: { sort_order: 2 } },
+        ),
+        req(
+          "Update PUT",
+          "PUT",
+          [...api, "checklist-items", "{{checklist_item_id}}"],
+          {
+            body: {
+              code: "PM-01",
+              name: "Visual inspection",
+              action_type: "VISUAL_INSPECTION",
+              applicable_pm: "BOTH",
+              sort_order: 2,
+            },
+          },
+        ),
+        req("Soft Delete", "DELETE", [
+          ...api,
+          "checklist-items",
+          "{{checklist_item_id}}",
+        ]),
+        req("Restore", "POST", [
+          ...api,
+          "checklist-items",
+          "{{checklist_item_id}}",
+          "restore",
+        ]),
+        req("Hard Delete", "DELETE", [
+          ...api,
+          "checklist-items",
+          "{{checklist_item_id}}",
+          "permanent",
+        ]),
+      ]),
+      folder(
+        "Work Orders",
+        [
+          req("List", "GET", [...api, "work-orders"], {
+            query: q([
+              { key: "work_order_type", value: "" },
+              { key: "status", value: "" },
+              { key: "pm_schedule_type", value: "" },
+            ]),
+          }),
+          req("Create PM", "POST", [...api, "work-orders"], {
+            body: { ...WO_PM_CREATE, panel_id: "{{panel_id}}" },
+            saveVar: "work_order_id",
+          }),
+          req("Create CM", "POST", [...api, "work-orders"], {
+            body: { ...WO_CM_CREATE, panel_id: "{{panel_id}}" },
+          }),
+          req("Get by ID", "GET", [...api, "work-orders", "{{work_order_id}}"]),
+          req(
+            "Update PATCH",
+            "PATCH",
+            [...api, "work-orders", "{{work_order_id}}"],
+            { body: { priority: "HIGH" } },
+          ),
+          req(
+            "Update PUT",
+            "PUT",
+            [...api, "work-orders", "{{work_order_id}}"],
+            { body: { priority: "MEDIUM", title: "PM updated" } },
+          ),
+          req("Soft Delete", "DELETE", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+          ]),
+          req("Restore", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "restore",
+          ]),
+          req("Reassign", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "reassign",
+          ], {
+            body: {
+              assigned_to: "{{actor_id}}",
+              actor_id: "{{actor_id}}",
+            },
+          }),
+          req("Check In", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "check-in",
+          ], {
+            body: { lat: 13.8622, lng: 100.5601 },
+          }),
+          req("Check Out", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "check-out",
+          ], {
+            body: { lat: 13.8622, lng: 100.5601 },
+          }),
+          req("List Rounds", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "rounds",
+          ]),
+          req("List Activity", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "activity",
+          ]),
+          req("List Approvals", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "approvals",
+          ]),
+          req("Create Approval", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "approvals",
+          ], {
+            body: {
+              reviewer_id: "{{actor_id}}",
+              decision: "APPROVED",
+            },
+          }),
+          req("Get PM Report", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-report",
+          ], { saveVar: "pm_report_id" }),
+          req("Save PM Report", "PUT", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-report",
+          ], {
+            body: {
+              engineer_id: "{{engineer_id}}",
+              checklist_results: [
+                {
+                  checklist_item_id: "{{checklist_item_id}}",
+                  status: "OK",
+                },
+              ],
+              power_test: {
+                tested_by: "{{actor_id}}",
+                points: [
+                  {
+                    equipment_role: "CIRCUIT_BREAKER",
+                    result: "ACCEPT",
+                  },
+                ],
+              },
+            },
+            saveVar: "pm_report_id",
+          }),
+          req("Submit PM Report", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-report",
+            "submit",
+          ], {
+            body: { actor_id: "{{actor_id}}" },
+          }),
+          req("List PM Report History", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-reports",
+          ]),
+          req("Get CM Report", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "cm-report",
+          ]),
+          req("Save CM Report", "PUT", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "cm-report",
+          ], {
+            body: {
+              problem_detail: "Pump fault",
+              corrective_action: "Replace seal",
+            },
+            saveVar: "cm_report_id",
+          }),
+          req("Submit CM Report", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "cm-report",
+            "submit",
+          ], {
+            body: { actor_id: "{{actor_id}}" },
+          }),
+          req("List CM Report History", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "cm-reports",
+          ]),
+          req(
+            "List Attachments",
+            "GET",
+            [...api, "work-orders", "{{work_order_id}}", "attachments"],
+          ),
+          req(
+            "Upload Attachment",
+            "POST",
+            [...api, "work-orders", "{{work_order_id}}", "attachments"],
+            { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+          ),
+        ],
+        "Run Check In → Save PM Report → Submit → Approval in order for PM flow.",
+      ),
+      folder("PM Reports", [
+        req("Get by ID", "GET", [...api, "pm-reports", "{{pm_report_id}}"], {
+          saveVar: "pm_report_id",
+        }),
+        req("Delete Draft", "DELETE", [
+          ...api,
+          "pm-reports",
+          "{{pm_report_id}}",
+        ]),
+        req(
+          "List Onsite Fixes",
+          "GET",
+          [...api, "pm-reports", "{{pm_report_id}}", "onsite-fixes"],
+        ),
+        req(
+          "Create Onsite Fix",
+          "POST",
+          [...api, "pm-reports", "{{pm_report_id}}", "onsite-fixes"],
+          {
+            body: {
+              reported_by: "{{actor_id}}",
+              problem_detail: "Fixed on spot",
+              corrective_action: "Tightened connector",
+            },
+            saveVar: "cm_report_id",
+          },
+        ),
+        req(
+          "Escalate to CM",
+          "POST",
+          [...api, "pm-reports", "{{pm_report_id}}", "escalate"],
+          {
+            body: {
+              pending_reason: "Needs spare part",
+              reported_by: "{{actor_id}}",
+              assigned_to: "{{actor_id}}",
+              assigned_by: "{{actor_id}}",
+            },
+            saveVar: "cm_report_id",
+          },
+        ),
+        req(
+          "List Attachments",
+          "GET",
+          [...api, "pm-reports", "{{pm_report_id}}", "attachments"],
+        ),
+        req(
+          "Upload Attachment",
+          "POST",
+          [...api, "pm-reports", "{{pm_report_id}}", "attachments"],
+          { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+        ),
+        req(
+          "List Ground Test Attachments",
+          "GET",
+          [
+            ...api,
+            "pm-ground-tests",
+            "{{ground_test_id}}",
+            "attachments",
+          ],
+          { desc: "Set ground_test_id from PM report detail." },
+        ),
+        req(
+          "Upload Ground Test Attachment",
+          "POST",
+          [
+            ...api,
+            "pm-ground-tests",
+            "{{ground_test_id}}",
+            "attachments",
+          ],
+          { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+        ),
+        req(
+          "List Power Point Attachments",
+          "GET",
+          [
+            ...api,
+            "pm-power-test-points",
+            "{{power_test_point_id}}",
+            "attachments",
+          ],
+        ),
+        req(
+          "Upload Power Point Attachment",
+          "POST",
+          [
+            ...api,
+            "pm-power-test-points",
+            "{{power_test_point_id}}",
+            "attachments",
+          ],
+          { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+        ),
+      ]),
+      folder("CM Reports", [
+        req("Get by ID", "GET", [...api, "cm-reports", "{{cm_report_id}}"]),
+        req("Update PATCH", "PATCH", [
+          ...api,
+          "cm-reports",
+          "{{cm_report_id}}",
+        ], {
+          body: { recommendation: "Monitor for 7 days" },
+        }),
+        req("Update PUT", "PUT", [...api, "cm-reports", "{{cm_report_id}}"], {
+          body: { problem_detail: "Updated detail" },
+        }),
+        req("Delete", "DELETE", [...api, "cm-reports", "{{cm_report_id}}"]),
+        req(
+          "List Attachments",
+          "GET",
+          [...api, "cm-reports", "{{cm_report_id}}", "attachments"],
+        ),
+        req(
+          "Upload Attachment",
+          "POST",
+          [...api, "cm-reports", "{{cm_report_id}}", "attachments"],
+          { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
+        ),
+      ]),
+      folder("Attachments", [
+        req("Get by ID", "GET", [...api, "attachments", "{{attachment_id}}"]),
+        req("Update PATCH", "PATCH", [
+          ...api,
+          "attachments",
+          "{{attachment_id}}",
+        ], {
+          body: { caption: "Updated caption" },
+        }),
+        req("Update PUT", "PUT", [...api, "attachments", "{{attachment_id}}"], {
+          body: { caption: "Full replace caption" },
+        }),
+        req("Delete", "DELETE", [
+          ...api,
+          "attachments",
+          "{{attachment_id}}",
+        ]),
+      ]),
+      folder("Notifications", [
+        req("List", "GET", [...api, "notifications"], {
+          query: [
+            ...q(),
+            { key: "recipient_id", value: "{{actor_id}}" },
+            { key: "is_read", value: "" },
+            { key: "type", value: "" },
+          ],
+        }),
+        req("Create", "POST", [...api, "notifications"], {
+          body: {
+            work_order_id: "{{work_order_id}}",
+            recipient_id: "{{actor_id}}",
+            type: "PENDING_WORK",
+            title: "Manual notification",
+            message: "Demo",
+          },
+          saveVar: "notification_id",
+        }),
+        req("Unread Count", "GET", [
+          ...api,
+          "notifications",
+          "unread-count",
+        ], {
+          query: [{ key: "recipient_id", value: "{{actor_id}}" }],
+        }),
+        req("Mark All Read", "POST", [
+          ...api,
+          "notifications",
+          "read-all",
+        ], {
+          query: [{ key: "recipient_id", value: "{{actor_id}}" }],
+        }),
+        req("Get by ID", "GET", [
+          ...api,
+          "notifications",
+          "{{notification_id}}",
+        ], {
+          query: [{ key: "recipient_id", value: "{{actor_id}}" }],
+        }),
+        req("Mark Read", "POST", [
+          ...api,
+          "notifications",
+          "{{notification_id}}",
+          "read",
+        ], {
+          query: [{ key: "recipient_id", value: "{{actor_id}}" }],
+        }),
+        req("Delete", "DELETE", [
+          ...api,
+          "notifications",
+          "{{notification_id}}",
+        ], {
+          query: [{ key: "recipient_id", value: "{{actor_id}}" }],
         }),
       ]),
     ],
