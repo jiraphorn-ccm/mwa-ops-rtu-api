@@ -150,7 +150,7 @@
 <body>
   <header class="page-head">
     <h1>RTU Data Dictionary</h1>
-    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 21 tables · 35 foreign keys · 2026-08-26</p>
+    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 22 tables · 36 foreign keys · 2026-08-26</p>
   </header>
 
   <nav class="page-nav" aria-label="Modules"><button type="button" class="nav-btn active" data-module="all">ทั้งหมด</button>
@@ -161,7 +161,7 @@
 
   <div class="dict-toolbar">
     <input type="search" id="dictSearch" placeholder="ค้นหาตารางหรือคอลัมน์…" autocomplete="off">
-    <span id="tableCount">21 tables</span>
+    <span id="tableCount">22 tables</span>
   </div>
 
   <main class="dict-list"><section class="table-card" id="table-panels" data-module="core">
@@ -520,7 +520,7 @@
 <section class="table-card" id="table-calibration_instruments" data-module="calibration">
       <header class="table-card-head">
         <h2><a href="#table-calibration_instruments">rtu.calibration_instruments</a></h2>
-        <span>12 columns · 1 PK</span>
+        <span>14 columns · 1 PK</span>
       </header>
       
       <div class="table-wrap">
@@ -547,42 +547,56 @@
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">ชื่ออุปกรณ์ / equipment name</td>
+      </tr>
+<tr>
+        <td class="col-name">equipment_type</td>
+        <td class="col-type">varchar(50)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ประเภทอุปกรณ์ — เช่น PRESSURE_CALIBRATOR, MULTIMETER</td>
       </tr>
 <tr>
         <td class="col-name">manufacturer</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">ผู้ผลิต</td>
+      </tr>
+<tr>
+        <td class="col-name">brand</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ยี่ห้อ</td>
       </tr>
 <tr>
         <td class="col-name">model</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">รุ่น</td>
       </tr>
 <tr>
         <td class="col-name">serial_number</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">UNIQUE</td>
+        <td class="col-note">หมายเลขซีเรียล · UNIQUE</td>
       </tr>
 <tr>
         <td class="col-name">calibration_date</td>
         <td class="col-type">date</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">วันที่สอบเทียบล่าสุด</td>
       </tr>
 <tr>
         <td class="col-name">expire_date</td>
         <td class="col-type">date</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">block submit หากหมดอายุ (ที่ชั้น service)</td>
+        <td class="col-note">วันหมดอายุใบ cert — block submit หากหมดอายุ (ที่ชั้น service)</td>
       </tr>
 <tr>
         <td class="col-name">active</td>
@@ -1162,6 +1176,91 @@
         <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
         <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">sort_order</td>
+        <td class="col-type">smallint</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">active</td>
+        <td class="col-type">boolean</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">updated_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_by</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">updated_by</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+<section class="table-card" id="table-problem_topics" data-module="pm_cm">
+      <header class="table-card-head">
+        <h2><a href="#table-problem_topics">rtu.problem_topics</a></h2>
+        <span>9 columns · 1 PK</span>
+      </header>
+      
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Key</th>
+              <th>Reference</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr>
+        <td class="col-name">id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag pk">PK</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">รหัสหัวข้อปัญหา</td>
+      </tr>
+<tr>
+        <td class="col-name">code</td>
+        <td class="col-type">varchar(30)</td>
+        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">รหัสคงที่ เช่น COMM_LOST, POWER_FAILURE · UNIQUE</td>
+      </tr>
+<tr>
+        <td class="col-name">name</td>
+        <td class="col-type">varchar(255)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">หัวข้อปัญหา — แสดงบน UI pill</td>
       </tr>
 <tr>
         <td class="col-name">sort_order</td>
@@ -2334,7 +2433,7 @@
 <section class="table-card" id="table-cm_reports" data-module="pm_cm">
       <header class="table-card-head">
         <h2><a href="#table-cm_reports">rtu.cm_reports</a></h2>
-        <span>22 columns · 1 PK · 4 FK</span>
+        <span>23 columns · 1 PK · 5 FK</span>
       </header>
       <p class="table-note">ไม่มีคอลัมน์ status สำหรับ CM ที่มี work_order — work_orders.status คือ single source of truth CHECK ck_cm_reports_origin: work_order_id IS NOT NULL OR pm_report_id IS NOT NULL (ต้องมีต้นทางอย่างน้อย 1 อย่าง) 3 ต้นทางของ CM report (แก้ตาม System Design &quot;แจ้งซ่อม&quot; flow, ไม่ใช่ 1 CM = 1 work_order เสมอ): 1. STANDALONE — work_order_id NOT NULL, pm_report_id NULL — Operator แจ้งปัญหาตรง (ไม่ผ่าน PM) 2. PM_ONSITE_FIX — work_order_id NULL, pm_report_id NOT NULL — กด &quot;Report a Repair&quot; ระหว่าง PM แล้วซ่อมจบในตัว &quot;แนบเป็นส่วนหนึ่งของใบงาน PM (สร้าง CM Sub-record, Status = Completed ทันที)&quot; — ไม่ต้องเปิด work_orders แถวใหม่ 3. PM_ESCALATED — work_order_id NOT NULL, pm_report_id NOT NULL — กด &quot;Report an issue&quot; ระหว่าง PM (ซ่อมไม่ได้) &quot;Submit เป็น CM Work Order เต็มรูปแบบ (Status = Pending แยกเป็นใบงานของตัวเอง รอ CM Approval ทีหลัง)&quot; origin คำนวณจาก (work_order_id, pm_report_id) ไม่ต้องเก็บเป็น column แยก สถานะ CM: STANDALONE/PM_ESCALATED (มี work_order_id) → ดูที่ work_orders.status ตามปกติ PM_ONSITE_FIX (work_order_id NULL) → ไม่มี column status เพราะไม่มี state อื่นให้เป็น — record นี้จะถูกสร้าง ก็ต่อเมื่อซ่อมสำเร็จแล้วเท่านั้น (ตามเอกสาร &quot;สร้าง CM Sub-record, Status = Completed ทันที&quot;) ถือว่า COMPLETED โดยนัยเสมอ ไม่ต้อง query ที่ไหนเพิ่ม</p>
       <div class="table-wrap">
@@ -2392,11 +2491,18 @@
         <td class="col-note">WHO แจ้ง</td>
       </tr>
 <tr>
+        <td class="col-name">problem_topic_id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NULL</span></td>
+        <td class="col-ref">rtu.problem_topics.id</td>
+        <td class="col-note">FK → problem_topics — หัวข้อปัญหาจาก master</td>
+      </tr>
+<tr>
         <td class="col-name">tag_code</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">legacy / denormalized copy ของ problem_topics.code เมื่อ set problem_topic_id</td>
       </tr>
 <tr>
         <td class="col-name">error_logs</td>
@@ -2728,7 +2834,7 @@
     </section></main>
 
 <script>
-    const MODULE_TABLES = {"all":["panels","device_models","panel_devices","calibration_instruments","calibrations","calibration_readings","panel_images","engineers","checklist_items","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports","attachments","notifications"],"core":["panels","device_models","panel_devices","panel_images"],"calibration":["calibration_instruments","calibrations","calibration_readings"],"pm_cm":["engineers","checklist_items","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports"],"files":["attachments","notifications"]};
+    const MODULE_TABLES = {"all":["panels","device_models","panel_devices","calibration_instruments","calibrations","calibration_readings","panel_images","engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports","attachments","notifications"],"core":["panels","device_models","panel_devices","panel_images"],"calibration":["calibration_instruments","calibrations","calibration_readings"],"pm_cm":["engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports"],"files":["attachments","notifications"]};
     let activeModule = 'all';
 
     function applyFilters() {

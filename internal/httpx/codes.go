@@ -38,6 +38,7 @@ const (
 	CtxAttachment      = "ATTACHMENT"
 	CtxNotification    = "NOTIFICATION"
 	CtxEngineer        = "ENGINEER"
+	CtxProblemTopic    = "PROBLEM_TOPIC"
 )
 
 // SuccessCode is a `S*` envelope code together with its context, message and
@@ -170,6 +171,10 @@ var (
 	ErrCalibrationResultTypeInvalid = ErrorCode{"E300_239", CtxCalibration, "result_type must be one of TESTED, CALIBRATED_AND_TESTED, OTHER.", http.StatusBadRequest}
 	ErrCalibrationLinkPmOnly        = ErrorCode{"E300_240", CtxCalibration, "work_order_id/pm_report_id may only link to a 6-month PM work order.", http.StatusBadRequest}
 	ErrPmEscalateStatusInvalid      = ErrorCode{"E300_241", CtxCmReport, "Can only escalate an issue while the PM work order is in progress.", http.StatusConflict}
+	ErrProblemTopicNotFnd           = ErrorCode{"E300_242", CtxProblemTopic, "Problem topic not found.", http.StatusNotFound}
+	ErrProblemTopicCodeDup          = ErrorCode{"E300_243", CtxProblemTopic, "Problem topic code already exists.", http.StatusConflict}
+	ErrProblemTopicInactive         = ErrorCode{"E300_244", CtxProblemTopic, "Problem topic is inactive.", http.StatusBadRequest}
+	ErrProblemTopicInUse            = ErrorCode{"E300_245", CtxProblemTopic, "Cannot delete problem topic: CM reports reference it.", http.StatusConflict}
 )
 
 // Database / domain (E400_*).

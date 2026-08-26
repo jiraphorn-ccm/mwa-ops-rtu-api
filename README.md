@@ -78,6 +78,20 @@ make run            # รัน API
 
 เปิด http://localhost:5020/health
 
+### Postman
+
+| ไฟล์ | ใช้ทำอะไร |
+|------|-----------|
+| [`postman/RTU-API.postman_collection.json`](./postman/RTU-API.postman_collection.json) | Collection ครบทุก route (155 routes — regenerate ด้วย script ด้านล่าง) |
+| [`postman/RTU-API.local.postman_environment.json`](./postman/RTU-API.local.postman_environment.json) | Environment local (`base_url`, `actor_id`, …) |
+
+Import ทั้งสองไฟล์ใน Postman แล้วรัน folder **01 — Smoke Flow** เพื่อเติม collection variables
+
+```bash
+node scripts/generate_postman_collection.mjs   # หลังเพิ่ม route
+node scripts/scrutinize_postman_collection.mjs  # ตรวจ coverage vs router.go
+```
+
 ### คำสั่งที่ใช้บ่อย
 
 ```bash
@@ -100,7 +114,10 @@ Schema อยู่ใน PostgreSQL schema ชื่อ `rtu` — เอกส�
 | [`doc/rtu-full-schema.dbml`](./doc/rtu-full-schema.dbml) | ER diagram — paste ลง [dbdiagram.io](https://dbdiagram.io) |
 | [`doc/rtu_db_dictionary.html`](./doc/rtu_db_dictionary.html) | Data dictionary (เปิดใน browser) — regenerate: `node scripts/generate_rtu_db_dictionary.mjs` |
 
-Source of truth ในโค้ด: `migrations/000001`–`000006`
+Source of truth ในโค้ด: `migrations/000001`–`000007`
+
+Regenerate dictionary: `node scripts/generate_rtu_db_dictionary.mjs`  
+Regenerate Postman: `node scripts/generate_postman_collection.mjs` → `postman/RTU-API.postman_collection.json`
 
 ### ER ภาพรวม
 
@@ -121,7 +138,8 @@ panels ──< panel_devices >── device_models
    │         │                  │         ├── pm_power_tests ──< pm_power_test_points
    │         │                  │         └── (calibrations ผ่าน pm_report_id / work_order_id)
    │         │                  │
-   │         │                  ├──< cm_reports (STANDALONE / PM_ESCALATED)
+   │         │                  ├──< cm_reports >── problem_topics
+   │         │                  │         (STANDALONE / PM_ESCALATED)
    │         │                  └──< wo_approvals (1 ต่อ 1 ต่อ round)
    │         │
    │         ├──< work_order_activity_logs
@@ -133,7 +151,7 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
               PM_GROUND_TEST, PM_POWER_TEST_POINT, PANEL_DEVICE)
 ```
 
-### ตารางทั้งหมด (21 ตาราง)
+### ตารางทั้งหมด (22 ตาราง)
 
 | กลุ่ม | ตาราง | migration | หมายเหตุ |
 |-------|--------|-----------|----------|
@@ -141,11 +159,12 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
 | | `device_models` | 000001 | |
 | | `panel_devices` | 000001 | |
 | | `panel_images` | 000003 | S3 presigned URL |
-| Calibration | `calibration_instruments` | 000001 | |
+| Calibration | `calibration_instruments` | 000001 | + `equipment_type`, `brand` ใน 000007 |
 | | `calibrations` | 000001 | + PM link (`work_order_id`, `pm_report_id`, EUT fields) ใน 000006 |
 | | `calibration_readings` | 000001 | |
 | PM/CM master | `engineers` | 000006 | วิศวกรลงนามรายงาน PM |
 | | `checklist_items` | 000006 | master checklist (PM3 / PM6) |
+| | `problem_topics` | 000007 | master หัวข้อปัญหา CM (pill UI) — seed 12 รายการ |
 | Work order | `work_orders` | 000006 | PM / CM, `pm_schedule_type`, `current_round_id` |
 | | `work_order_rounds` | 000006 | multi-round visit / rework |
 | | `work_order_activity_logs` | 000006 | ASSIGNED, CHECK_IN, CM_SPAWNED, … |
@@ -155,7 +174,7 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
 | | `pm_ground_tests` | 000006 | ทดสอบ ground (optional) |
 | | `pm_power_tests` | 000006 | ทดสอบ power — **บังคับ PM 3 เดือน** |
 | | `pm_power_test_points` | 000006 | breaker / DC supply แต่ละจุด |
-| CM report | `cm_reports` | 000006 | 3 origins: STANDALONE, PM_ONSITE_FIX, PM_ESCALATED |
+| CM report | `cm_reports` | 000006 | 3 origins + `problem_topic_id` (000007) |
 | Files / notify | `attachments` | 000006 | polymorphic upload (S3) |
 | | `notifications` | 000006 | NEW_ASSIGNMENT, PENDING_APPROVAL, COMPLETED, CM_PENDING |
 
@@ -295,7 +314,10 @@ Filter: `panel_id`, `device_model_id`, `active`, `communication_status`, `health
 | DELETE | `/calibration-instruments/{id}/permanent` |
 | POST | `/calibration-instruments/{id}/restore` |
 
-Filter: `active`, `manufacturer`, `expired`, `expiring_before`, `search`
+Filter: `active`, `manufacturer`, `equipment_type`, `brand`, `expired`, `expiring_before`, `search`
+
+Body สำคัญ: `name` (required), `equipment_type`, `manufacturer`, `brand`, `model`, `serial_number`, `calibration_date`, `expire_date`
+
 แต่ละแถวจะมี `is_expired` และ `days_until_expiry` คำนวณมาให้
 
 ### Calibrations
@@ -398,7 +420,10 @@ Submit บังคับ power test (PM3) หรือ calibration (PM6) ตา
 | GET · PUT · PATCH · DELETE | `/cm-reports/{id}` |
 | GET · POST | `/cm-reports/{id}/attachments` |
 
-### Engineers & checklist master
+Body สำคัญ: `problem_topic_id` (FK → `/problem-topics`, sync `tag_code` เป็น `code` อัตโนมัติ), `problem_detail`, `corrective_action`, …  
+`tag_code` free text ยังรับได้ (legacy) แต่แนะนำใช้ `problem_topic_id`
+
+### Engineers, checklist & problem master
 
 | Method | Path |
 |--------|------|
@@ -410,6 +435,12 @@ Submit บังคับ power test (PM3) หรือ calibration (PM6) ตา
 | GET · PUT · PATCH · DELETE | `/checklist-items/{id}` |
 | DELETE | `/checklist-items/{id}/permanent` |
 | POST | `/checklist-items/{id}/restore` |
+| GET · POST | `/problem-topics` |
+| GET · PUT · PATCH · DELETE | `/problem-topics/{id}` |
+| DELETE | `/problem-topics/{id}/permanent` |
+| POST | `/problem-topics/{id}/restore` |
+
+`GET /problem-topics?active=true` — รายการ pill หัวข้อปัญหา เรียง `sort_order` (seed: COMM_LOST, POWER_FAILURE, … OTHERS)
 
 ### Attachments (polymorphic)
 
@@ -475,6 +506,7 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 * Calibration ผูก PM ได้เฉพาะ `SIX_MONTH` work order (`E300_240`)
 * Approval reject → rework เปิด round ใหม่; escalate → spawn/reuse CM work order
 * Panel `last_pm_date` / `next_pm_date` sync เมื่อ PM ถึง COMPLETED หรือ CONDITIONAL
+* CM report: `problem_topic_id` ต้องชี้ topic ที่ `active=true` (`E300_244`); inactive / ไม่พบ → `E300_242` / `E300_244`
 
 ---
 

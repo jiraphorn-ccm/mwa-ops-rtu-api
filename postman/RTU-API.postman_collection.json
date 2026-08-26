@@ -76,6 +76,10 @@
       "value": ""
     },
     {
+      "key": "problem_topic_id",
+      "value": ""
+    },
+    {
       "key": "work_order_id",
       "value": ""
     },
@@ -432,7 +436,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Fluke 754\",\n  \"manufacturer\": \"Fluke\",\n  \"serial_number\": \"INS-DEMO-001\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
+              "raw": "{\n  \"name\": \"Fluke 718 Pressure Calibrator\",\n  \"equipment_type\": \"PRESSURE_CALIBRATOR\",\n  \"manufacturer\": \"Fluke\",\n  \"brand\": \"Fluke\",\n  \"model\": \"718\",\n  \"serial_number\": \"INS-DEMO-001\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2808,6 +2812,18 @@
                 {
                   "key": "expired",
                   "value": ""
+                },
+                {
+                  "key": "equipment_type",
+                  "value": ""
+                },
+                {
+                  "key": "brand",
+                  "value": ""
+                },
+                {
+                  "key": "manufacturer",
+                  "value": ""
                 }
               ]
             }
@@ -2847,7 +2863,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Fluke 754\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
+              "raw": "{\n  \"name\": \"Fluke 718 Pressure Calibrator\",\n  \"equipment_type\": \"PRESSURE_CALIBRATOR\",\n  \"manufacturer\": \"Fluke\",\n  \"brand\": \"Fluke\",\n  \"model\": \"718\",\n  \"calibration_date\": \"2026-01-10\",\n  \"expire_date\": \"2027-01-10\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4604,6 +4620,336 @@
       ]
     },
     {
+      "name": "Problem Topics",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics"
+              ],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "description": "Master CM issue pills (seed 12 items after migration 000007).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('problem_topic_id', pm.response.json().data.id);",
+                  "} else if (pm.response.code === 200) {",
+                  "    const items = pm.response.json().data?.items;",
+                  "    if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CUSTOM_ISSUE\",\n  \"name\": \"Custom issue\",\n  \"sort_order\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('problem_topic_id', pm.response.json().data.id);",
+                  "} else if (pm.response.code === 200) {",
+                  "    const items = pm.response.json().data?.items;",
+                  "    if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sort_order\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PUT",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CUSTOM_ISSUE\",\n  \"name\": \"Custom issue updated\",\n  \"sort_order\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/problem-topics/{{problem_topic_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "problem-topics",
+                "{{problem_topic_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Work Orders",
       "item": [
         {
@@ -5471,7 +5817,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"problem_detail\": \"Pump fault\",\n  \"corrective_action\": \"Replace seal\"\n}",
+              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Pump fault\",\n  \"corrective_action\": \"Replace seal\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5813,7 +6159,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
+              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5861,7 +6207,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\"\n}",
+              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6236,7 +6582,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"recommendation\": \"Monitor for 7 days\"\n}",
+              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"recommendation\": \"Monitor for 7 days\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

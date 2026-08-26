@@ -32,6 +32,7 @@ type Store struct {
 	WoApprovals            *WoApprovalRepository
 	Engineers              *EngineerRepository
 	ChecklistItems         *ChecklistItemRepository
+	ProblemTopics          *ProblemTopicRepository
 	PmReports              *PmReportRepository
 	CmReports              *CmReportRepository
 	Attachments            *AttachmentRepository
@@ -56,6 +57,7 @@ func New(pool *pgxpool.Pool) *Store {
 		WoApprovals:            &WoApprovalRepository{pool: pool, q: q},
 		Engineers:              &EngineerRepository{pool: pool, q: q},
 		ChecklistItems:         &ChecklistItemRepository{pool: pool, q: q},
+		ProblemTopics:          &ProblemTopicRepository{pool: pool, q: q},
 		PmReports:              &PmReportRepository{pool: pool, q: q},
 		CmReports:              &CmReportRepository{pool: pool, q: q},
 		Attachments:            &AttachmentRepository{pool: pool, q: q},

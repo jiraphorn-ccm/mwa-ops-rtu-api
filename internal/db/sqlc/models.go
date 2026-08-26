@@ -67,6 +67,8 @@ type CalibrationInstrument struct {
 	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
 	CreatedBy       *uuid.UUID  `db:"created_by" json:"created_by"`
 	UpdatedBy       *uuid.UUID  `db:"updated_by" json:"updated_by"`
+	EquipmentType   *string     `db:"equipment_type" json:"equipment_type"`
+	Brand           *string     `db:"brand" json:"brand"`
 }
 
 type CalibrationReading struct {
@@ -138,6 +140,7 @@ type CmReport struct {
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 	CreatedBy        *uuid.UUID `db:"created_by" json:"created_by"`
 	UpdatedBy        *uuid.UUID `db:"updated_by" json:"updated_by"`
+	ProblemTopicID   *uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
 }
 
 type DeviceModel struct {
@@ -300,6 +303,18 @@ type PmReport struct {
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 	CreatedBy        *uuid.UUID `db:"created_by" json:"created_by"`
 	UpdatedBy        *uuid.UUID `db:"updated_by" json:"updated_by"`
+}
+
+type RtuProblemTopic struct {
+	ID        uuid.UUID  `db:"id" json:"id"`
+	Code      string     `db:"code" json:"code"`
+	Name      string     `db:"name" json:"name"`
+	SortOrder int16      `db:"sort_order" json:"sort_order"`
+	Active    bool       `db:"active" json:"active"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	CreatedBy *uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
 type WoApproval struct {

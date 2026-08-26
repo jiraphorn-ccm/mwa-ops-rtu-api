@@ -20,6 +20,7 @@ type Handlers struct {
 	Approvals              *ApprovalHandler
 	Engineers              *EngineerHandler
 	ChecklistItems         *ChecklistItemHandler
+	ProblemTopics          *ProblemTopicHandler
 	PmReports              *PmReportHandler
 	CmReports              *CmReportHandler
 	Attachments            *AttachmentHandler
@@ -40,6 +41,7 @@ func New(cfg *config.Config, svc *service.Services, health *HealthHandler) *Hand
 		Approvals:              &ApprovalHandler{svc: svc.Approvals},
 		Engineers:              &EngineerHandler{svc: svc.Engineers},
 		ChecklistItems:         &ChecklistItemHandler{svc: svc.ChecklistItems},
+		ProblemTopics:          &ProblemTopicHandler{svc: svc.ProblemTopics},
 		PmReports:              &PmReportHandler{svc: svc.PmReports},
 		CmReports:              &CmReportHandler{svc: svc.CmReports},
 		Attachments:            &AttachmentHandler{svc: svc.Attachments},

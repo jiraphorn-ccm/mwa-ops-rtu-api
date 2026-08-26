@@ -91,6 +91,8 @@ func ParseCalibrationInstrumentList(r *http.Request) (httpx.Page, CalibrationIns
 	filter := CalibrationInstrumentListFilter{
 		Active:         q.Bool("active"),
 		Manufacturer:   q.String("manufacturer"),
+		EquipmentType:  q.String("equipment_type"),
+		Brand:          q.String("brand"),
 		Expired:        q.Bool("expired"),
 		ExpiringBefore: q.Time("expiring_before"),
 	}

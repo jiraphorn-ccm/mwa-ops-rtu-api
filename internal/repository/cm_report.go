@@ -29,9 +29,10 @@ type CmReportRepository struct {
 }
 
 var cmReportConstraints = db.Constraints{
-	"uk_cm_reports_round_id":     httpx.ErrCmReportRoundDup,
-	"fk_cm_reports_panel_device": httpx.ErrPanelDeviceNotFnd,
-	"fk_cm_reports_pm_report":    httpx.ErrPmReportNotFnd,
+	"uk_cm_reports_round_id":      httpx.ErrCmReportRoundDup,
+	"fk_cm_reports_panel_device":  httpx.ErrPanelDeviceNotFnd,
+	"fk_cm_reports_pm_report":     httpx.ErrPmReportNotFnd,
+	"fk_cm_reports_problem_topic": httpx.ErrProblemTopicNotFnd,
 }
 
 // Get returns a single CM report by id.

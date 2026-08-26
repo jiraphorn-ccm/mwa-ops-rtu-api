@@ -31,7 +31,9 @@ var instrumentDeleteConstraints = db.Constraints{
 
 var instrumentSortable = httpx.Sortable{
 	"name":             "ci.name",
+	"equipment_type":   "ci.equipment_type",
 	"manufacturer":     "ci.manufacturer",
+	"brand":            "ci.brand",
 	"model":            "ci.model",
 	"serial_number":    "ci.serial_number",
 	"calibration_date": "ci.calibration_date",
@@ -46,8 +48,10 @@ func CalibrationInstrumentSortable() httpx.Sortable { return instrumentSortable 
 
 // CalibrationInstrumentFilter narrows an instrument list query.
 type CalibrationInstrumentFilter struct {
-	Active       *bool
-	Manufacturer *string
+	Active         *bool
+	Manufacturer   *string
+	EquipmentType  *string
+	Brand          *string
 	// Expired selects instruments whose certificate is (or is not) past due.
 	Expired *bool
 	// ExpiringBefore selects certificates due before the given date.
@@ -65,7 +69,7 @@ type CalibrationInstrumentListItem struct {
 
 const instrumentListSelect = `
 SELECT
-    ci.id, ci.name, ci.manufacturer, ci.model, ci.serial_number,
+    ci.id, ci.name, ci.equipment_type, ci.manufacturer, ci.brand, ci.model, ci.serial_number,
     ci.calibration_date, ci.expire_date, ci.active, ci.created_at, ci.updated_at,
     ci.created_by, ci.updated_by,
     (ci.expire_date IS NOT NULL AND ci.expire_date < current_date) AS is_expired,
@@ -88,6 +92,12 @@ func (r *CalibrationInstrumentRepository) List(ctx context.Context, page httpx.P
 	if filter.Manufacturer != nil {
 		conds = append(conds, "ci.manufacturer = "+a.add(*filter.Manufacturer))
 	}
+	if filter.EquipmentType != nil {
+		conds = append(conds, "ci.equipment_type = "+a.add(*filter.EquipmentType))
+	}
+	if filter.Brand != nil {
+		conds = append(conds, "ci.brand = "+a.add(*filter.Brand))
+	}
 	if filter.Expired != nil {
 		if *filter.Expired {
 			conds = append(conds, "ci.expire_date IS NOT NULL AND ci.expire_date < current_date")
@@ -101,8 +111,8 @@ func (r *CalibrationInstrumentRepository) List(ctx context.Context, page httpx.P
 	if page.Search != nil {
 		p := a.add(likePattern(*page.Search))
 		conds = append(conds, fmt.Sprintf(
-			`(ci.name ILIKE %s ESCAPE '\' OR ci.serial_number ILIKE %s ESCAPE '\' OR ci.manufacturer ILIKE %s ESCAPE '\' OR ci.model ILIKE %s ESCAPE '\')`,
-			p, p, p, p,
+			`(ci.name ILIKE %s ESCAPE '\' OR ci.serial_number ILIKE %s ESCAPE '\' OR ci.manufacturer ILIKE %s ESCAPE '\' OR ci.brand ILIKE %s ESCAPE '\' OR ci.model ILIKE %s ESCAPE '\' OR ci.equipment_type ILIKE %s ESCAPE '\')`,
+			p, p, p, p, p, p,
 		))
 	}
 

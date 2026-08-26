@@ -20,6 +20,7 @@ type Services struct {
 	Approvals              *ApprovalService
 	Engineers              *EngineerService
 	ChecklistItems         *ChecklistItemService
+	ProblemTopics          *ProblemTopicService
 	PmReports              *PmReportService
 	CmReports              *CmReportService
 	Attachments            *AttachmentService
@@ -70,6 +71,7 @@ func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Servi
 		},
 		Engineers:      &EngineerService{repo: store.Engineers},
 		ChecklistItems: &ChecklistItemService{repo: store.ChecklistItems},
+		ProblemTopics:  &ProblemTopicService{repo: store.ProblemTopics},
 		PmReports: &PmReportService{
 			repo:       store.PmReports,
 			workOrders: workOrders,
@@ -77,12 +79,13 @@ func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Servi
 			notify:     notifications,
 		},
 		CmReports: &CmReportService{
-			repo:       store.CmReports,
-			workOrders: workOrders,
-			pmReports:  store.PmReports,
-			devices:    store.PanelDevices,
-			activity:   store.WorkOrderActivityLogs,
-			notify:     notifications,
+			repo:          store.CmReports,
+			workOrders:    workOrders,
+			pmReports:     store.PmReports,
+			devices:       store.PanelDevices,
+			activity:      store.WorkOrderActivityLogs,
+			problemTopics: store.ProblemTopics,
+			notify:        notifications,
 		},
 		Attachments: &AttachmentService{
 			repo:      store.Attachments,

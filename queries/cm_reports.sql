@@ -1,7 +1,7 @@
 -- name: CreateCmReport :one
 INSERT INTO rtu.cm_reports (
     work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id,
-    reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info,
+    reported_by, problem_topic_id, tag_code, error_logs, problem_detail, root_cause, reference_info,
     corrective_action, recommendation, pending_reason, repaired_by,
     reported_at, started_at, ended_at, created_by, updated_by
 )
@@ -12,6 +12,7 @@ VALUES (
     @panel_id::uuid,
     sqlc.narg('panel_device_id')::uuid,
     @reported_by::uuid,
+    sqlc.narg('problem_topic_id')::uuid,
     sqlc.narg('tag_code')::varchar,
     sqlc.narg('error_logs')::text,
     sqlc.narg('problem_detail')::text,
@@ -41,6 +42,7 @@ SELECT * FROM rtu.cm_reports WHERE pm_report_id = @pm_report_id::uuid ORDER BY c
 -- name: UpdateCmReport :one
 UPDATE rtu.cm_reports SET
     panel_device_id   = CASE WHEN @panel_device_id_do_update::boolean THEN sqlc.narg('panel_device_id')::uuid ELSE panel_device_id END,
+    problem_topic_id  = CASE WHEN @problem_topic_id_do_update::boolean THEN sqlc.narg('problem_topic_id')::uuid ELSE problem_topic_id END,
     tag_code          = CASE WHEN @tag_code_do_update::boolean THEN sqlc.narg('tag_code')::varchar ELSE tag_code END,
     error_logs        = CASE WHEN @error_logs_do_update::boolean THEN sqlc.narg('error_logs')::text ELSE error_logs END,
     problem_detail    = CASE WHEN @problem_detail_do_update::boolean THEN sqlc.narg('problem_detail')::text ELSE problem_detail END,

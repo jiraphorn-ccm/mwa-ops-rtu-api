@@ -75,6 +75,7 @@ func New(deps Deps) http.Handler {
 		mountWorkOrders(api, deps.Handlers)
 		mountEngineers(api, deps.Handlers)
 		mountChecklistItems(api, deps.Handlers)
+		mountProblemTopics(api, deps.Handlers)
 		mountAttachments(api, deps.Handlers)
 		mountNotifications(api, deps.Handlers)
 	})
@@ -311,6 +312,22 @@ func mountChecklistItems(api chi.Router, h *handler.Handlers) {
 			r.Delete("/", h.ChecklistItems.Delete)
 			r.Delete("/permanent", h.ChecklistItems.Purge)
 			r.Post("/restore", h.ChecklistItems.Restore)
+		})
+	})
+}
+
+func mountProblemTopics(api chi.Router, h *handler.Handlers) {
+	api.Route("/problem-topics", func(r chi.Router) {
+		r.Get("/", h.ProblemTopics.List)
+		r.Post("/", h.ProblemTopics.Create)
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", h.ProblemTopics.Get)
+			r.Put("/", h.ProblemTopics.Update)
+			r.Patch("/", h.ProblemTopics.Update)
+			r.Delete("/", h.ProblemTopics.Delete)
+			r.Delete("/permanent", h.ProblemTopics.Purge)
+			r.Post("/restore", h.ProblemTopics.Restore)
 		})
 	})
 }

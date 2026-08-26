@@ -20,7 +20,9 @@ type CalibrationInstrumentService struct {
 // CalibrationInstrumentCreateInput is the POST /calibration-instruments body.
 type CalibrationInstrumentCreateInput struct {
 	Name            string      `json:"name" validate:"required,max=100"`
+	EquipmentType   *string     `json:"equipment_type" validate:"omitempty,max=50"`
 	Manufacturer    *string     `json:"manufacturer" validate:"omitempty,max=100"`
+	Brand           *string     `json:"brand" validate:"omitempty,max=100"`
 	Model           *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber    *string     `json:"serial_number" validate:"omitempty,max=100"`
 	CalibrationDate *httpx.Date `json:"calibration_date"`
@@ -31,7 +33,9 @@ type CalibrationInstrumentCreateInput struct {
 // CalibrationInstrumentUpdateInput is the PATCH body.
 type CalibrationInstrumentUpdateInput struct {
 	Name            *string     `json:"name" validate:"omitempty,max=100"`
+	EquipmentType   *string     `json:"equipment_type" validate:"omitempty,max=50"`
 	Manufacturer    *string     `json:"manufacturer" validate:"omitempty,max=100"`
+	Brand           *string     `json:"brand" validate:"omitempty,max=100"`
 	Model           *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber    *string     `json:"serial_number" validate:"omitempty,max=100"`
 	CalibrationDate *httpx.Date `json:"calibration_date"`
@@ -68,7 +72,9 @@ func (s *CalibrationInstrumentService) Create(ctx context.Context, in Calibratio
 
 	return s.repo.Create(ctx, sqlc.CreateCalibrationInstrumentParams{
 		Name:            in.Name,
+		EquipmentType:   in.EquipmentType,
 		Manufacturer:    in.Manufacturer,
+		Brand:           in.Brand,
 		Model:           in.Model,
 		SerialNumber:    in.SerialNumber,
 		CalibrationDate: in.CalibrationDate,
@@ -94,6 +100,8 @@ func (s *CalibrationInstrumentService) Update(ctx context.Context, id uuid.UUID,
 	params.Active, params.ActiveDoUpdate = active, setActive
 
 	params.Manufacturer, params.ManufacturerDoUpdate = patchNullable(fields, "manufacturer", in.Manufacturer)
+	params.EquipmentType, params.EquipmentTypeDoUpdate = patchNullable(fields, "equipment_type", in.EquipmentType)
+	params.Brand, params.BrandDoUpdate = patchNullable(fields, "brand", in.Brand)
 	params.Model, params.ModelDoUpdate = patchNullable(fields, "model", in.Model)
 	params.SerialNumber, params.SerialNumberDoUpdate = patchNullable(fields, "serial_number", in.SerialNumber)
 

@@ -26,7 +26,7 @@ func (q *Queries) CmReportExists(ctx context.Context, id uuid.UUID) (bool, error
 const createCmReport = `-- name: CreateCmReport :one
 INSERT INTO rtu.cm_reports (
     work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id,
-    reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info,
+    reported_by, problem_topic_id, tag_code, error_logs, problem_detail, root_cause, reference_info,
     corrective_action, recommendation, pending_reason, repaired_by,
     reported_at, started_at, ended_at, created_by, updated_by
 )
@@ -37,22 +37,23 @@ VALUES (
     $4::uuid,
     $5::uuid,
     $6::uuid,
-    $7::varchar,
-    $8::text,
+    $7::uuid,
+    $8::varchar,
     $9::text,
     $10::text,
     $11::text,
     $12::text,
     $13::text,
     $14::text,
-    $15::uuid,
-    $16::timestamptz,
+    $15::text,
+    $16::uuid,
     $17::timestamptz,
     $18::timestamptz,
-    $19::uuid,
-    $20::uuid
+    $19::timestamptz,
+    $20::uuid,
+    $21::uuid
 )
-RETURNING id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by
+RETURNING id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id
 `
 
 type CreateCmReportParams struct {
@@ -62,6 +63,7 @@ type CreateCmReportParams struct {
 	PanelID          uuid.UUID  `db:"panel_id" json:"panel_id"`
 	PanelDeviceID    *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
 	ReportedBy       uuid.UUID  `db:"reported_by" json:"reported_by"`
+	ProblemTopicID   *uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
 	TagCode          *string    `db:"tag_code" json:"tag_code"`
 	ErrorLogs        *string    `db:"error_logs" json:"error_logs"`
 	ProblemDetail    *string    `db:"problem_detail" json:"problem_detail"`
@@ -86,6 +88,7 @@ func (q *Queries) CreateCmReport(ctx context.Context, arg CreateCmReportParams) 
 		arg.PanelID,
 		arg.PanelDeviceID,
 		arg.ReportedBy,
+		arg.ProblemTopicID,
 		arg.TagCode,
 		arg.ErrorLogs,
 		arg.ProblemDetail,
@@ -126,6 +129,7 @@ func (q *Queries) CreateCmReport(ctx context.Context, arg CreateCmReportParams) 
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.ProblemTopicID,
 	)
 	return i, err
 }
@@ -143,7 +147,7 @@ func (q *Queries) DeleteCmReport(ctx context.Context, id uuid.UUID) (int64, erro
 }
 
 const getCmReport = `-- name: GetCmReport :one
-SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by FROM rtu.cm_reports WHERE id = $1::uuid
+SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id FROM rtu.cm_reports WHERE id = $1::uuid
 `
 
 func (q *Queries) GetCmReport(ctx context.Context, id uuid.UUID) (CmReport, error) {
@@ -173,12 +177,13 @@ func (q *Queries) GetCmReport(ctx context.Context, id uuid.UUID) (CmReport, erro
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.ProblemTopicID,
 	)
 	return i, err
 }
 
 const getCmReportByRound = `-- name: GetCmReportByRound :one
-SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by FROM rtu.cm_reports WHERE work_order_round_id = $1::uuid
+SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id FROM rtu.cm_reports WHERE work_order_round_id = $1::uuid
 `
 
 func (q *Queries) GetCmReportByRound(ctx context.Context, workOrderRoundID uuid.UUID) (CmReport, error) {
@@ -208,12 +213,13 @@ func (q *Queries) GetCmReportByRound(ctx context.Context, workOrderRoundID uuid.
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.ProblemTopicID,
 	)
 	return i, err
 }
 
 const listCmReportsByPmReport = `-- name: ListCmReportsByPmReport :many
-SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by FROM rtu.cm_reports WHERE pm_report_id = $1::uuid ORDER BY created_at
+SELECT id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id FROM rtu.cm_reports WHERE pm_report_id = $1::uuid ORDER BY created_at
 `
 
 func (q *Queries) ListCmReportsByPmReport(ctx context.Context, pmReportID uuid.UUID) ([]CmReport, error) {
@@ -249,6 +255,7 @@ func (q *Queries) ListCmReportsByPmReport(ctx context.Context, pmReportID uuid.U
 			&i.UpdatedAt,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.ProblemTopicID,
 		); err != nil {
 			return nil, err
 		}
@@ -263,26 +270,29 @@ func (q *Queries) ListCmReportsByPmReport(ctx context.Context, pmReportID uuid.U
 const updateCmReport = `-- name: UpdateCmReport :one
 UPDATE rtu.cm_reports SET
     panel_device_id   = CASE WHEN $1::boolean THEN $2::uuid ELSE panel_device_id END,
-    tag_code          = CASE WHEN $3::boolean THEN $4::varchar ELSE tag_code END,
-    error_logs        = CASE WHEN $5::boolean THEN $6::text ELSE error_logs END,
-    problem_detail    = CASE WHEN $7::boolean THEN $8::text ELSE problem_detail END,
-    root_cause        = CASE WHEN $9::boolean THEN $10::text ELSE root_cause END,
-    reference_info    = CASE WHEN $11::boolean THEN $12::text ELSE reference_info END,
-    corrective_action = CASE WHEN $13::boolean THEN $14::text ELSE corrective_action END,
-    recommendation    = CASE WHEN $15::boolean THEN $16::text ELSE recommendation END,
-    pending_reason    = CASE WHEN $17::boolean THEN $18::text ELSE pending_reason END,
-    repaired_by       = CASE WHEN $19::boolean THEN $20::uuid ELSE repaired_by END,
-    reported_at       = CASE WHEN $21::boolean THEN $22::timestamptz ELSE reported_at END,
-    started_at        = CASE WHEN $23::boolean THEN $24::timestamptz ELSE started_at END,
-    ended_at          = CASE WHEN $25::boolean THEN $26::timestamptz ELSE ended_at END,
-    updated_by        = $27::uuid
-WHERE id = $28::uuid
-RETURNING id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by
+    problem_topic_id  = CASE WHEN $3::boolean THEN $4::uuid ELSE problem_topic_id END,
+    tag_code          = CASE WHEN $5::boolean THEN $6::varchar ELSE tag_code END,
+    error_logs        = CASE WHEN $7::boolean THEN $8::text ELSE error_logs END,
+    problem_detail    = CASE WHEN $9::boolean THEN $10::text ELSE problem_detail END,
+    root_cause        = CASE WHEN $11::boolean THEN $12::text ELSE root_cause END,
+    reference_info    = CASE WHEN $13::boolean THEN $14::text ELSE reference_info END,
+    corrective_action = CASE WHEN $15::boolean THEN $16::text ELSE corrective_action END,
+    recommendation    = CASE WHEN $17::boolean THEN $18::text ELSE recommendation END,
+    pending_reason    = CASE WHEN $19::boolean THEN $20::text ELSE pending_reason END,
+    repaired_by       = CASE WHEN $21::boolean THEN $22::uuid ELSE repaired_by END,
+    reported_at       = CASE WHEN $23::boolean THEN $24::timestamptz ELSE reported_at END,
+    started_at        = CASE WHEN $25::boolean THEN $26::timestamptz ELSE started_at END,
+    ended_at          = CASE WHEN $27::boolean THEN $28::timestamptz ELSE ended_at END,
+    updated_by        = $29::uuid
+WHERE id = $30::uuid
+RETURNING id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id
 `
 
 type UpdateCmReportParams struct {
 	PanelDeviceIDDoUpdate    bool       `db:"panel_device_id_do_update" json:"panel_device_id_do_update"`
 	PanelDeviceID            *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
+	ProblemTopicIDDoUpdate   bool       `db:"problem_topic_id_do_update" json:"problem_topic_id_do_update"`
+	ProblemTopicID           *uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
 	TagCodeDoUpdate          bool       `db:"tag_code_do_update" json:"tag_code_do_update"`
 	TagCode                  *string    `db:"tag_code" json:"tag_code"`
 	ErrorLogsDoUpdate        bool       `db:"error_logs_do_update" json:"error_logs_do_update"`
@@ -315,6 +325,8 @@ func (q *Queries) UpdateCmReport(ctx context.Context, arg UpdateCmReportParams) 
 	row := q.db.QueryRow(ctx, updateCmReport,
 		arg.PanelDeviceIDDoUpdate,
 		arg.PanelDeviceID,
+		arg.ProblemTopicIDDoUpdate,
+		arg.ProblemTopicID,
 		arg.TagCodeDoUpdate,
 		arg.TagCode,
 		arg.ErrorLogsDoUpdate,
@@ -367,6 +379,7 @@ func (q *Queries) UpdateCmReport(ctx context.Context, arg UpdateCmReportParams) 
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.ProblemTopicID,
 	)
 	return i, err
 }

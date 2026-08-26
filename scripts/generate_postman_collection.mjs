@@ -22,6 +22,7 @@ const COLLECTION_VARS = [
   ["image_id", ""],
   ["engineer_id", ""],
   ["checklist_item_id", ""],
+  ["problem_topic_id", ""],
   ["work_order_id", ""],
   ["pm_report_id", ""],
   ["cm_report_id", ""],
@@ -94,6 +95,12 @@ const SAVE_ID = {
 }`,
   checklist_item_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('checklist_item_id', pm.response.json().data.id);
+}`,
+  problem_topic_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('problem_topic_id', pm.response.json().data.id);
+} else if (pm.response.code === 200) {
+    const items = pm.response.json().data?.items;
+    if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);
 }`,
   work_order_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('work_order_id', pm.response.json().data.id);
@@ -357,8 +364,11 @@ function build() {
           [...api, "calibration-instruments"],
           {
             body: {
-              name: "Fluke 754",
+              name: "Fluke 718 Pressure Calibrator",
+              equipment_type: "PRESSURE_CALIBRATOR",
               manufacturer: "Fluke",
+              brand: "Fluke",
+              model: "718",
               serial_number: "INS-DEMO-001",
               calibration_date: "2026-01-10",
               expire_date: "2027-01-10",
@@ -684,11 +694,20 @@ function build() {
       ]),
       folder("Calibration Instruments", [
         req("List", "GET", [...api, "calibration-instruments"], {
-          query: q([{ key: "expired", value: "" }]),
+          query: q([
+            { key: "expired", value: "" },
+            { key: "equipment_type", value: "" },
+            { key: "brand", value: "" },
+            { key: "manufacturer", value: "" },
+          ]),
         }),
         req("Create", "POST", [...api, "calibration-instruments"], {
           body: {
-            name: "Fluke 754",
+            name: "Fluke 718 Pressure Calibrator",
+            equipment_type: "PRESSURE_CALIBRATOR",
+            manufacturer: "Fluke",
+            brand: "Fluke",
+            model: "718",
             calibration_date: "2026-01-10",
             expire_date: "2027-01-10",
           },
@@ -894,6 +913,61 @@ function build() {
           "permanent",
         ]),
       ]),
+      folder("Problem Topics", [
+        req("List", "GET", [...api, "problem-topics"], {
+          query: [{ key: "active", value: "true" }],
+          saveVar: "problem_topic_id",
+          desc: "Master CM issue pills (seed 12 items after migration 000007).",
+        }),
+        req("Create", "POST", [...api, "problem-topics"], {
+          body: {
+            code: "CUSTOM_ISSUE",
+            name: "Custom issue",
+            sort_order: 99,
+          },
+          saveVar: "problem_topic_id",
+        }),
+        req("Get by ID", "GET", [
+          ...api,
+          "problem-topics",
+          "{{problem_topic_id}}",
+        ]),
+        req(
+          "Update PATCH",
+          "PATCH",
+          [...api, "problem-topics", "{{problem_topic_id}}"],
+          { body: { sort_order: 100 } },
+        ),
+        req(
+          "Update PUT",
+          "PUT",
+          [...api, "problem-topics", "{{problem_topic_id}}"],
+          {
+            body: {
+              code: "CUSTOM_ISSUE",
+              name: "Custom issue updated",
+              sort_order: 100,
+            },
+          },
+        ),
+        req("Soft Delete", "DELETE", [
+          ...api,
+          "problem-topics",
+          "{{problem_topic_id}}",
+        ]),
+        req("Restore", "POST", [
+          ...api,
+          "problem-topics",
+          "{{problem_topic_id}}",
+          "restore",
+        ]),
+        req("Hard Delete", "DELETE", [
+          ...api,
+          "problem-topics",
+          "{{problem_topic_id}}",
+          "permanent",
+        ]),
+      ]),
       folder(
         "Work Orders",
         [
@@ -1051,6 +1125,7 @@ function build() {
             "cm-report",
           ], {
             body: {
+              problem_topic_id: "{{problem_topic_id}}",
               problem_detail: "Pump fault",
               corrective_action: "Replace seal",
             },
@@ -1106,6 +1181,7 @@ function build() {
           {
             body: {
               reported_by: "{{actor_id}}",
+              problem_topic_id: "{{problem_topic_id}}",
               problem_detail: "Fixed on spot",
               corrective_action: "Tightened connector",
             },
@@ -1122,6 +1198,7 @@ function build() {
               reported_by: "{{actor_id}}",
               assigned_to: "{{actor_id}}",
               assigned_by: "{{actor_id}}",
+              problem_topic_id: "{{problem_topic_id}}",
             },
             saveVar: "cm_report_id",
           },
@@ -1188,7 +1265,10 @@ function build() {
           "cm-reports",
           "{{cm_report_id}}",
         ], {
-          body: { recommendation: "Monitor for 7 days" },
+          body: {
+            problem_topic_id: "{{problem_topic_id}}",
+            recommendation: "Monitor for 7 days",
+          },
         }),
         req("Update PUT", "PUT", [...api, "cm-reports", "{{cm_report_id}}"], {
           body: { problem_detail: "Updated detail" },

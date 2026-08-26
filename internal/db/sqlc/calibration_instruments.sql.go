@@ -25,7 +25,8 @@ func (q *Queries) CalibrationInstrumentExists(ctx context.Context, id uuid.UUID)
 
 const createCalibrationInstrument = `-- name: CreateCalibrationInstrument :one
 INSERT INTO rtu.calibration_instruments (
-    name, manufacturer, model, serial_number, calibration_date, expire_date, active,
+    name, equipment_type, manufacturer, brand, model, serial_number,
+    calibration_date, expire_date, active,
     created_by, updated_by
 )
 VALUES (
@@ -33,18 +34,22 @@ VALUES (
     $2::varchar,
     $3::varchar,
     $4::varchar,
-    $5::date,
-    $6::date,
-    COALESCE($7::boolean, true),
-    $8::uuid,
-    $9::uuid
+    $5::varchar,
+    $6::varchar,
+    $7::date,
+    $8::date,
+    COALESCE($9::boolean, true),
+    $10::uuid,
+    $11::uuid
 )
-RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by
+RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
 `
 
 type CreateCalibrationInstrumentParams struct {
 	Name            string      `db:"name" json:"name"`
+	EquipmentType   *string     `db:"equipment_type" json:"equipment_type"`
 	Manufacturer    *string     `db:"manufacturer" json:"manufacturer"`
+	Brand           *string     `db:"brand" json:"brand"`
 	Model           *string     `db:"model" json:"model"`
 	SerialNumber    *string     `db:"serial_number" json:"serial_number"`
 	CalibrationDate *httpx.Date `db:"calibration_date" json:"calibration_date"`
@@ -57,7 +62,9 @@ type CreateCalibrationInstrumentParams struct {
 func (q *Queries) CreateCalibrationInstrument(ctx context.Context, arg CreateCalibrationInstrumentParams) (CalibrationInstrument, error) {
 	row := q.db.QueryRow(ctx, createCalibrationInstrument,
 		arg.Name,
+		arg.EquipmentType,
 		arg.Manufacturer,
+		arg.Brand,
 		arg.Model,
 		arg.SerialNumber,
 		arg.CalibrationDate,
@@ -80,6 +87,8 @@ func (q *Queries) CreateCalibrationInstrument(ctx context.Context, arg CreateCal
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.EquipmentType,
+		&i.Brand,
 	)
 	return i, err
 }
@@ -97,7 +106,7 @@ func (q *Queries) DeleteCalibrationInstrument(ctx context.Context, id uuid.UUID)
 }
 
 const getCalibrationInstrument = `-- name: GetCalibrationInstrument :one
-SELECT id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by FROM rtu.calibration_instruments WHERE id = $1::uuid
+SELECT id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand FROM rtu.calibration_instruments WHERE id = $1::uuid
 `
 
 func (q *Queries) GetCalibrationInstrument(ctx context.Context, id uuid.UUID) (CalibrationInstrument, error) {
@@ -116,6 +125,8 @@ func (q *Queries) GetCalibrationInstrument(ctx context.Context, id uuid.UUID) (C
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.EquipmentType,
+		&i.Brand,
 	)
 	return i, err
 }
@@ -141,7 +152,7 @@ UPDATE rtu.calibration_instruments SET
     active     = $1::boolean,
     updated_by = $2::uuid
 WHERE id = $3::uuid
-RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by
+RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
 `
 
 type SetCalibrationInstrumentActiveParams struct {
@@ -166,6 +177,8 @@ func (q *Queries) SetCalibrationInstrumentActive(ctx context.Context, arg SetCal
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.EquipmentType,
+		&i.Brand,
 	)
 	return i, err
 }
@@ -173,22 +186,28 @@ func (q *Queries) SetCalibrationInstrumentActive(ctx context.Context, arg SetCal
 const updateCalibrationInstrument = `-- name: UpdateCalibrationInstrument :one
 UPDATE rtu.calibration_instruments SET
     name             = CASE WHEN $1::boolean THEN $2::varchar ELSE name END,
-    manufacturer     = CASE WHEN $3::boolean THEN $4::varchar ELSE manufacturer END,
-    model            = CASE WHEN $5::boolean THEN $6::varchar ELSE model END,
-    serial_number    = CASE WHEN $7::boolean THEN $8::varchar ELSE serial_number END,
-    calibration_date = CASE WHEN $9::boolean THEN $10::date ELSE calibration_date END,
-    expire_date      = CASE WHEN $11::boolean THEN $12::date ELSE expire_date END,
-    active           = CASE WHEN $13::boolean THEN $14::boolean ELSE active END,
-    updated_by       = $15::uuid
-WHERE id = $16::uuid
-RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by
+    equipment_type   = CASE WHEN $3::boolean THEN $4::varchar ELSE equipment_type END,
+    manufacturer     = CASE WHEN $5::boolean THEN $6::varchar ELSE manufacturer END,
+    brand            = CASE WHEN $7::boolean THEN $8::varchar ELSE brand END,
+    model            = CASE WHEN $9::boolean THEN $10::varchar ELSE model END,
+    serial_number    = CASE WHEN $11::boolean THEN $12::varchar ELSE serial_number END,
+    calibration_date = CASE WHEN $13::boolean THEN $14::date ELSE calibration_date END,
+    expire_date      = CASE WHEN $15::boolean THEN $16::date ELSE expire_date END,
+    active           = CASE WHEN $17::boolean THEN $18::boolean ELSE active END,
+    updated_by       = $19::uuid
+WHERE id = $20::uuid
+RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
 `
 
 type UpdateCalibrationInstrumentParams struct {
 	NameDoUpdate            bool        `db:"name_do_update" json:"name_do_update"`
 	Name                    string      `db:"name" json:"name"`
+	EquipmentTypeDoUpdate   bool        `db:"equipment_type_do_update" json:"equipment_type_do_update"`
+	EquipmentType           *string     `db:"equipment_type" json:"equipment_type"`
 	ManufacturerDoUpdate    bool        `db:"manufacturer_do_update" json:"manufacturer_do_update"`
 	Manufacturer            *string     `db:"manufacturer" json:"manufacturer"`
+	BrandDoUpdate           bool        `db:"brand_do_update" json:"brand_do_update"`
+	Brand                   *string     `db:"brand" json:"brand"`
 	ModelDoUpdate           bool        `db:"model_do_update" json:"model_do_update"`
 	Model                   *string     `db:"model" json:"model"`
 	SerialNumberDoUpdate    bool        `db:"serial_number_do_update" json:"serial_number_do_update"`
@@ -207,8 +226,12 @@ func (q *Queries) UpdateCalibrationInstrument(ctx context.Context, arg UpdateCal
 	row := q.db.QueryRow(ctx, updateCalibrationInstrument,
 		arg.NameDoUpdate,
 		arg.Name,
+		arg.EquipmentTypeDoUpdate,
+		arg.EquipmentType,
 		arg.ManufacturerDoUpdate,
 		arg.Manufacturer,
+		arg.BrandDoUpdate,
+		arg.Brand,
 		arg.ModelDoUpdate,
 		arg.Model,
 		arg.SerialNumberDoUpdate,
@@ -236,6 +259,8 @@ func (q *Queries) UpdateCalibrationInstrument(ctx context.Context, arg UpdateCal
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.EquipmentType,
+		&i.Brand,
 	)
 	return i, err
 }

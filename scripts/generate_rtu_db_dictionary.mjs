@@ -27,6 +27,7 @@ const MODULE_TABLES = {
   pm_cm: [
     "engineers",
     "checklist_items",
+    "problem_topics",
     "work_orders",
     "work_order_rounds",
     "work_order_activity_logs",
