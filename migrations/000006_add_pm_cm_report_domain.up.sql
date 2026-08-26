@@ -4,8 +4,7 @@
 -- (engineers, checklist_items). Also extends rtu.calibrations and
 -- rtu.panels with the columns the PM flow needs.
 --
--- Design reference: doc/rtu-full-schema.dbml (canonical, pasteable into
--- dbdiagram.io) and doc/rtu-pm-cm-schema.dbml (design rationale / changelog).
+-- Design reference: doc/rtu-full-schema.dbml, doc/rtu_db_dictionary.html
 --
 -- Enums are stored as varchar + CHECK, matching the convention set by
 -- migration 000001 (no native PostgreSQL ENUM type is used anywhere).

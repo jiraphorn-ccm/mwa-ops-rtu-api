@@ -93,7 +93,14 @@ make migrate-create NAME=add_alarm_table
 
 ## 4. Database
 
-Schema อยู่ใน PostgreSQL schema ชื่อ `rtu` — ออกแบบเต็มชุดใน [`doc/rtu-full-schema.dbml`](./doc/rtu-full-schema.dbml) (paste ลง dbdiagram.io ได้)
+Schema อยู่ใน PostgreSQL schema ชื่อ `rtu` — เอกสาร canonical:
+
+| ไฟล์ | ใช้ทำอะไร |
+|------|-----------|
+| [`doc/rtu-full-schema.dbml`](./doc/rtu-full-schema.dbml) | ER diagram — paste ลง [dbdiagram.io](https://dbdiagram.io) |
+| [`doc/rtu_db_dictionary.html`](./doc/rtu_db_dictionary.html) | Data dictionary (เปิดใน browser) — regenerate: `node scripts/generate_rtu_db_dictionary.mjs` |
+
+Source of truth ในโค้ด: `migrations/000001`–`000006`
 
 ### ER ภาพรวม
 
