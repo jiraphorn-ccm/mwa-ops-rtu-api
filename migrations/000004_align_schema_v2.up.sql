@@ -57,18 +57,9 @@ ALTER TABLE rtu.calibration_readings
     ALTER COLUMN created_by TYPE uuid USING rtu.try_parse_uuid(created_by),
     ALTER COLUMN updated_by TYPE uuid USING rtu.try_parse_uuid(updated_by);
 
--- panel_images exists only after migration 000003
-DO $$
-BEGIN
-    IF to_regclass('rtu.panel_images') IS NOT NULL THEN
-        EXECUTE $sql$
-            ALTER TABLE rtu.panel_images
-                ALTER COLUMN created_by TYPE uuid USING rtu.try_parse_uuid(created_by),
-                ALTER COLUMN updated_by TYPE uuid USING rtu.try_parse_uuid(updated_by)
-        $sql$;
-    END IF;
-END;
-$$;
+ALTER TABLE rtu.panel_images
+    ALTER COLUMN created_by TYPE uuid USING rtu.try_parse_uuid(created_by),
+    ALTER COLUMN updated_by TYPE uuid USING rtu.try_parse_uuid(updated_by);
 
 DROP FUNCTION rtu.try_parse_uuid(text);
 
@@ -85,18 +76,12 @@ CREATE TRIGGER trg_calibration_readings_updated_at
 -- ---------------------------------------------------------------------------
 -- panel_images: panel-only (no panel_device_id)
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    IF to_regclass('rtu.panel_images') IS NOT NULL THEN
-        EXECUTE 'ALTER TABLE rtu.panel_images DROP CONSTRAINT IF EXISTS fk_panel_images_device';
-        EXECUTE 'ALTER TABLE rtu.panel_images DROP CONSTRAINT IF EXISTS ck_panel_images_device_type';
-        EXECUTE 'DROP INDEX IF EXISTS rtu.idx_panel_images_device';
-        EXECUTE 'ALTER TABLE rtu.panel_images DROP COLUMN IF EXISTS panel_device_id';
+ALTER TABLE rtu.panel_images DROP CONSTRAINT IF EXISTS fk_panel_images_device;
+ALTER TABLE rtu.panel_images DROP CONSTRAINT IF EXISTS ck_panel_images_device_type;
+DROP INDEX IF EXISTS rtu.idx_panel_images_device;
+ALTER TABLE rtu.panel_images DROP COLUMN IF EXISTS panel_device_id;
 
-        EXECUTE 'ALTER INDEX IF EXISTS rtu.idx_panel_images_panel RENAME TO idx_panel_images_panel_id';
-        EXECUTE 'ALTER INDEX IF EXISTS rtu.idx_panel_images_sort RENAME TO idx_panel_images_panel_sort';
+ALTER INDEX IF EXISTS rtu.idx_panel_images_panel RENAME TO idx_panel_images_panel_id;
+ALTER INDEX IF EXISTS rtu.idx_panel_images_sort RENAME TO idx_panel_images_panel_sort;
 
-        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_panel_images_panel_type ON rtu.panel_images (panel_id, image_type)';
-    END IF;
-END;
-$$;
+CREATE INDEX IF NOT EXISTS idx_panel_images_panel_type ON rtu.panel_images (panel_id, image_type);

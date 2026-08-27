@@ -13,7 +13,11 @@ import (
 )
 
 const calibrationInstrumentExists = `-- name: CalibrationInstrumentExists :one
-SELECT EXISTS (SELECT 1 FROM rtu.calibration_instruments WHERE id = $1::uuid) AS found
+SELECT EXISTS (
+        SELECT 1
+        FROM rtu.calibration_instruments
+        WHERE id = $1::uuid
+    ) AS found
 `
 
 func (q *Queries) CalibrationInstrumentExists(ctx context.Context, id uuid.UUID) (bool, error) {
@@ -25,23 +29,31 @@ func (q *Queries) CalibrationInstrumentExists(ctx context.Context, id uuid.UUID)
 
 const createCalibrationInstrument = `-- name: CreateCalibrationInstrument :one
 INSERT INTO rtu.calibration_instruments (
-    name, equipment_type, manufacturer, brand, model, serial_number,
-    calibration_date, expire_date, active,
-    created_by, updated_by
-)
+        name,
+        equipment_type,
+        manufacturer,
+        brand,
+        model,
+        serial_number,
+        calibration_date,
+        expire_date,
+        active,
+        created_by,
+        updated_by
+    )
 VALUES (
-    $1::varchar,
-    $2::varchar,
-    $3::varchar,
-    $4::varchar,
-    $5::varchar,
-    $6::varchar,
-    $7::date,
-    $8::date,
-    COALESCE($9::boolean, true),
-    $10::uuid,
-    $11::uuid
-)
+        $1::varchar,
+        $2::varchar,
+        $3::varchar,
+        $4::varchar,
+        $5::varchar,
+        $6::varchar,
+        $7::date,
+        $8::date,
+        COALESCE($9::boolean, true),
+        $10::uuid,
+        $11::uuid
+    )
 RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
 `
 
@@ -94,7 +106,8 @@ func (q *Queries) CreateCalibrationInstrument(ctx context.Context, arg CreateCal
 }
 
 const deleteCalibrationInstrument = `-- name: DeleteCalibrationInstrument :execrows
-DELETE FROM rtu.calibration_instruments WHERE id = $1::uuid
+DELETE FROM rtu.calibration_instruments
+WHERE id = $1::uuid
 `
 
 func (q *Queries) DeleteCalibrationInstrument(ctx context.Context, id uuid.UUID) (int64, error) {
@@ -106,7 +119,9 @@ func (q *Queries) DeleteCalibrationInstrument(ctx context.Context, id uuid.UUID)
 }
 
 const getCalibrationInstrument = `-- name: GetCalibrationInstrument :one
-SELECT id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand FROM rtu.calibration_instruments WHERE id = $1::uuid
+SELECT id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
+FROM rtu.calibration_instruments
+WHERE id = $1::uuid
 `
 
 func (q *Queries) GetCalibrationInstrument(ctx context.Context, id uuid.UUID) (CalibrationInstrument, error) {
@@ -132,7 +147,10 @@ func (q *Queries) GetCalibrationInstrument(ctx context.Context, id uuid.UUID) (C
 }
 
 const getCalibrationInstrumentUsability = `-- name: GetCalibrationInstrumentUsability :one
-SELECT active, expire_date FROM rtu.calibration_instruments WHERE id = $1::uuid
+SELECT active,
+    expire_date
+FROM rtu.calibration_instruments
+WHERE id = $1::uuid
 `
 
 type GetCalibrationInstrumentUsabilityRow struct {
@@ -148,8 +166,8 @@ func (q *Queries) GetCalibrationInstrumentUsability(ctx context.Context, id uuid
 }
 
 const setCalibrationInstrumentActive = `-- name: SetCalibrationInstrumentActive :one
-UPDATE rtu.calibration_instruments SET
-    active     = $1::boolean,
+UPDATE rtu.calibration_instruments
+SET active = $1::boolean,
     updated_by = $2::uuid
 WHERE id = $3::uuid
 RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
@@ -184,17 +202,44 @@ func (q *Queries) SetCalibrationInstrumentActive(ctx context.Context, arg SetCal
 }
 
 const updateCalibrationInstrument = `-- name: UpdateCalibrationInstrument :one
-UPDATE rtu.calibration_instruments SET
-    name             = CASE WHEN $1::boolean THEN $2::varchar ELSE name END,
-    equipment_type   = CASE WHEN $3::boolean THEN $4::varchar ELSE equipment_type END,
-    manufacturer     = CASE WHEN $5::boolean THEN $6::varchar ELSE manufacturer END,
-    brand            = CASE WHEN $7::boolean THEN $8::varchar ELSE brand END,
-    model            = CASE WHEN $9::boolean THEN $10::varchar ELSE model END,
-    serial_number    = CASE WHEN $11::boolean THEN $12::varchar ELSE serial_number END,
-    calibration_date = CASE WHEN $13::boolean THEN $14::date ELSE calibration_date END,
-    expire_date      = CASE WHEN $15::boolean THEN $16::date ELSE expire_date END,
-    active           = CASE WHEN $17::boolean THEN $18::boolean ELSE active END,
-    updated_by       = $19::uuid
+UPDATE rtu.calibration_instruments
+SET name = CASE
+        WHEN $1::boolean THEN $2::varchar
+        ELSE name
+    END,
+    equipment_type = CASE
+        WHEN $3::boolean THEN $4::varchar
+        ELSE equipment_type
+    END,
+    manufacturer = CASE
+        WHEN $5::boolean THEN $6::varchar
+        ELSE manufacturer
+    END,
+    brand = CASE
+        WHEN $7::boolean THEN $8::varchar
+        ELSE brand
+    END,
+    model = CASE
+        WHEN $9::boolean THEN $10::varchar
+        ELSE model
+    END,
+    serial_number = CASE
+        WHEN $11::boolean THEN $12::varchar
+        ELSE serial_number
+    END,
+    calibration_date = CASE
+        WHEN $13::boolean THEN $14::date
+        ELSE calibration_date
+    END,
+    expire_date = CASE
+        WHEN $15::boolean THEN $16::date
+        ELSE expire_date
+    END,
+    active = CASE
+        WHEN $17::boolean THEN $18::boolean
+        ELSE active
+    END,
+    updated_by = $19::uuid
 WHERE id = $20::uuid
 RETURNING id, name, manufacturer, model, serial_number, calibration_date, expire_date, active, created_at, updated_at, created_by, updated_by, equipment_type, brand
 `

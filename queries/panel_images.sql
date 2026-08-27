@@ -17,13 +17,21 @@ VALUES (
     sqlc.narg('created_by')::uuid,
     sqlc.narg('updated_by')::uuid
 )
-RETURNING *;
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by;
 
 -- name: GetPanelImage :one
-SELECT * FROM rtu.panel_images WHERE id = @id::uuid;
+SELECT
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
+FROM rtu.panel_images WHERE id = @id::uuid;
 
 -- name: GetPanelImageForPanel :one
-SELECT * FROM rtu.panel_images
+SELECT
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
+FROM rtu.panel_images
 WHERE id = @id::uuid AND panel_id = @panel_id::uuid;
 
 -- name: UpdatePanelImage :one
@@ -33,7 +41,9 @@ UPDATE rtu.panel_images SET
     sort_order = CASE WHEN @sort_order_do_update::boolean THEN @sort_order::smallint ELSE sort_order END,
     updated_by = sqlc.narg('updated_by')::uuid
 WHERE id = @id::uuid AND panel_id = @panel_id::uuid
-RETURNING *;
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by;
 
 -- name: ReplacePanelImageFile :one
 UPDATE rtu.panel_images SET
@@ -43,7 +53,9 @@ UPDATE rtu.panel_images SET
     original_name = sqlc.narg('original_name')::varchar,
     updated_by    = sqlc.narg('updated_by')::uuid
 WHERE id = @id::uuid AND panel_id = @panel_id::uuid
-RETURNING *;
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by;
 
 -- name: DeletePanelImage :execrows
 DELETE FROM rtu.panel_images WHERE id = @id::uuid AND panel_id = @panel_id::uuid;

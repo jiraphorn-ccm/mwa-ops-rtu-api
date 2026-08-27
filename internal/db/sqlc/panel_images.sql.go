@@ -30,7 +30,9 @@ VALUES (
     $10::uuid,
     $11::uuid
 )
-RETURNING id, panel_id, panel_device_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size, caption, sort_order, active, created_at, updated_at, created_by, updated_by
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
 `
 
 type CreatePanelImageParams struct {
@@ -65,7 +67,6 @@ func (q *Queries) CreatePanelImage(ctx context.Context, arg CreatePanelImagePara
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.PanelDeviceID,
 		&i.ImageType,
 		&i.S3Bucket,
 		&i.S3Key,
@@ -101,7 +102,10 @@ func (q *Queries) DeletePanelImage(ctx context.Context, arg DeletePanelImagePara
 }
 
 const getPanelImage = `-- name: GetPanelImage :one
-SELECT id, panel_id, panel_device_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size, caption, sort_order, active, created_at, updated_at, created_by, updated_by FROM rtu.panel_images WHERE id = $1::uuid
+SELECT
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
+FROM rtu.panel_images WHERE id = $1::uuid
 `
 
 func (q *Queries) GetPanelImage(ctx context.Context, id uuid.UUID) (PanelImage, error) {
@@ -110,7 +114,6 @@ func (q *Queries) GetPanelImage(ctx context.Context, id uuid.UUID) (PanelImage, 
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.PanelDeviceID,
 		&i.ImageType,
 		&i.S3Bucket,
 		&i.S3Key,
@@ -129,7 +132,10 @@ func (q *Queries) GetPanelImage(ctx context.Context, id uuid.UUID) (PanelImage, 
 }
 
 const getPanelImageForPanel = `-- name: GetPanelImageForPanel :one
-SELECT id, panel_id, panel_device_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size, caption, sort_order, active, created_at, updated_at, created_by, updated_by FROM rtu.panel_images
+SELECT
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
+FROM rtu.panel_images
 WHERE id = $1::uuid AND panel_id = $2::uuid
 `
 
@@ -144,7 +150,6 @@ func (q *Queries) GetPanelImageForPanel(ctx context.Context, arg GetPanelImageFo
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.PanelDeviceID,
 		&i.ImageType,
 		&i.S3Bucket,
 		&i.S3Key,
@@ -170,7 +175,9 @@ UPDATE rtu.panel_images SET
     original_name = $4::varchar,
     updated_by    = $5::uuid
 WHERE id = $6::uuid AND panel_id = $7::uuid
-RETURNING id, panel_id, panel_device_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size, caption, sort_order, active, created_at, updated_at, created_by, updated_by
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
 `
 
 type ReplacePanelImageFileParams struct {
@@ -197,7 +204,6 @@ func (q *Queries) ReplacePanelImageFile(ctx context.Context, arg ReplacePanelIma
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.PanelDeviceID,
 		&i.ImageType,
 		&i.S3Bucket,
 		&i.S3Key,
@@ -222,7 +228,9 @@ UPDATE rtu.panel_images SET
     sort_order = CASE WHEN $5::boolean THEN $6::smallint ELSE sort_order END,
     updated_by = $7::uuid
 WHERE id = $8::uuid AND panel_id = $9::uuid
-RETURNING id, panel_id, panel_device_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size, caption, sort_order, active, created_at, updated_at, created_by, updated_by
+RETURNING
+    id, panel_id, image_type, s3_bucket, s3_key, original_name, mime_type, file_size,
+    caption, sort_order, active, created_at, updated_at, created_by, updated_by
 `
 
 type UpdatePanelImageParams struct {
@@ -253,7 +261,6 @@ func (q *Queries) UpdatePanelImage(ctx context.Context, arg UpdatePanelImagePara
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.PanelDeviceID,
 		&i.ImageType,
 		&i.S3Bucket,
 		&i.S3Key,

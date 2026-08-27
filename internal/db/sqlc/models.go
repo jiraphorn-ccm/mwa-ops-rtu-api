@@ -221,22 +221,21 @@ type PanelDevice struct {
 }
 
 type PanelImage struct {
-	ID            uuid.UUID  `db:"id" json:"id"`
-	PanelID       uuid.UUID  `db:"panel_id" json:"panel_id"`
-	PanelDeviceID *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
-	ImageType     string     `db:"image_type" json:"image_type"`
-	S3Bucket      string     `db:"s3_bucket" json:"s3_bucket"`
-	S3Key         string     `db:"s3_key" json:"s3_key"`
-	OriginalName  *string    `db:"original_name" json:"original_name"`
-	MimeType      string     `db:"mime_type" json:"mime_type"`
-	FileSize      int64      `db:"file_size" json:"file_size"`
-	Caption       *string    `db:"caption" json:"caption"`
-	SortOrder     int16      `db:"sort_order" json:"sort_order"`
-	Active        bool       `db:"active" json:"active"`
-	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time  `db:"updated_at" json:"updated_at"`
-	CreatedBy     *string    `db:"created_by" json:"created_by"`
-	UpdatedBy     *string    `db:"updated_by" json:"updated_by"`
+	ID           uuid.UUID  `db:"id" json:"id"`
+	PanelID      uuid.UUID  `db:"panel_id" json:"panel_id"`
+	ImageType    string     `db:"image_type" json:"image_type"`
+	S3Bucket     string     `db:"s3_bucket" json:"s3_bucket"`
+	S3Key        string     `db:"s3_key" json:"s3_key"`
+	OriginalName *string    `db:"original_name" json:"original_name"`
+	MimeType     string     `db:"mime_type" json:"mime_type"`
+	FileSize     int64      `db:"file_size" json:"file_size"`
+	Caption      *string    `db:"caption" json:"caption"`
+	SortOrder    int16      `db:"sort_order" json:"sort_order"`
+	Active       bool       `db:"active" json:"active"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
+	CreatedBy    *uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy    *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
 type PmGroundTest struct {
