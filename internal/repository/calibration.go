@@ -46,7 +46,7 @@ func CalibrationSortable() httpx.Sortable { return calibrationSortable }
 type CalibrationFilter struct {
 	PanelDeviceID *uuid.UUID
 	PanelID       *uuid.UUID
-	DeviceModelID *uuid.UUID
+	EquipmentType *string
 	InstrumentID  *uuid.UUID
 	Result        *string
 	PerformedBy   *string
@@ -54,17 +54,18 @@ type CalibrationFilter struct {
 	PerformedTo   *time.Time
 }
 
-// CalibrationView is a calibration joined with the device, panel, model and
-// instrument it refers to.
+// CalibrationView is a calibration joined with the device, panel and instrument.
 type CalibrationView struct {
 	sqlc.Calibration
 	DeviceTagName          *string    `db:"device_tag_name" json:"device_tag_name"`
 	DeviceSerialNumber     *string    `db:"device_serial_number" json:"device_serial_number"`
+	DeviceName             string     `db:"device_name" json:"device_name"`
+	DeviceEquipmentType    *string    `db:"device_equipment_type" json:"device_equipment_type"`
+	DeviceManufacturer     *string    `db:"device_manufacturer" json:"device_manufacturer"`
+	DeviceBrand            *string    `db:"device_brand" json:"device_brand"`
+	DeviceModel            *string    `db:"device_model" json:"device_model"`
 	PanelID                uuid.UUID  `db:"panel_id" json:"panel_id"`
 	PanelCode              string     `db:"panel_code" json:"panel_code"`
-	DeviceModelID          uuid.UUID  `db:"device_model_id" json:"device_model_id"`
-	DeviceModelCode        string     `db:"device_model_code" json:"device_model_code"`
-	DeviceModelName        string     `db:"device_model_name" json:"device_model_name"`
 	InstrumentName         string     `db:"instrument_name" json:"instrument_name"`
 	InstrumentSerialNumber *string    `db:"instrument_serial_number" json:"instrument_serial_number"`
 	InstrumentExpireDate   *time.Time `db:"instrument_expire_date" json:"instrument_expire_date"`
@@ -83,11 +84,13 @@ const calibrationColumns = `
     c.result, c.remark, c.created_at, c.updated_at, c.created_by, c.updated_by,
     pd.tag_name AS device_tag_name,
     pd.serial_number AS device_serial_number,
+    pd.name AS device_name,
+    pd.equipment_type AS device_equipment_type,
+    pd.manufacturer AS device_manufacturer,
+    pd.brand AS device_brand,
+    pd.model AS device_model,
     pd.panel_id AS panel_id,
     p.code AS panel_code,
-    pd.device_model_id AS device_model_id,
-    dm.code AS device_model_code,
-    dm.name AS device_model_name,
     ci.name AS instrument_name,
     ci.serial_number AS instrument_serial_number,
     ci.expire_date AS instrument_expire_date,
@@ -97,7 +100,6 @@ const calibrationFrom = `
 FROM rtu.calibrations c
 JOIN rtu.panel_devices pd ON pd.id = c.panel_device_id
 JOIN rtu.panels p ON p.id = pd.panel_id
-JOIN rtu.device_models dm ON dm.id = pd.device_model_id
 JOIN rtu.calibration_instruments ci ON ci.id = c.instrument_id`
 
 // List returns one page of calibrations together with the total row count.
@@ -111,8 +113,8 @@ func (r *CalibrationRepository) List(ctx context.Context, page httpx.Page, filte
 	if filter.PanelID != nil {
 		conds = append(conds, "pd.panel_id = "+a.add(*filter.PanelID))
 	}
-	if filter.DeviceModelID != nil {
-		conds = append(conds, "pd.device_model_id = "+a.add(*filter.DeviceModelID))
+	if filter.EquipmentType != nil {
+		conds = append(conds, "pd.equipment_type = "+a.add(*filter.EquipmentType))
 	}
 	if filter.InstrumentID != nil {
 		conds = append(conds, "c.instrument_id = "+a.add(*filter.InstrumentID))
@@ -132,8 +134,8 @@ func (r *CalibrationRepository) List(ctx context.Context, page httpx.Page, filte
 	if page.Search != nil {
 		p := a.add(likePattern(*page.Search))
 		conds = append(conds, fmt.Sprintf(
-			`(c.performed_by ILIKE %s ESCAPE '\' OR c.remark ILIKE %s ESCAPE '\' OR pd.tag_name ILIKE %s ESCAPE '\' OR pd.serial_number ILIKE %s ESCAPE '\' OR p.code ILIKE %s ESCAPE '\')`,
-			p, p, p, p, p,
+			`(c.performed_by ILIKE %s ESCAPE '\' OR c.remark ILIKE %s ESCAPE '\' OR pd.name ILIKE %s ESCAPE '\' OR pd.tag_name ILIKE %s ESCAPE '\' OR pd.serial_number ILIKE %s ESCAPE '\' OR p.code ILIKE %s ESCAPE '\')`,
+			p, p, p, p, p, p,
 		))
 	}
 

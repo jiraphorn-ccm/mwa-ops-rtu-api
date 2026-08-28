@@ -22,10 +22,9 @@ type PanelDeviceRepository struct {
 }
 
 var panelDeviceConstraints = db.Constraints{
-	"uk_device_serial":              httpx.ErrDeviceSerialDup,
-	"uk_panel_device_tag":           httpx.ErrDeviceTagDup,
-	"fk_panel_devices_panel":        httpx.ErrPanelNotFound,
-	"fk_panel_devices_device_model": httpx.ErrDeviceModelNotFnd,
+	"uk_device_serial":       httpx.ErrDeviceSerialDup,
+	"uk_panel_device_tag":    httpx.ErrDeviceTagDup,
+	"fk_panel_devices_panel": httpx.ErrPanelNotFound,
 }
 
 var panelDeviceDeleteConstraints = db.Constraints{
@@ -33,8 +32,15 @@ var panelDeviceDeleteConstraints = db.Constraints{
 }
 
 var panelDeviceSortable = httpx.Sortable{
+	"name":                 "pd.name",
+	"equipment_type":       "pd.equipment_type",
+	"manufacturer":         "pd.manufacturer",
+	"brand":                "pd.brand",
+	"model":                "pd.model",
 	"tag_name":             "pd.tag_name",
 	"serial_number":        "pd.serial_number",
+	"calibration_date":     "pd.calibration_date",
+	"expire_date":          "pd.expire_date",
 	"asset_code":           "pd.asset_code",
 	"communication_status": "pd.communication_status",
 	"health_status":        "pd.health_status",
@@ -42,7 +48,6 @@ var panelDeviceSortable = httpx.Sortable{
 	"last_seen_at":         "pd.last_seen_at",
 	"active":               "pd.active",
 	"panel_code":           "p.code",
-	"device_model_code":    "dm.code",
 	"created_at":           "pd.created_at",
 	"updated_at":           "pd.updated_at",
 }
@@ -53,7 +58,9 @@ func PanelDeviceSortable() httpx.Sortable { return panelDeviceSortable }
 // PanelDeviceFilter narrows a panel device list query.
 type PanelDeviceFilter struct {
 	PanelID             *uuid.UUID
-	DeviceModelID       *uuid.UUID
+	EquipmentType       *string
+	Manufacturer        *string
+	Brand               *string
 	Active              *bool
 	CommunicationStatus *string
 	HealthStatus        *string
@@ -64,24 +71,17 @@ type PanelDeviceFilter struct {
 	NeverSeen           *bool
 }
 
-// PanelDeviceView is a panel device joined with its panel, its model and the
-// summary of its calibration history.
+// PanelDeviceView is a panel device joined with its panel and calibration summary.
 type PanelDeviceView struct {
 	sqlc.PanelDevice
-	// OperationalStatus is computed in Go from CommunicationStatus + HealthStatus
-	// (see domain.DeviceOperationalStatus) — never stored, populated after the
-	// row is scanned so the frontend never needs to know the mapping rule.
-	OperationalStatus       string     `db:"-" json:"operational_status"`
-	PanelCode               string     `db:"panel_code" json:"panel_code"`
-	PanelLocation           *string    `db:"panel_location" json:"panel_location"`
-	PanelActive             bool       `db:"panel_active" json:"panel_active"`
-	DeviceModelCode         string     `db:"device_model_code" json:"device_model_code"`
-	DeviceModelName         string     `db:"device_model_name" json:"device_model_name"`
-	DeviceModelManufacturer *string    `db:"device_model_manufacturer" json:"device_model_manufacturer"`
-	CalibrationCount        int64      `db:"calibration_count" json:"calibration_count"`
-	LastCalibratedAt        *time.Time `db:"last_calibrated_at" json:"last_calibrated_at"`
-	LastCalibrationResult   *string    `db:"last_calibration_result" json:"last_calibration_result"`
-	TotalCount              int64      `db:"total_count" json:"-"`
+	OperationalStatus     string     `db:"-" json:"operational_status"`
+	PanelCode             string     `db:"panel_code" json:"panel_code"`
+	PanelLocation         *string    `db:"panel_location" json:"panel_location"`
+	PanelActive           bool       `db:"panel_active" json:"panel_active"`
+	CalibrationCount      int64      `db:"calibration_count" json:"calibration_count"`
+	LastCalibratedAt      *time.Time `db:"last_calibrated_at" json:"last_calibrated_at"`
+	LastCalibrationResult *string    `db:"last_calibration_result" json:"last_calibration_result"`
+	TotalCount            int64      `db:"total_count" json:"-"`
 }
 
 // withOperationalStatus fills the computed field after the row scan.
@@ -91,16 +91,14 @@ func withOperationalStatus(v PanelDeviceView) PanelDeviceView {
 }
 
 const panelDeviceColumns = `
-    pd.id, pd.panel_id, pd.device_model_id, pd.tag_name, pd.serial_number, pd.asset_code,
-    pd.firmware_version, pd.communication_status, pd.health_status, pd.installed_at,
-    pd.last_seen_at, pd.note, pd.active, pd.created_at, pd.updated_at,
-    pd.created_by, pd.updated_by,
+    pd.id, pd.panel_id, pd.name, pd.equipment_type, pd.manufacturer, pd.brand, pd.model,
+    pd.serial_number, pd.calibration_date, pd.expire_date,
+    pd.tag_name, pd.asset_code, pd.firmware_version, pd.communication_status, pd.health_status,
+    pd.installed_at, pd.last_seen_at, pd.note, pd.active,
+    pd.created_at, pd.updated_at, pd.created_by, pd.updated_by,
     p.code AS panel_code,
     p.location AS panel_location,
     p.active AS panel_active,
-    dm.code AS device_model_code,
-    dm.name AS device_model_name,
-    dm.manufacturer AS device_model_manufacturer,
     (SELECT count(*) FROM rtu.calibrations c WHERE c.panel_device_id = pd.id)::bigint AS calibration_count,
     last_cal.performed_at AS last_calibrated_at,
     last_cal.result AS last_calibration_result`
@@ -108,7 +106,6 @@ const panelDeviceColumns = `
 const panelDeviceFrom = `
 FROM rtu.panel_devices pd
 JOIN rtu.panels p ON p.id = pd.panel_id
-JOIN rtu.device_models dm ON dm.id = pd.device_model_id
 LEFT JOIN LATERAL (
     SELECT c.performed_at, c.result
     FROM rtu.calibrations c
@@ -125,8 +122,14 @@ func (r *PanelDeviceRepository) List(ctx context.Context, page httpx.Page, filte
 	if filter.PanelID != nil {
 		conds = append(conds, "pd.panel_id = "+a.add(*filter.PanelID))
 	}
-	if filter.DeviceModelID != nil {
-		conds = append(conds, "pd.device_model_id = "+a.add(*filter.DeviceModelID))
+	if filter.EquipmentType != nil {
+		conds = append(conds, "pd.equipment_type = "+a.add(*filter.EquipmentType))
+	}
+	if filter.Manufacturer != nil {
+		conds = append(conds, "pd.manufacturer = "+a.add(*filter.Manufacturer))
+	}
+	if filter.Brand != nil {
+		conds = append(conds, "pd.brand = "+a.add(*filter.Brand))
 	}
 	if filter.Active != nil {
 		conds = append(conds, "pd.active = "+a.add(*filter.Active))
@@ -159,8 +162,8 @@ func (r *PanelDeviceRepository) List(ctx context.Context, page httpx.Page, filte
 	if page.Search != nil {
 		p := a.add(likePattern(*page.Search))
 		conds = append(conds, fmt.Sprintf(
-			`(pd.tag_name ILIKE %s ESCAPE '\' OR pd.serial_number ILIKE %s ESCAPE '\' OR pd.asset_code ILIKE %s ESCAPE '\' OR p.code ILIKE %s ESCAPE '\')`,
-			p, p, p, p,
+			`(pd.name ILIKE %s ESCAPE '\' OR pd.tag_name ILIKE %s ESCAPE '\' OR pd.serial_number ILIKE %s ESCAPE '\' OR pd.asset_code ILIKE %s ESCAPE '\' OR pd.manufacturer ILIKE %s ESCAPE '\' OR pd.brand ILIKE %s ESCAPE '\' OR pd.model ILIKE %s ESCAPE '\' OR p.code ILIKE %s ESCAPE '\')`,
+			p, p, p, p, p, p, p, p,
 		))
 	}
 

@@ -45,7 +45,7 @@ func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Servi
 	return &Services{
 		Panels:                 &PanelService{repo: store.Panels},
 		DeviceModels:           &DeviceModelService{repo: store.DeviceModels},
-		PanelDevices:           &PanelDeviceService{repo: store.PanelDevices, panels: store.Panels, models: store.DeviceModels},
+		PanelDevices:           &PanelDeviceService{repo: store.PanelDevices, panels: store.Panels},
 		CalibrationInstruments: &CalibrationInstrumentService{repo: store.CalibrationInstruments},
 		Calibrations: &CalibrationService{
 			repo:        store.Calibrations,

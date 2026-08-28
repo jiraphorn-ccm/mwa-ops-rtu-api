@@ -337,8 +337,11 @@ function build() {
           body: {
             code: "{{device_model_code}}",
             name: "RTU Controller",
+            equipment_type: "RTU",
             manufacturer: "Siemens",
+            brand: "Siemens",
             model: "S7-1200",
+            expire_date: "2028-12-31",
           },
           saveVar: "device_model_id",
         }),
@@ -348,7 +351,11 @@ function build() {
           [...api, "panels", "{{panel_id}}", "devices"],
           {
             body: {
-              device_model_id: "{{device_model_id}}",
+              name: "RTU Controller",
+              equipment_type: "RTU",
+              manufacturer: "Siemens",
+              brand: "Siemens",
+              model: "S7-1200",
               tag_name: "FT-101",
               serial_number: "SN-DEMO-001",
               installed_at: "2025-01-15",
@@ -446,7 +453,10 @@ function build() {
           [...api, "panels", "{{panel_id}}", "devices"],
           {
             body: {
-              device_model_id: "{{device_model_id}}",
+              name: "RTU Controller",
+              equipment_type: "RTU",
+              manufacturer: "Siemens",
+              model: "S7-1200",
               tag_name: "FT-102",
             },
             saveVar: "panel_device_id",
@@ -594,7 +604,10 @@ function build() {
         req("Create", "POST", [...api, "panel-devices"], {
           body: {
             panel_id: "{{panel_id}}",
-            device_model_id: "{{device_model_id}}",
+            name: "RTU Controller",
+            equipment_type: "RTU",
+            manufacturer: "Siemens",
+            model: "S7-1200",
             tag_name: "FT-200",
           },
           saveVar: "panel_device_id",

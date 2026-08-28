@@ -23,18 +23,16 @@ var deviceModelConstraints = db.Constraints{
 	"uk_device_model_code": httpx.ErrDeviceModelCodeDup,
 }
 
-var deviceModelDeleteConstraints = db.Constraints{
-	"fk_panel_devices_device_model": httpx.ErrDeviceModelInUse,
-}
-
 var deviceModelSortable = httpx.Sortable{
-	"code":         "dm.code",
-	"name":         "dm.name",
-	"manufacturer": "dm.manufacturer",
-	"model":        "dm.model",
-	"active":       "dm.active",
-	"created_at":   "dm.created_at",
-	"updated_at":   "dm.updated_at",
+	"code":           "dm.code",
+	"name":           "dm.name",
+	"equipment_type": "dm.equipment_type",
+	"manufacturer":   "dm.manufacturer",
+	"brand":          "dm.brand",
+	"model":          "dm.model",
+	"active":         "dm.active",
+	"created_at":     "dm.created_at",
+	"updated_at":     "dm.updated_at",
 }
 
 // DeviceModelSortable lists the sort keys accepted by the list endpoint.
@@ -42,22 +40,22 @@ func DeviceModelSortable() httpx.Sortable { return deviceModelSortable }
 
 // DeviceModelFilter narrows a device model list query.
 type DeviceModelFilter struct {
-	Active       *bool
-	Manufacturer *string
+	Active        *bool
+	Manufacturer  *string
+	EquipmentType *string
+	Brand         *string
 }
 
-// DeviceModelListItem is a device model enriched with its usage counter.
-type DeviceModelListItem struct {
+type deviceModelListRow struct {
 	sqlc.DeviceModel
-	DeviceCount int64 `db:"device_count" json:"device_count"`
-	TotalCount  int64 `db:"total_count" json:"-"`
+	TotalCount int64 `db:"total_count"`
 }
 
 const deviceModelListSelect = `
 SELECT
-    dm.id, dm.code, dm.name, dm.manufacturer, dm.model, dm.description,
-    dm.active, dm.created_at, dm.updated_at, dm.created_by, dm.updated_by,
-    (SELECT count(*) FROM rtu.panel_devices pd WHERE pd.device_model_id = dm.id)::bigint AS device_count,
+    dm.id, dm.code, dm.name, dm.equipment_type, dm.manufacturer, dm.brand, dm.model,
+    dm.serial_number, dm.expire_date, dm.description, dm.active,
+    dm.created_at, dm.updated_at, dm.created_by, dm.updated_by,
     count(*) OVER ()::bigint AS total_count
 FROM rtu.device_models dm
 WHERE %s
@@ -65,7 +63,7 @@ ORDER BY %s %s, dm.id %s
 LIMIT %s OFFSET %s`
 
 // List returns one page of device models together with the total row count.
-func (r *DeviceModelRepository) List(ctx context.Context, page httpx.Page, filter DeviceModelFilter) ([]DeviceModelListItem, int64, error) {
+func (r *DeviceModelRepository) List(ctx context.Context, page httpx.Page, filter DeviceModelFilter) ([]sqlc.DeviceModel, int64, error) {
 	a := &args{}
 	conds := conditions{}
 
@@ -75,11 +73,17 @@ func (r *DeviceModelRepository) List(ctx context.Context, page httpx.Page, filte
 	if filter.Manufacturer != nil {
 		conds = append(conds, "dm.manufacturer = "+a.add(*filter.Manufacturer))
 	}
+	if filter.EquipmentType != nil {
+		conds = append(conds, "dm.equipment_type = "+a.add(*filter.EquipmentType))
+	}
+	if filter.Brand != nil {
+		conds = append(conds, "dm.brand = "+a.add(*filter.Brand))
+	}
 	if page.Search != nil {
 		p := a.add(likePattern(*page.Search))
 		conds = append(conds, fmt.Sprintf(
-			`(dm.code ILIKE %s ESCAPE '\' OR dm.name ILIKE %s ESCAPE '\' OR dm.manufacturer ILIKE %s ESCAPE '\' OR dm.model ILIKE %s ESCAPE '\')`,
-			p, p, p, p,
+			`(dm.code ILIKE %s ESCAPE '\' OR dm.name ILIKE %s ESCAPE '\' OR dm.manufacturer ILIKE %s ESCAPE '\' OR dm.brand ILIKE %s ESCAPE '\' OR dm.model ILIKE %s ESCAPE '\')`,
+			p, p, p, p, p,
 		))
 	}
 
@@ -93,14 +97,18 @@ func (r *DeviceModelRepository) List(ctx context.Context, page httpx.Page, filte
 		return nil, 0, db.Translate(err)
 	}
 
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[DeviceModelListItem])
+	scanned, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[deviceModelListRow])
 	if err != nil {
 		return nil, 0, db.Translate(err)
 	}
 
+	items := make([]sqlc.DeviceModel, len(scanned))
 	var total int64
-	if len(items) > 0 {
-		total = items[0].TotalCount
+	for i, row := range scanned {
+		items[i] = row.DeviceModel
+		if i == 0 {
+			total = row.TotalCount
+		}
 	}
 	return items, total, nil
 }
@@ -161,7 +169,7 @@ func (r *DeviceModelRepository) SetActive(ctx context.Context, id uuid.UUID, act
 func (r *DeviceModelRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	affected, err := r.q.DeleteDeviceModel(ctx, id)
 	if err != nil {
-		return db.Translate(err, db.Options{Constraints: deviceModelDeleteConstraints})
+		return db.Translate(err)
 	}
 	if affected == 0 {
 		return httpx.Err(httpx.ErrDeviceModelNotFnd)

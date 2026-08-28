@@ -340,7 +340,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"{{device_model_code}}\",\n  \"name\": \"RTU Controller\",\n  \"manufacturer\": \"Siemens\",\n  \"model\": \"S7-1200\"\n}",
+              "raw": "{\n  \"code\": \"{{device_model_code}}\",\n  \"name\": \"RTU Controller\",\n  \"equipment_type\": \"RTU\",\n  \"manufacturer\": \"Siemens\",\n  \"brand\": \"Siemens\",\n  \"model\": \"S7-1200\",\n  \"expire_date\": \"2028-12-31\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -390,7 +390,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-101\",\n  \"serial_number\": \"SN-DEMO-001\",\n  \"installed_at\": \"2025-01-15\",\n  \"communication_status\": \"ONLINE\",\n  \"health_status\": \"NORMAL\"\n}",
+              "raw": "{\n  \"name\": \"RTU Controller\",\n  \"equipment_type\": \"RTU\",\n  \"manufacturer\": \"Siemens\",\n  \"brand\": \"Siemens\",\n  \"model\": \"S7-1200\",\n  \"tag_name\": \"FT-101\",\n  \"serial_number\": \"SN-DEMO-001\",\n  \"installed_at\": \"2025-01-15\",\n  \"communication_status\": \"ONLINE\",\n  \"health_status\": \"NORMAL\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1075,7 +1075,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-102\"\n}",
+              "raw": "{\n  \"name\": \"RTU Controller\",\n  \"equipment_type\": \"RTU\",\n  \"manufacturer\": \"Siemens\",\n  \"model\": \"S7-1200\",\n  \"tag_name\": \"FT-102\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2147,7 +2147,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"panel_id\": \"{{panel_id}}\",\n  \"device_model_id\": \"{{device_model_id}}\",\n  \"tag_name\": \"FT-200\"\n}",
+              "raw": "{\n  \"panel_id\": \"{{panel_id}}\",\n  \"name\": \"RTU Controller\",\n  \"equipment_type\": \"RTU\",\n  \"manufacturer\": \"Siemens\",\n  \"model\": \"S7-1200\",\n  \"tag_name\": \"FT-200\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

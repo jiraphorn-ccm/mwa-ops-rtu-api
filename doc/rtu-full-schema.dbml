@@ -1,5 +1,5 @@
 // =====================================================================
-// RTU Full Schema — canonical (migrations 000001–000006)
+// RTU Full Schema — canonical (migrations 000001–000008)
 // Schema: rtu | PostgreSQL >= 14
 // Paste เข้า https://dbdiagram.io ตรงๆ (ไฟล์เดียว)
 // HTML dictionary: doc/rtu_db_dictionary.html
@@ -14,7 +14,7 @@ Project rtu_full {
   database_type: 'PostgreSQL'
   Note: '''
     RTU Calibration + PM/CM Platform — schema `rtu`
-    Implemented: migrations/000001–000006 (21 tables)
+    Implemented: migrations/000001–000008 (22 tables)
   '''
 }
 
@@ -206,12 +206,16 @@ Table rtu.panels {
 }
 
 Table rtu.device_models {
-  id uuid [pk, default: `gen_random_uuid()`, note: ' รหัสรุ่นอุปกรณ์']
-  code varchar(30) [not null, unique]
-  name varchar(100) [not null]
-  manufacturer varchar(100)
-  model varchar(100)
-  description text
+  id uuid [pk, default: `gen_random_uuid()`, note: ' รหัส master อุปกรณ์']
+  code varchar(30) [not null, unique, note: 'รหัส catalog']
+  name varchar(100) [not null, note: 'ชื่ออุปกรณ์ / equipment name']
+  equipment_type varchar(50) [note: 'ประเภทอุปกรณ์']
+  manufacturer varchar(100) [note: 'ผู้ผลิต']
+  brand varchar(100) [note: 'ยี่ห้อ']
+  model varchar(100) [note: 'รุ่น']
+  serial_number varchar(100) [note: 'หมายเลขซีเรียล (ตัวอย่างใน master)']
+  expire_date date [note: 'วันที่หมดประกัน']
+  description text [note: 'master-only — ไม่ copy ไป panel_devices อัตโนมัติ']
   active boolean [not null, default: true]
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
@@ -220,16 +224,25 @@ Table rtu.device_models {
 
   Indexes {
     code [unique, name: 'uk_device_model_code']
+    equipment_type [name: 'idx_device_models_equipment_type']
     active [name: 'idx_device_models_active']
   }
+
+  Note: 'Master catalog — UI ดึงค่าไป prefill ฟอร์ม panel_devices ได้ แต่ไม่มี FK'
 }
 
 Table rtu.panel_devices {
   id uuid [pk, default: `gen_random_uuid()`, note: ' รหัสอุปกรณ์ที่ติดตั้ง']
   panel_id uuid [not null]
-  device_model_id uuid [not null]
-  tag_name varchar(100) [note: 'unique ต่อ panel']
+  name varchar(100) [not null, note: 'ชื่ออุปกรณ์ / equipment name — snapshot บน panel']
+  equipment_type varchar(50) [note: 'ประเภทอุปกรณ์']
+  manufacturer varchar(100) [note: 'ผู้ผลิต']
+  brand varchar(100) [note: 'ยี่ห้อ']
+  model varchar(100) [note: 'รุ่น']
   serial_number varchar(100) [note: 'unique ทั้งระบบ']
+  calibration_date date [note: 'วันที่สอบเทียบล่าสุด']
+  expire_date date [note: 'วันที่หมดประกัน']
+  tag_name varchar(100) [note: 'unique ต่อ panel']
   asset_code varchar(100)
   firmware_version varchar(50)
   communication_status communication_status [not null, default: 'UNKNOWN']
@@ -245,9 +258,9 @@ Table rtu.panel_devices {
 
   Indexes {
     panel_id [name: 'idx_panel_devices_panel_id']
-    device_model_id [name: 'idx_panel_devices_device_model_id']
+    equipment_type [name: 'idx_panel_devices_equipment_type']
+    name [name: 'idx_panel_devices_name']
     serial_number [unique, name: 'uk_device_serial']
-    (panel_id, device_model_id) [name: 'idx_panel_devices_panel_model']
     (panel_id, tag_name) [unique, name: 'uk_panel_device_tag']
     active [name: 'idx_panel_devices_active']
   }
@@ -255,6 +268,7 @@ Table rtu.panel_devices {
   Note: '''
  API field (computed): operational_status = map(communication_status, health_status)
       CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL
+  ไม่มี device_model_id — แก้ master ไม่กระทบ record ที่ติดตั้งแล้ว
   '''
 }
 
@@ -906,7 +920,6 @@ Table rtu.notifications {
 
 // --- Core  ---
 Ref: rtu.panel_devices.panel_id > rtu.panels.id [delete: restrict, update: cascade]
-Ref: rtu.panel_devices.device_model_id > rtu.device_models.id [delete: restrict, update: cascade]
 Ref: rtu.calibrations.panel_device_id > rtu.panel_devices.id [delete: restrict, update: cascade]
 Ref: rtu.calibrations.instrument_id > rtu.calibration_instruments.id [delete: restrict, update: cascade]
 Ref: rtu.calibration_readings.calibration_id > rtu.calibrations.id [delete: cascade, update: cascade]

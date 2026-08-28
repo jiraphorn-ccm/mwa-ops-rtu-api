@@ -144,17 +144,21 @@ type CmReport struct {
 }
 
 type DeviceModel struct {
-	ID           uuid.UUID  `db:"id" json:"id"`
-	Code         string     `db:"code" json:"code"`
-	Name         string     `db:"name" json:"name"`
-	Manufacturer *string    `db:"manufacturer" json:"manufacturer"`
-	Model        *string    `db:"model" json:"model"`
-	Description  *string    `db:"description" json:"description"`
-	Active       bool       `db:"active" json:"active"`
-	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
-	CreatedBy    *uuid.UUID `db:"created_by" json:"created_by"`
-	UpdatedBy    *uuid.UUID `db:"updated_by" json:"updated_by"`
+	ID            uuid.UUID   `db:"id" json:"id"`
+	Code          string      `db:"code" json:"code"`
+	Name          string      `db:"name" json:"name"`
+	Manufacturer  *string     `db:"manufacturer" json:"manufacturer"`
+	Model         *string     `db:"model" json:"model"`
+	Description   *string     `db:"description" json:"description"`
+	Active        bool        `db:"active" json:"active"`
+	CreatedAt     time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time   `db:"updated_at" json:"updated_at"`
+	CreatedBy     *uuid.UUID  `db:"created_by" json:"created_by"`
+	UpdatedBy     *uuid.UUID  `db:"updated_by" json:"updated_by"`
+	EquipmentType *string     `db:"equipment_type" json:"equipment_type"`
+	Brand         *string     `db:"brand" json:"brand"`
+	SerialNumber  *string     `db:"serial_number" json:"serial_number"`
+	ExpireDate    *httpx.Date `db:"expire_date" json:"expire_date"`
 }
 
 type Engineer struct {
@@ -203,7 +207,6 @@ type Panel struct {
 type PanelDevice struct {
 	ID                  uuid.UUID   `db:"id" json:"id"`
 	PanelID             uuid.UUID   `db:"panel_id" json:"panel_id"`
-	DeviceModelID       uuid.UUID   `db:"device_model_id" json:"device_model_id"`
 	TagName             *string     `db:"tag_name" json:"tag_name"`
 	SerialNumber        *string     `db:"serial_number" json:"serial_number"`
 	AssetCode           *string     `db:"asset_code" json:"asset_code"`
@@ -218,6 +221,13 @@ type PanelDevice struct {
 	UpdatedAt           time.Time   `db:"updated_at" json:"updated_at"`
 	CreatedBy           *uuid.UUID  `db:"created_by" json:"created_by"`
 	UpdatedBy           *uuid.UUID  `db:"updated_by" json:"updated_by"`
+	Name                string      `db:"name" json:"name"`
+	EquipmentType       *string     `db:"equipment_type" json:"equipment_type"`
+	Manufacturer        *string     `db:"manufacturer" json:"manufacturer"`
+	Brand               *string     `db:"brand" json:"brand"`
+	Model               *string     `db:"model" json:"model"`
+	CalibrationDate     *httpx.Date `db:"calibration_date" json:"calibration_date"`
+	ExpireDate          *httpx.Date `db:"expire_date" json:"expire_date"`
 }
 
 type PanelImage struct {

@@ -150,7 +150,7 @@
 <body>
   <header class="page-head">
     <h1>RTU Data Dictionary</h1>
-    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 22 tables · 36 foreign keys · 2026-08-26</p>
+    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 22 tables · 35 foreign keys · 2026-08-28</p>
   </header>
 
   <nav class="page-nav" aria-label="Modules"><button type="button" class="nav-btn active" data-module="all">ทั้งหมด</button>
@@ -280,7 +280,7 @@
 <section class="table-card" id="table-device_models" data-module="core">
       <header class="table-card-head">
         <h2><a href="#table-device_models">rtu.device_models</a></h2>
-        <span>11 columns · 1 PK</span>
+        <span>15 columns · 1 PK</span>
       </header>
       
       <div class="table-wrap">
@@ -300,42 +300,70 @@
         <td class="col-type">uuid</td>
         <td class="col-key"><span class="tag pk">PK</span><br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">รหัสรุ่นอุปกรณ์</td>
+        <td class="col-note">รหัส master อุปกรณ์</td>
       </tr>
 <tr>
         <td class="col-name">code</td>
         <td class="col-type">varchar(30)</td>
         <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">UNIQUE</td>
+        <td class="col-note">รหัส catalog · UNIQUE</td>
       </tr>
 <tr>
         <td class="col-name">name</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">ชื่ออุปกรณ์ / equipment name</td>
+      </tr>
+<tr>
+        <td class="col-name">equipment_type</td>
+        <td class="col-type">varchar(50)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ประเภทอุปกรณ์</td>
       </tr>
 <tr>
         <td class="col-name">manufacturer</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">ผู้ผลิต</td>
+      </tr>
+<tr>
+        <td class="col-name">brand</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ยี่ห้อ</td>
       </tr>
 <tr>
         <td class="col-name">model</td>
         <td class="col-type">varchar(100)</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">รุ่น</td>
+      </tr>
+<tr>
+        <td class="col-name">serial_number</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">หมายเลขซีเรียล (ตัวอย่างใน master)</td>
+      </tr>
+<tr>
+        <td class="col-name">expire_date</td>
+        <td class="col-type">date</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">วันที่หมดประกัน</td>
       </tr>
 <tr>
         <td class="col-name">description</td>
         <td class="col-type">text</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note"></td>
+        <td class="col-note">master-only — ไม่ copy ไป panel_devices อัตโนมัติ</td>
       </tr>
 <tr>
         <td class="col-name">active</td>
@@ -379,9 +407,9 @@
 <section class="table-card" id="table-panel_devices" data-module="core">
       <header class="table-card-head">
         <h2><a href="#table-panel_devices">rtu.panel_devices</a></h2>
-        <span>17 columns · 1 PK · 2 FK</span>
+        <span>23 columns · 1 PK · 1 FK</span>
       </header>
-      <p class="table-note">API field (computed): operational_status = map(communication_status, health_status) CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL</p>
+      <p class="table-note">API field (computed): operational_status = map(communication_status, health_status) CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL ไม่มี device_model_id — แก้ master ไม่กระทบ record ที่ติดตั้งแล้ว</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -409,18 +437,39 @@
         <td class="col-note"></td>
       </tr>
 <tr>
-        <td class="col-name">device_model_id</td>
-        <td class="col-type">uuid</td>
-        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NOT NULL</span></td>
-        <td class="col-ref">rtu.device_models.id</td>
-        <td class="col-note"></td>
+        <td class="col-name">name</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ชื่ออุปกรณ์ / equipment name — snapshot บน panel</td>
       </tr>
 <tr>
-        <td class="col-name">tag_name</td>
-        <td class="col-type">varchar(100)</td>
-        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NULL</span></td>
+        <td class="col-name">equipment_type</td>
+        <td class="col-type">varchar(50)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">unique ต่อ panel · UNIQUE</td>
+        <td class="col-note">ประเภทอุปกรณ์</td>
+      </tr>
+<tr>
+        <td class="col-name">manufacturer</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ผู้ผลิต</td>
+      </tr>
+<tr>
+        <td class="col-name">brand</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ยี่ห้อ</td>
+      </tr>
+<tr>
+        <td class="col-name">model</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">รุ่น</td>
       </tr>
 <tr>
         <td class="col-name">serial_number</td>
@@ -428,6 +477,27 @@
         <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
         <td class="col-note">unique ทั้งระบบ · UNIQUE</td>
+      </tr>
+<tr>
+        <td class="col-name">calibration_date</td>
+        <td class="col-type">date</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">วันที่สอบเทียบล่าสุด</td>
+      </tr>
+<tr>
+        <td class="col-name">expire_date</td>
+        <td class="col-type">date</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">วันที่หมดประกัน</td>
+      </tr>
+<tr>
+        <td class="col-name">tag_name</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">unique ต่อ panel · UNIQUE</td>
       </tr>
 <tr>
         <td class="col-name">asset_code</td>

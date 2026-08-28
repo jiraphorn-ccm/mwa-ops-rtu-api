@@ -15,34 +15,48 @@ import (
 
 const createPanelDevice = `-- name: CreatePanelDevice :one
 INSERT INTO rtu.panel_devices (
-    panel_id, device_model_id, tag_name, serial_number, asset_code,
-    firmware_version, communication_status, health_status,
+    panel_id, name, equipment_type, manufacturer, brand, model,
+    serial_number, calibration_date, expire_date,
+    tag_name, asset_code, firmware_version,
+    communication_status, health_status,
     installed_at, last_seen_at, note, active, created_by, updated_by
 )
 VALUES (
     $1::uuid,
-    $2::uuid,
+    $2::varchar,
     $3::varchar,
     $4::varchar,
     $5::varchar,
     $6::varchar,
-    COALESCE($7::varchar, 'UNKNOWN'),
-    COALESCE($8::varchar, 'UNKNOWN'),
+    $7::varchar,
+    $8::date,
     $9::date,
-    $10::timestamptz,
-    $11::text,
-    COALESCE($12::boolean, true),
-    $13::uuid,
-    $14::uuid
+    $10::varchar,
+    $11::varchar,
+    $12::varchar,
+    COALESCE($13::varchar, 'UNKNOWN'),
+    COALESCE($14::varchar, 'UNKNOWN'),
+    $15::date,
+    $16::timestamptz,
+    $17::text,
+    COALESCE($18::boolean, true),
+    $19::uuid,
+    $20::uuid
 )
-RETURNING id, panel_id, device_model_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
 `
 
 type CreatePanelDeviceParams struct {
 	PanelID             uuid.UUID   `db:"panel_id" json:"panel_id"`
-	DeviceModelID       uuid.UUID   `db:"device_model_id" json:"device_model_id"`
-	TagName             *string     `db:"tag_name" json:"tag_name"`
+	Name                string      `db:"name" json:"name"`
+	EquipmentType       *string     `db:"equipment_type" json:"equipment_type"`
+	Manufacturer        *string     `db:"manufacturer" json:"manufacturer"`
+	Brand               *string     `db:"brand" json:"brand"`
+	Model               *string     `db:"model" json:"model"`
 	SerialNumber        *string     `db:"serial_number" json:"serial_number"`
+	CalibrationDate     *httpx.Date `db:"calibration_date" json:"calibration_date"`
+	ExpireDate          *httpx.Date `db:"expire_date" json:"expire_date"`
+	TagName             *string     `db:"tag_name" json:"tag_name"`
 	AssetCode           *string     `db:"asset_code" json:"asset_code"`
 	FirmwareVersion     *string     `db:"firmware_version" json:"firmware_version"`
 	CommunicationStatus *string     `db:"communication_status" json:"communication_status"`
@@ -58,9 +72,15 @@ type CreatePanelDeviceParams struct {
 func (q *Queries) CreatePanelDevice(ctx context.Context, arg CreatePanelDeviceParams) (PanelDevice, error) {
 	row := q.db.QueryRow(ctx, createPanelDevice,
 		arg.PanelID,
-		arg.DeviceModelID,
-		arg.TagName,
+		arg.Name,
+		arg.EquipmentType,
+		arg.Manufacturer,
+		arg.Brand,
+		arg.Model,
 		arg.SerialNumber,
+		arg.CalibrationDate,
+		arg.ExpireDate,
+		arg.TagName,
 		arg.AssetCode,
 		arg.FirmwareVersion,
 		arg.CommunicationStatus,
@@ -76,7 +96,6 @@ func (q *Queries) CreatePanelDevice(ctx context.Context, arg CreatePanelDevicePa
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.DeviceModelID,
 		&i.TagName,
 		&i.SerialNumber,
 		&i.AssetCode,
@@ -91,6 +110,13 @@ func (q *Queries) CreatePanelDevice(ctx context.Context, arg CreatePanelDevicePa
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Name,
+		&i.EquipmentType,
+		&i.Manufacturer,
+		&i.Brand,
+		&i.Model,
+		&i.CalibrationDate,
+		&i.ExpireDate,
 	)
 	return i, err
 }
@@ -108,7 +134,7 @@ func (q *Queries) DeletePanelDevice(ctx context.Context, id uuid.UUID) (int64, e
 }
 
 const getPanelDevice = `-- name: GetPanelDevice :one
-SELECT id, panel_id, device_model_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by FROM rtu.panel_devices WHERE id = $1::uuid
+SELECT id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date FROM rtu.panel_devices WHERE id = $1::uuid
 `
 
 func (q *Queries) GetPanelDevice(ctx context.Context, id uuid.UUID) (PanelDevice, error) {
@@ -117,7 +143,6 @@ func (q *Queries) GetPanelDevice(ctx context.Context, id uuid.UUID) (PanelDevice
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.DeviceModelID,
 		&i.TagName,
 		&i.SerialNumber,
 		&i.AssetCode,
@@ -132,6 +157,13 @@ func (q *Queries) GetPanelDevice(ctx context.Context, id uuid.UUID) (PanelDevice
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Name,
+		&i.EquipmentType,
+		&i.Manufacturer,
+		&i.Brand,
+		&i.Model,
+		&i.CalibrationDate,
+		&i.ExpireDate,
 	)
 	return i, err
 }
@@ -163,7 +195,7 @@ UPDATE rtu.panel_devices SET
     active     = $1::boolean,
     updated_by = $2::uuid
 WHERE id = $3::uuid
-RETURNING id, panel_id, device_model_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
 `
 
 type SetPanelDeviceActiveParams struct {
@@ -178,7 +210,6 @@ func (q *Queries) SetPanelDeviceActive(ctx context.Context, arg SetPanelDeviceAc
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.DeviceModelID,
 		&i.TagName,
 		&i.SerialNumber,
 		&i.AssetCode,
@@ -193,6 +224,13 @@ func (q *Queries) SetPanelDeviceActive(ctx context.Context, arg SetPanelDeviceAc
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Name,
+		&i.EquipmentType,
+		&i.Manufacturer,
+		&i.Brand,
+		&i.Model,
+		&i.CalibrationDate,
+		&i.ExpireDate,
 	)
 	return i, err
 }
@@ -200,31 +238,49 @@ func (q *Queries) SetPanelDeviceActive(ctx context.Context, arg SetPanelDeviceAc
 const updatePanelDevice = `-- name: UpdatePanelDevice :one
 UPDATE rtu.panel_devices SET
     panel_id             = CASE WHEN $1::boolean THEN $2::uuid ELSE panel_id END,
-    device_model_id      = CASE WHEN $3::boolean THEN $4::uuid ELSE device_model_id END,
-    tag_name             = CASE WHEN $5::boolean THEN $6::varchar ELSE tag_name END,
-    serial_number        = CASE WHEN $7::boolean THEN $8::varchar ELSE serial_number END,
-    asset_code           = CASE WHEN $9::boolean THEN $10::varchar ELSE asset_code END,
-    firmware_version     = CASE WHEN $11::boolean THEN $12::varchar ELSE firmware_version END,
-    communication_status = CASE WHEN $13::boolean THEN $14::varchar ELSE communication_status END,
-    health_status        = CASE WHEN $15::boolean THEN $16::varchar ELSE health_status END,
-    installed_at         = CASE WHEN $17::boolean THEN $18::date ELSE installed_at END,
-    last_seen_at         = CASE WHEN $19::boolean THEN $20::timestamptz ELSE last_seen_at END,
-    note                 = CASE WHEN $21::boolean THEN $22::text ELSE note END,
-    active               = CASE WHEN $23::boolean THEN $24::boolean ELSE active END,
-    updated_by           = $25::uuid
-WHERE id = $26::uuid
-RETURNING id, panel_id, device_model_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by
+    name                 = CASE WHEN $3::boolean THEN $4::varchar ELSE name END,
+    equipment_type       = CASE WHEN $5::boolean THEN $6::varchar ELSE equipment_type END,
+    manufacturer         = CASE WHEN $7::boolean THEN $8::varchar ELSE manufacturer END,
+    brand                = CASE WHEN $9::boolean THEN $10::varchar ELSE brand END,
+    model                = CASE WHEN $11::boolean THEN $12::varchar ELSE model END,
+    serial_number        = CASE WHEN $13::boolean THEN $14::varchar ELSE serial_number END,
+    calibration_date     = CASE WHEN $15::boolean THEN $16::date ELSE calibration_date END,
+    expire_date          = CASE WHEN $17::boolean THEN $18::date ELSE expire_date END,
+    tag_name             = CASE WHEN $19::boolean THEN $20::varchar ELSE tag_name END,
+    asset_code           = CASE WHEN $21::boolean THEN $22::varchar ELSE asset_code END,
+    firmware_version     = CASE WHEN $23::boolean THEN $24::varchar ELSE firmware_version END,
+    communication_status = CASE WHEN $25::boolean THEN $26::varchar ELSE communication_status END,
+    health_status        = CASE WHEN $27::boolean THEN $28::varchar ELSE health_status END,
+    installed_at         = CASE WHEN $29::boolean THEN $30::date ELSE installed_at END,
+    last_seen_at         = CASE WHEN $31::boolean THEN $32::timestamptz ELSE last_seen_at END,
+    note                 = CASE WHEN $33::boolean THEN $34::text ELSE note END,
+    active               = CASE WHEN $35::boolean THEN $36::boolean ELSE active END,
+    updated_by           = $37::uuid
+WHERE id = $38::uuid
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
 `
 
 type UpdatePanelDeviceParams struct {
 	PanelIDDoUpdate             bool        `db:"panel_id_do_update" json:"panel_id_do_update"`
 	PanelID                     uuid.UUID   `db:"panel_id" json:"panel_id"`
-	DeviceModelIDDoUpdate       bool        `db:"device_model_id_do_update" json:"device_model_id_do_update"`
-	DeviceModelID               uuid.UUID   `db:"device_model_id" json:"device_model_id"`
-	TagNameDoUpdate             bool        `db:"tag_name_do_update" json:"tag_name_do_update"`
-	TagName                     *string     `db:"tag_name" json:"tag_name"`
+	NameDoUpdate                bool        `db:"name_do_update" json:"name_do_update"`
+	Name                        string      `db:"name" json:"name"`
+	EquipmentTypeDoUpdate       bool        `db:"equipment_type_do_update" json:"equipment_type_do_update"`
+	EquipmentType               *string     `db:"equipment_type" json:"equipment_type"`
+	ManufacturerDoUpdate        bool        `db:"manufacturer_do_update" json:"manufacturer_do_update"`
+	Manufacturer                *string     `db:"manufacturer" json:"manufacturer"`
+	BrandDoUpdate               bool        `db:"brand_do_update" json:"brand_do_update"`
+	Brand                       *string     `db:"brand" json:"brand"`
+	ModelDoUpdate               bool        `db:"model_do_update" json:"model_do_update"`
+	Model                       *string     `db:"model" json:"model"`
 	SerialNumberDoUpdate        bool        `db:"serial_number_do_update" json:"serial_number_do_update"`
 	SerialNumber                *string     `db:"serial_number" json:"serial_number"`
+	CalibrationDateDoUpdate     bool        `db:"calibration_date_do_update" json:"calibration_date_do_update"`
+	CalibrationDate             *httpx.Date `db:"calibration_date" json:"calibration_date"`
+	ExpireDateDoUpdate          bool        `db:"expire_date_do_update" json:"expire_date_do_update"`
+	ExpireDate                  *httpx.Date `db:"expire_date" json:"expire_date"`
+	TagNameDoUpdate             bool        `db:"tag_name_do_update" json:"tag_name_do_update"`
+	TagName                     *string     `db:"tag_name" json:"tag_name"`
 	AssetCodeDoUpdate           bool        `db:"asset_code_do_update" json:"asset_code_do_update"`
 	AssetCode                   *string     `db:"asset_code" json:"asset_code"`
 	FirmwareVersionDoUpdate     bool        `db:"firmware_version_do_update" json:"firmware_version_do_update"`
@@ -249,12 +305,24 @@ func (q *Queries) UpdatePanelDevice(ctx context.Context, arg UpdatePanelDevicePa
 	row := q.db.QueryRow(ctx, updatePanelDevice,
 		arg.PanelIDDoUpdate,
 		arg.PanelID,
-		arg.DeviceModelIDDoUpdate,
-		arg.DeviceModelID,
-		arg.TagNameDoUpdate,
-		arg.TagName,
+		arg.NameDoUpdate,
+		arg.Name,
+		arg.EquipmentTypeDoUpdate,
+		arg.EquipmentType,
+		arg.ManufacturerDoUpdate,
+		arg.Manufacturer,
+		arg.BrandDoUpdate,
+		arg.Brand,
+		arg.ModelDoUpdate,
+		arg.Model,
 		arg.SerialNumberDoUpdate,
 		arg.SerialNumber,
+		arg.CalibrationDateDoUpdate,
+		arg.CalibrationDate,
+		arg.ExpireDateDoUpdate,
+		arg.ExpireDate,
+		arg.TagNameDoUpdate,
+		arg.TagName,
 		arg.AssetCodeDoUpdate,
 		arg.AssetCode,
 		arg.FirmwareVersionDoUpdate,
@@ -278,7 +346,6 @@ func (q *Queries) UpdatePanelDevice(ctx context.Context, arg UpdatePanelDevicePa
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.DeviceModelID,
 		&i.TagName,
 		&i.SerialNumber,
 		&i.AssetCode,
@@ -293,6 +360,13 @@ func (q *Queries) UpdatePanelDevice(ctx context.Context, arg UpdatePanelDevicePa
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Name,
+		&i.EquipmentType,
+		&i.Manufacturer,
+		&i.Brand,
+		&i.Model,
+		&i.CalibrationDate,
+		&i.ExpireDate,
 	)
 	return i, err
 }
@@ -304,7 +378,7 @@ UPDATE rtu.panel_devices SET
     last_seen_at         = COALESCE($5::timestamptz, now()),
     updated_by           = $6::uuid
 WHERE id = $7::uuid
-RETURNING id, panel_id, device_model_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
 `
 
 type UpdatePanelDeviceStatusParams struct {
@@ -331,7 +405,6 @@ func (q *Queries) UpdatePanelDeviceStatus(ctx context.Context, arg UpdatePanelDe
 	err := row.Scan(
 		&i.ID,
 		&i.PanelID,
-		&i.DeviceModelID,
 		&i.TagName,
 		&i.SerialNumber,
 		&i.AssetCode,
@@ -346,6 +419,13 @@ func (q *Queries) UpdatePanelDeviceStatus(ctx context.Context, arg UpdatePanelDe
 		&i.UpdatedAt,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Name,
+		&i.EquipmentType,
+		&i.Manufacturer,
+		&i.Brand,
+		&i.Model,
+		&i.CalibrationDate,
+		&i.ExpireDate,
 	)
 	return i, err
 }

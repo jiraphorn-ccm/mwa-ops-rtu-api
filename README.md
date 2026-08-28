@@ -114,7 +114,7 @@ Schema อยู่ใน PostgreSQL schema ชื่อ `rtu` — เอกส�
 | [`doc/rtu-full-schema.dbml`](./doc/rtu-full-schema.dbml) | ER diagram — paste ลง [dbdiagram.io](https://dbdiagram.io) |
 | [`doc/rtu_db_dictionary.html`](./doc/rtu_db_dictionary.html) | Data dictionary (เปิดใน browser) — regenerate: `node scripts/generate_rtu_db_dictionary.mjs` |
 
-Source of truth ในโค้ด: `migrations/000001`–`000007`
+Source of truth ในโค้ด: `migrations/000001`–`000008`
 
 Regenerate dictionary: `node scripts/generate_rtu_db_dictionary.mjs`  
 Regenerate Postman: `node scripts/generate_postman_collection.mjs` → `postman/RTU-API.postman_collection.json`
@@ -122,7 +122,7 @@ Regenerate Postman: `node scripts/generate_postman_collection.mjs` → `postman/
 ### ER ภาพรวม
 
 ```
-panels ──< panel_devices >── device_models
+panels ──< panel_devices    device_models (master catalog — ไม่มี FK)
    │              │
    │              ├──< calibrations >── calibration_instruments
    │              │         │
@@ -156,8 +156,8 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
 | กลุ่ม | ตาราง | migration | หมายเหตุ |
 |-------|--------|-----------|----------|
 | Core RTU | `panels` | 000001 | + `install_date`, `last_pm_date`, `next_pm_date` ใน 000006 |
-| | `device_models` | 000001 | |
-| | `panel_devices` | 000001 | |
+| | `device_models` | 000001 + 000008 | master catalog — ไม่ผูก panel_devices |
+| | `panel_devices` | 000001 + 000008 | equipment snapshot + `calibration_date` |
 | | `panel_images` | 000003 | S3 presigned URL |
 | Calibration | `calibration_instruments` | 000001 | + `equipment_type`, `brand` ใน 000007 |
 | | `calibrations` | 000001 | + PM link (`work_order_id`, `pm_report_id`, EUT fields) ใน 000006 |
@@ -297,7 +297,7 @@ Filter: `active`, `manufacturer`, `search`
 | POST | `/panel-devices/{id}/status` |
 | GET · POST | `/panel-devices/{id}/calibrations` |
 
-Filter: `panel_id`, `device_model_id`, `active`, `communication_status`, `health_status`,
+Filter: `panel_id`, `equipment_type`, `manufacturer`, `brand`, `active`, `communication_status`, `health_status`,
 `installed_from`, `installed_to`, `last_seen_from`, `last_seen_to`, `never_seen`, `search`
 
 ทุก response มี `operational_status` (`NORMAL` / `MONITORING` / `ABNORMAL`) — map มาจาก `communication_status` + `health_status` ในโค้ด (`internal/domain/panel_status.go`), frontend ไม่ต้องรู้ mapping rule เอง
@@ -331,7 +331,7 @@ Body สำคัญ: `name` (required), `equipment_type`, `manufacturer`, `bran
 | GET · PUT · PATCH · DELETE | `/calibrations/{id}/readings/{readingId}` |
 | GET · PUT · PATCH · DELETE | `/calibration-readings/{id}` |
 
-Filter: `panel_device_id`, `panel_id`, `device_model_id`, `instrument_id`, `result`,
+Filter: `panel_device_id`, `panel_id`, `equipment_type`, `instrument_id`, `result`,
 `performed_by`, `performed_from`, `performed_to`, `search`
 
 **สร้างใบสอบเทียบพร้อมค่าที่วัดในครั้งเดียว** — ทั้งหมดอยู่ใน transaction เดียว

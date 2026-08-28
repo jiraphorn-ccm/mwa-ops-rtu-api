@@ -15,18 +15,21 @@ import (
 type PanelDeviceService struct {
 	repo   *repository.PanelDeviceRepository
 	panels *repository.PanelRepository
-	models *repository.DeviceModelRepository
 }
 
-// PanelDeviceCreateInput is the POST /panel-devices body. PanelID has no
-// `validate:"required"` tag because /panels/{id}/devices binds this same
-// struct and fills PanelID from the URL *after* validation runs; the flat
-// /panel-devices handler enforces presence explicitly instead.
+// PanelDeviceCreateInput is the POST /panel-devices body. Equipment fields are
+// stored on the panel device row; device_models is optional UI master data only.
 type PanelDeviceCreateInput struct {
 	PanelID             uuid.UUID   `json:"panel_id"`
-	DeviceModelID       uuid.UUID   `json:"device_model_id" validate:"required"`
-	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
+	Name                string      `json:"name" validate:"required,max=100"`
+	EquipmentType       *string     `json:"equipment_type" validate:"omitempty,max=50"`
+	Manufacturer        *string     `json:"manufacturer" validate:"omitempty,max=100"`
+	Brand               *string     `json:"brand" validate:"omitempty,max=100"`
+	Model               *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber        *string     `json:"serial_number" validate:"omitempty,max=100"`
+	CalibrationDate     *httpx.Date `json:"calibration_date"`
+	ExpireDate          *httpx.Date `json:"expire_date"`
+	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
 	AssetCode           *string     `json:"asset_code" validate:"omitempty,max=100"`
 	FirmwareVersion     *string     `json:"firmware_version" validate:"omitempty,max=50"`
 	CommunicationStatus *string     `json:"communication_status" validate:"omitempty,oneof=ONLINE OFFLINE DEGRADED UNKNOWN"`
@@ -40,9 +43,15 @@ type PanelDeviceCreateInput struct {
 // PanelDeviceUpdateInput is the PATCH /panel-devices/{id} body.
 type PanelDeviceUpdateInput struct {
 	PanelID             *uuid.UUID  `json:"panel_id"`
-	DeviceModelID       *uuid.UUID  `json:"device_model_id"`
-	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
+	Name                *string     `json:"name" validate:"omitempty,max=100"`
+	EquipmentType       *string     `json:"equipment_type" validate:"omitempty,max=50"`
+	Manufacturer        *string     `json:"manufacturer" validate:"omitempty,max=100"`
+	Brand               *string     `json:"brand" validate:"omitempty,max=100"`
+	Model               *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber        *string     `json:"serial_number" validate:"omitempty,max=100"`
+	CalibrationDate     *httpx.Date `json:"calibration_date"`
+	ExpireDate          *httpx.Date `json:"expire_date"`
+	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
 	AssetCode           *string     `json:"asset_code" validate:"omitempty,max=100"`
 	FirmwareVersion     *string     `json:"firmware_version" validate:"omitempty,max=50"`
 	CommunicationStatus *string     `json:"communication_status" validate:"omitempty,oneof=ONLINE OFFLINE DEGRADED UNKNOWN"`
@@ -75,9 +84,15 @@ func (s *PanelDeviceService) Get(ctx context.Context, id uuid.UUID) (repository.
 func (s *PanelDeviceService) Create(ctx context.Context, in PanelDeviceCreateInput) (repository.PanelDeviceView, error) {
 	device, err := s.repo.Create(ctx, sqlc.CreatePanelDeviceParams{
 		PanelID:             in.PanelID,
-		DeviceModelID:       in.DeviceModelID,
-		TagName:             in.TagName,
+		Name:                in.Name,
+		EquipmentType:       in.EquipmentType,
+		Manufacturer:        in.Manufacturer,
+		Brand:               in.Brand,
+		Model:               in.Model,
 		SerialNumber:        in.SerialNumber,
+		CalibrationDate:     in.CalibrationDate,
+		ExpireDate:          in.ExpireDate,
+		TagName:             in.TagName,
 		AssetCode:           in.AssetCode,
 		FirmwareVersion:     in.FirmwareVersion,
 		CommunicationStatus: in.CommunicationStatus,
@@ -103,11 +118,11 @@ func (s *PanelDeviceService) Update(ctx context.Context, id uuid.UUID, fields ht
 	}
 	params.PanelID, params.PanelIDDoUpdate = panelID, setPanel
 
-	modelID, setModel, err := patchRequired(fields, "device_model_id", in.DeviceModelID)
+	name, setName, err := patchRequired(fields, "name", in.Name)
 	if err != nil {
 		return repository.PanelDeviceView{}, err
 	}
-	params.DeviceModelID, params.DeviceModelIDDoUpdate = modelID, setModel
+	params.Name, params.NameDoUpdate = name, setName
 
 	comm, setComm, err := patchRequired(fields, "communication_status", in.CommunicationStatus)
 	if err != nil {
@@ -127,12 +142,22 @@ func (s *PanelDeviceService) Update(ctx context.Context, id uuid.UUID, fields ht
 	}
 	params.Active, params.ActiveDoUpdate = active, setActive
 
-	params.TagName, params.TagNameDoUpdate = patchNullable(fields, "tag_name", in.TagName)
+	params.EquipmentType, params.EquipmentTypeDoUpdate = patchNullable(fields, "equipment_type", in.EquipmentType)
+	params.Manufacturer, params.ManufacturerDoUpdate = patchNullable(fields, "manufacturer", in.Manufacturer)
+	params.Brand, params.BrandDoUpdate = patchNullable(fields, "brand", in.Brand)
+	params.Model, params.ModelDoUpdate = patchNullable(fields, "model", in.Model)
 	params.SerialNumber, params.SerialNumberDoUpdate = patchNullable(fields, "serial_number", in.SerialNumber)
+	params.TagName, params.TagNameDoUpdate = patchNullable(fields, "tag_name", in.TagName)
 	params.AssetCode, params.AssetCodeDoUpdate = patchNullable(fields, "asset_code", in.AssetCode)
 	params.FirmwareVersion, params.FirmwareVersionDoUpdate = patchNullable(fields, "firmware_version", in.FirmwareVersion)
 	params.Note, params.NoteDoUpdate = patchNullable(fields, "note", in.Note)
 	params.LastSeenAt, params.LastSeenAtDoUpdate = patchNullable(fields, "last_seen_at", in.LastSeenAt)
+
+	calibrationDate, setCalibration := patchNullable(fields, "calibration_date", in.CalibrationDate)
+	params.CalibrationDate, params.CalibrationDateDoUpdate = calibrationDate, setCalibration
+
+	expireDate, setExpire := patchNullable(fields, "expire_date", in.ExpireDate)
+	params.ExpireDate, params.ExpireDateDoUpdate = expireDate, setExpire
 
 	installedAt, setInstalled := patchNullable(fields, "installed_at", in.InstalledAt)
 	params.InstalledAt, params.InstalledAtDoUpdate = installedAt, setInstalled

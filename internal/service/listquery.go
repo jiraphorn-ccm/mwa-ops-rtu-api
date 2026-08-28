@@ -56,8 +56,10 @@ func ParseDeviceModelList(r *http.Request) (httpx.Page, DeviceModelListFilter, e
 	q := httpx.NewQuery(r)
 	page := httpx.ParsePage(q, DeviceModelSortable(), "code")
 	filter := DeviceModelListFilter{
-		Active:       q.Bool("active"),
-		Manufacturer: q.String("manufacturer"),
+		Active:        q.Bool("active"),
+		Manufacturer:  q.String("manufacturer"),
+		EquipmentType: q.String("equipment_type"),
+		Brand:         q.String("brand"),
 	}
 	return page, filter, q.Err()
 }
@@ -68,7 +70,9 @@ func ParsePanelDeviceList(r *http.Request, panelID *uuid.UUID) (httpx.Page, Pane
 	page := httpx.ParsePage(q, PanelDeviceSortable(), "created_at")
 	filter := PanelDeviceListFilter{
 		PanelID:             panelID,
-		DeviceModelID:       q.UUID("device_model_id"),
+		EquipmentType:       q.String("equipment_type"),
+		Manufacturer:        q.String("manufacturer"),
+		Brand:               q.String("brand"),
 		Active:              q.Bool("active"),
 		CommunicationStatus: q.Enum("communication_status", "ONLINE", "OFFLINE", "DEGRADED", "UNKNOWN"),
 		HealthStatus:        q.Enum("health_status", "NORMAL", "WARNING", "CRITICAL", "UNKNOWN"),
@@ -106,7 +110,7 @@ func ParseCalibrationList(r *http.Request, deviceID *uuid.UUID) (httpx.Page, Cal
 	filter := CalibrationListFilter{
 		PanelDeviceID: deviceID,
 		PanelID:       q.UUID("panel_id"),
-		DeviceModelID: q.UUID("device_model_id"),
+		EquipmentType: q.String("equipment_type"),
 		InstrumentID:  q.UUID("instrument_id"),
 		Result:        q.Enum("result", "PASS", "FAIL", "ADJUSTED"),
 		PerformedBy:   q.String("performed_by"),
