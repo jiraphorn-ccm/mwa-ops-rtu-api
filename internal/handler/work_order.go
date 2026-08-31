@@ -134,7 +134,7 @@ func (h *WorkOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var in service.WorkOrderUpdateInput
-	fields, err := httpx.Bind(r, &in)
+	fields, err := httpx.BindLenient(r, &in)
 	if err != nil {
 		httpx.Error(w, r, err)
 		return

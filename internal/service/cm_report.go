@@ -458,10 +458,8 @@ func (s *CmReportService) Update(ctx context.Context, id uuid.UUID, fields httpx
 		}
 		params.ProblemTopicID = problemTopicID
 		params.ProblemTopicIDDoUpdate = true
-		if problemTopicID != nil {
-			params.TagCode = tagCode
-			params.TagCodeDoUpdate = true
-		}
+		params.TagCode = tagCode
+		params.TagCodeDoUpdate = true
 	} else if fields.Has("tag_code") {
 		params.TagCode, params.TagCodeDoUpdate = patchNullable(fields, "tag_code", in.TagCode)
 	}

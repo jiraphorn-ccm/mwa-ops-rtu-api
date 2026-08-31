@@ -391,6 +391,10 @@ Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query
 | GET | `/work-orders/{id}/cm-reports` |
 | GET · POST | `/work-orders/{id}/attachments` |
 
+`PATCH` / `PUT /work-orders/{id}` แก้ได้เฉพาะ: `title`, `description`, `priority`, `planned_date`, `due_date`, `panel_device_id`  
+field อื่นจาก GET (เช่น `status`, `work_order_type`, `panel_id`, `requested_by`) **ไม่เปลี่ยน** — ส่งมาได้ (round-trip จาก UI) แต่จะถูกละเว้น  
+เปลี่ยนผู้รับผิดชอบ → `POST .../reassign` · เปลี่ยนสถานะ → check-in / check-out / submit / approve
+
 Nested ใต้ panel / device:
 
 | Method | Path |

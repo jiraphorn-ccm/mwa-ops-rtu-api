@@ -26,6 +26,16 @@ func (f FieldSet) Has(name string) bool {
 // Bind decodes and validates a JSON request body and reports which keys were
 // present. An empty body is treated as `{}` so PATCH with no changes is legal.
 func Bind(r *http.Request, dst any) (FieldSet, error) {
+	return bind(r, dst, true)
+}
+
+// BindLenient decodes and validates like Bind but ignores JSON keys that do
+// not map to dst — for clients that round-trip GET payloads on PATCH/PUT.
+func BindLenient(r *http.Request, dst any) (FieldSet, error) {
+	return bind(r, dst, false)
+}
+
+func bind(r *http.Request, dst any, rejectUnknown bool) (FieldSet, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		var maxBytes *http.MaxBytesError
@@ -47,7 +57,9 @@ func Bind(r *http.Request, dst any) (FieldSet, error) {
 	}
 
 	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.DisallowUnknownFields()
+	if rejectUnknown {
+		dec.DisallowUnknownFields()
+	}
 	if err := dec.Decode(dst); err != nil {
 		return nil, decodeError(err)
 	}
