@@ -366,6 +366,11 @@ Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query
 
 ### Work orders (PM / CM)
 
+`work_order_no` สร้างอัตโนมัติฝั่ง server ตอน `POST` เท่านั้น — client ส่งไม่ได้  
+รูปแบบ: `{TYPE}-{panel.code}-{ลำดับ}` เช่น `PM-RTU-011-0001`, `CM-RTU-011-0042`  
+ลำดับ 1–9999 เติมศูนย์ 4 หลัก; ตั้งแต่ 10000 เป็นต้นไปใช้เลขเต็ม (`10000`, `10001`, …)  
+ลำดับนับแยกตาม `panel_id` + `work_order_type` (PM/CM)
+
 | Method | Path |
 |--------|------|
 | GET · POST | `/work-orders` |

@@ -11,6 +11,7 @@ import (
 
 	"github.com/rtu-api/internal/db"
 	"github.com/rtu-api/internal/db/sqlc"
+	"github.com/rtu-api/internal/domain"
 	"github.com/rtu-api/internal/httpx"
 )
 
@@ -194,8 +195,8 @@ func (r *WorkOrderRepository) Get(ctx context.Context, id uuid.UUID) (sqlc.WorkO
 	return wo, nil
 }
 
-// CountByPanelAndType is used to build the human-readable work_order_no
-// sequence (e.g. PM-U120-4).
+// CountByPanelAndType returns how many work orders of a type exist on a panel.
+// Used inside CreateWithFirstRound to allocate the next sequence number.
 func (r *WorkOrderRepository) CountByPanelAndType(ctx context.Context, panelID uuid.UUID, workOrderType string) (int64, error) {
 	total, err := r.q.CountWorkOrdersByPanelAndType(ctx, sqlc.CountWorkOrdersByPanelAndTypeParams{
 		PanelID:       panelID,
@@ -240,10 +241,11 @@ func (r *WorkOrderRepository) FindReusableCMForPanel(ctx context.Context, panelI
 // CreateWithFirstRound inserts a work order together with its first round
 // (round_no = 1), points current_round_id at it and records the ASSIGNED
 // activity — all inside one transaction so a work order is never observed
-// without a round.
+// without a round. work_order_no is allocated here via domain.FormatWorkOrderNo.
 func (r *WorkOrderRepository) CreateWithFirstRound(
 	ctx context.Context,
 	woArg sqlc.CreateWorkOrderParams,
+	panelCode string,
 	assignedTo, assignedBy uuid.UUID,
 	assignedAt time.Time,
 	actorID uuid.UUID,
@@ -257,6 +259,15 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 	)
 
 	err := db.InTx(ctx, r.pool, func(q *sqlc.Queries) error {
+		total, err := q.CountWorkOrdersByPanelAndType(ctx, sqlc.CountWorkOrdersByPanelAndTypeParams{
+			PanelID:       woArg.PanelID,
+			WorkOrderType: woArg.WorkOrderType,
+		})
+		if err != nil {
+			return db.Translate(err)
+		}
+		woArg.WorkOrderNo = domain.FormatWorkOrderNo(woArg.WorkOrderType, panelCode, total+1)
+
 		created, err := q.CreateWorkOrder(ctx, woArg)
 		if err != nil {
 			return db.Translate(err, db.Options{Constraints: workOrderConstraints})

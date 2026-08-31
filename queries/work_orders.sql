@@ -30,7 +30,7 @@ SELECT * FROM rtu.work_orders WHERE id = @id::uuid;
 SELECT EXISTS (SELECT 1 FROM rtu.work_orders WHERE id = @id::uuid) AS found;
 
 -- name: CountWorkOrdersByPanelAndType :one
--- Used to generate the human-readable work_order_no sequence, e.g. PM-U120-4.
+-- Next sequence for work_order_no on a panel (TYPE-PANEL_CODE-0001).
 SELECT count(*)::bigint AS total
 FROM rtu.work_orders
 WHERE panel_id = @panel_id::uuid AND work_order_type = @work_order_type::varchar;

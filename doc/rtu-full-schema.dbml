@@ -465,7 +465,7 @@ Table rtu.problem_topics {
 
 Table rtu.work_orders {
   id uuid [pk, default: `gen_random_uuid()`, note: ' รหัสใบงาน']
-  work_order_no varchar(100) [not null, unique, note: 'auto-generate เช่น PM-U120-4, CM-P51-1']
+  work_order_no varchar(100) [not null, unique, note: 'server auto-generate: TYPE-panel.code-0001 (e.g. PM-RTU-011-0001); seq 10000+ unpadded']
 
   work_order_type work_order_type [not null]
   pm_schedule_type pm_schedule_type [note: 'บังคับเมื่อ type=PM, NULL เมื่อ type=CM (CHECK)']

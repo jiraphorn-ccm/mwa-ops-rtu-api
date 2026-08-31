@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,6 +29,9 @@ type WorkOrderService struct {
 // WorkOrderCreateInput is the POST /work-orders body. PanelID has no
 // `validate:"required"` tag because /panels/{id}/work-orders binds this same
 // struct and fills PanelID from the URL after validation runs.
+//
+// work_order_no is never accepted from clients — the server allocates it on
+// create using domain.FormatWorkOrderNo (TYPE-PANEL_CODE-SEQUENCE).
 type WorkOrderCreateInput struct {
 	PanelID            uuid.UUID   `json:"panel_id"`
 	WorkOrderType      string      `json:"work_order_type" validate:"required,oneof=PM CM"`
@@ -111,15 +113,8 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 		}
 	}
 
-	total, err := s.repo.CountByPanelAndType(ctx, in.PanelID, in.WorkOrderType)
-	if err != nil {
-		return repository.WorkOrderView{}, err
-	}
-	workOrderNo := fmt.Sprintf("%s-%s-%d", in.WorkOrderType, panel.Code, total+1)
-
 	assignedAt := time.Now()
 	wo, _, err := s.repo.CreateWithFirstRound(ctx, sqlc.CreateWorkOrderParams{
-		WorkOrderNo:        workOrderNo,
 		WorkOrderType:      in.WorkOrderType,
 		PmScheduleType:     in.PmScheduleType,
 		PanelID:            in.PanelID,
@@ -132,7 +127,7 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 		RelatedWorkOrderID: in.RelatedWorkOrderID,
 		PlannedDate:        in.PlannedDate,
 		DueDate:            in.DueDate,
-	}, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy)
+	}, panel.Code, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy)
 	if err != nil {
 		return repository.WorkOrderView{}, err
 	}
