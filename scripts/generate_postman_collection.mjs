@@ -475,6 +475,18 @@ function build() {
           { body: WO_PM_CREATE, saveVar: "work_order_id" },
         ),
         req(
+          "List Open CM Work Orders",
+          "GET",
+          [...api, "panels", "{{panel_id}}", "open-cm-work-orders"],
+          {
+            query: q([
+              { key: "panel_device_id", value: "{{panel_device_id}}" },
+              { key: "problem_topic_id", value: "{{problem_topic_id}}" },
+              { key: "exclude_work_order_id", value: "{{work_order_id}}" },
+            ]),
+          },
+        ),
+        req(
           "List PM Report History",
           "GET",
           [...api, "panels", "{{panel_id}}", "pm-reports"],
@@ -1033,6 +1045,12 @@ function build() {
               actor_id: "{{actor_id}}",
             },
           }),
+          req("List Open CM Work Orders", "GET", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "open-cm-work-orders",
+          ]),
           req("Check In", "POST", [
             ...api,
             "work-orders",

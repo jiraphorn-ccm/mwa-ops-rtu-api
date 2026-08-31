@@ -372,6 +372,7 @@ Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query
 | GET · PUT · PATCH · DELETE | `/work-orders/{id}` |
 | POST | `/work-orders/{id}/restore` |
 | POST | `/work-orders/{id}/reassign` |
+| GET | `/work-orders/{id}/open-cm-work-orders` |
 | POST | `/work-orders/{id}/check-in` |
 | POST | `/work-orders/{id}/check-out` |
 | GET | `/work-orders/{id}/rounds` |
@@ -390,6 +391,7 @@ Nested ใต้ panel / device:
 | Method | Path |
 |--------|------|
 | GET · POST | `/panels/{id}/work-orders` |
+| GET | `/panels/{id}/open-cm-work-orders` |
 | GET | `/panels/{id}/pm-reports` |
 | GET | `/panels/{id}/cm-reports` |
 | GET | `/panel-devices/{id}/work-orders` |
@@ -412,6 +414,14 @@ Workflow สถานะ: `ASSIGNED` → `IN_PROGRESS` (check-in) → `PENDING` 
 
 `PUT /work-orders/{id}/pm-report` บันทึก aggregate ทั้งชุด (checklist + ground + power) ขณะ DRAFT
 Submit บังคับ power test (PM3) หรือ calibration (PM6) ตาม `pm_schedule_type`
+
+`GET /work-orders/{id}/pm-report` และ `GET /pm-reports/{id}` คืน field เพิ่ม `open_cm_work_orders[]`
+— ใบงาน CM บนตู้เดียวกันที่ status เป็น `ASSIGNED`, `IN_PROGRESS`, `PENDING`, หรือ `PENDING_APPROVAL`
+(รหัสใบงาน, สถานะ, อุปกรณ์, หัวข้อปัญหา) สำหรับแสดงการ์ดเตือนบน UI
+
+ดึงแยกได้ที่ `GET /work-orders/{id}/open-cm-work-orders` หรือ `GET /panels/{id}/open-cm-work-orders`
+Filter: `panel_device_id`, `problem_topic_id` (ส่งคู่กันเพื่อเช็คงานซ้ำ — CM ที่ยังไม่มี report จะ match ตาม device),
+`exclude_work_order_id` (ไม่นับใบงาน CM ที่กำลังแก้ไข)
 
 ### CM reports
 

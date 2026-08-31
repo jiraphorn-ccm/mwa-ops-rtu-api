@@ -416,3 +416,91 @@ func (r *WorkOrderRepository) SetActive(ctx context.Context, id uuid.UUID, activ
 	}
 	return wo, nil
 }
+
+// OpenCmWorkOrderFilter narrows open CM work orders on a panel — used when
+// creating a CM (duplicate check) or when viewing a PM visit on the same panel.
+type OpenCmWorkOrderFilter struct {
+	PanelDeviceID      *uuid.UUID
+	ProblemTopicID     *uuid.UUID
+	ExcludeWorkOrderID *uuid.UUID
+}
+
+// OpenCmWorkOrderSummary is one in-progress CM work order on a panel, enriched
+// with the device and problem topic shown on the UI warning card.
+type OpenCmWorkOrderSummary struct {
+	WorkOrderID        uuid.UUID  `db:"work_order_id" json:"work_order_id"`
+	WorkOrderNo        string     `db:"work_order_no" json:"work_order_no"`
+	Status             string     `db:"status" json:"status"`
+	PanelDeviceID      *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
+	PanelDeviceName    *string    `db:"panel_device_name" json:"panel_device_name"`
+	PanelDeviceTagName *string    `db:"panel_device_tag_name" json:"panel_device_tag_name"`
+	ProblemTopicID     *uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
+	ProblemTopicCode   *string    `db:"problem_topic_code" json:"problem_topic_code"`
+	ProblemTopicName   *string    `db:"problem_topic_name" json:"problem_topic_name"`
+	TagCode            *string    `db:"tag_code" json:"tag_code"`
+}
+
+const openCmEffectiveDevice = "COALESCE(cr.panel_device_id, wo.panel_device_id)"
+
+const openCmWorkOrderSelect = `
+SELECT
+    wo.id AS work_order_id,
+    wo.work_order_no,
+    wo.status,
+    ` + openCmEffectiveDevice + ` AS panel_device_id,
+    pd.name AS panel_device_name,
+    pd.tag_name AS panel_device_tag_name,
+    cr.problem_topic_id,
+    pt.code AS problem_topic_code,
+    pt.name AS problem_topic_name,
+    cr.tag_code
+FROM rtu.work_orders wo
+LEFT JOIN rtu.cm_reports cr ON cr.work_order_round_id = wo.current_round_id
+LEFT JOIN rtu.panel_devices pd ON pd.id = ` + openCmEffectiveDevice + `
+LEFT JOIN rtu.problem_topics pt ON pt.id = cr.problem_topic_id
+WHERE %s
+ORDER BY wo.created_at DESC, wo.id DESC`
+
+func buildOpenCmWorkOrderConditions(a *args, panelID uuid.UUID, filter OpenCmWorkOrderFilter) conditions {
+	conds := conditions{
+		"wo.panel_id = " + a.add(panelID),
+		"wo.work_order_type = 'CM'",
+		"wo.active = true",
+		"wo.status IN ('ASSIGNED', 'IN_PROGRESS', 'PENDING', 'PENDING_APPROVAL')",
+	}
+	if filter.PanelDeviceID != nil {
+		conds = append(conds, openCmEffectiveDevice+" = "+a.add(*filter.PanelDeviceID))
+	}
+	if filter.ProblemTopicID != nil {
+		if filter.PanelDeviceID != nil {
+			topic := a.add(*filter.ProblemTopicID)
+			conds = append(conds, fmt.Sprintf("(cr.problem_topic_id = %s OR cr.id IS NULL)", topic))
+		} else {
+			conds = append(conds, "cr.problem_topic_id = "+a.add(*filter.ProblemTopicID))
+		}
+	}
+	if filter.ExcludeWorkOrderID != nil {
+		conds = append(conds, "wo.id <> "+a.add(*filter.ExcludeWorkOrderID))
+	}
+	return conds
+}
+
+// ListOpenCmForPanel returns active CM work orders on a panel whose status
+// is ASSIGNED, IN_PROGRESS, PENDING, or PENDING_APPROVAL.
+func (r *WorkOrderRepository) ListOpenCmForPanel(ctx context.Context, panelID uuid.UUID, filter OpenCmWorkOrderFilter) ([]OpenCmWorkOrderSummary, error) {
+	a := &args{}
+	conds := buildOpenCmWorkOrderConditions(a, panelID, filter)
+
+	query := fmt.Sprintf(openCmWorkOrderSelect, conds.where())
+	rows, err := r.pool.Query(ctx, query, a.values...)
+	if err != nil {
+		return nil, db.Translate(err)
+	}
+	defer rows.Close()
+
+	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[OpenCmWorkOrderSummary])
+	if err != nil {
+		return nil, db.Translate(err)
+	}
+	return items, nil
+}

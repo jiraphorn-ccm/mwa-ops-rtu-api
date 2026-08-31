@@ -23,6 +23,13 @@ type PmReportService struct {
 	notify     *NotificationService
 }
 
+// PmReportDetailView is the PM report aggregate plus open CM work orders on
+// the same panel — for the UI warning card while performing PM.
+type PmReportDetailView struct {
+	repository.PmReportDetail
+	OpenCmWorkOrders []repository.OpenCmWorkOrderSummary `json:"open_cm_work_orders"`
+}
+
 // ChecklistResultInput is one line of the checklist submitted with a report.
 type ChecklistResultInput struct {
 	ChecklistItemID uuid.UUID  `json:"checklist_item_id" validate:"required"`
@@ -92,22 +99,22 @@ type PmReportSubmitInput struct {
 
 // SaveForWorkOrder upserts the PM report tied to a work order's current
 // round.
-func (s *PmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid.UUID, in PmReportSaveInput) (repository.PmReportDetail, error) {
+func (s *PmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid.UUID, in PmReportSaveInput) (PmReportDetailView, error) {
 	wo, err := s.workOrders.Get(ctx, workOrderID)
 	if err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if wo.WorkOrderType != "PM" {
-		return repository.PmReportDetail{}, httpx.Err(httpx.ErrValidationFailed).
+		return PmReportDetailView{}, httpx.Err(httpx.ErrValidationFailed).
 			WithField("work_order_id", httpx.IssueInvalid, "A PM report can only be attached to a PM work order.")
 	}
 	if wo.CurrentRoundID == nil {
-		return repository.PmReportDetail{}, httpx.Err(httpx.ErrWorkOrderStatusInvalid).
+		return PmReportDetailView{}, httpx.Err(httpx.ErrWorkOrderStatusInvalid).
 			WithField("id", httpx.IssueInvalid, "This work order has no active round to report against.")
 	}
 
 	if err := s.checkDevicesInPanel(ctx, wo.PanelID, in.Checklist); err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 
 	save := repository.SaveInput{
@@ -119,55 +126,75 @@ func (s *PmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 		Power:      toPowerTestInput(in.Power),
 	}
 
-	return s.repo.Save(ctx, workOrderID, *wo.CurrentRoundID, wo.PanelID, save)
+	detail, err := s.repo.Save(ctx, workOrderID, *wo.CurrentRoundID, wo.PanelID, save)
+	if err != nil {
+		return PmReportDetailView{}, err
+	}
+	return s.withOpenCm(ctx, detail)
 }
 
 // GetForWorkOrder returns the report tied to a work order's current round.
-func (s *PmReportService) GetForWorkOrder(ctx context.Context, workOrderID uuid.UUID) (repository.PmReportDetail, error) {
+func (s *PmReportService) GetForWorkOrder(ctx context.Context, workOrderID uuid.UUID) (PmReportDetailView, error) {
 	wo, err := s.workOrders.Get(ctx, workOrderID)
 	if err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if wo.CurrentRoundID == nil {
-		return repository.PmReportDetail{}, httpx.Err(httpx.ErrPmReportNotFnd)
+		return PmReportDetailView{}, httpx.Err(httpx.ErrPmReportNotFnd)
 	}
-	return s.repo.GetDetailByRound(ctx, *wo.CurrentRoundID)
+	detail, err := s.repo.GetDetailByRound(ctx, *wo.CurrentRoundID)
+	if err != nil {
+		return PmReportDetailView{}, err
+	}
+	return s.withOpenCm(ctx, detail)
 }
 
 // Get returns a single report by id.
-func (s *PmReportService) Get(ctx context.Context, id uuid.UUID) (repository.PmReportDetail, error) {
-	return s.repo.GetDetail(ctx, id)
+func (s *PmReportService) Get(ctx context.Context, id uuid.UUID) (PmReportDetailView, error) {
+	detail, err := s.repo.GetDetail(ctx, id)
+	if err != nil {
+		return PmReportDetailView{}, err
+	}
+	return s.withOpenCm(ctx, detail)
+}
+
+func (s *PmReportService) withOpenCm(ctx context.Context, detail repository.PmReportDetail) (PmReportDetailView, error) {
+	open, err := s.workOrders.ListOpenCmForPanel(ctx, detail.PanelID, repository.OpenCmWorkOrderFilter{})
+	if err != nil {
+		return PmReportDetailView{}, err
+	}
+	return PmReportDetailView{PmReportDetail: detail, OpenCmWorkOrders: open}, nil
 }
 
 // Submit finalizes the PM report of a work order's current round and moves
 // the work order to PENDING_APPROVAL.
-func (s *PmReportService) Submit(ctx context.Context, workOrderID uuid.UUID, actorID uuid.UUID) (repository.PmReportDetail, error) {
+func (s *PmReportService) Submit(ctx context.Context, workOrderID uuid.UUID, actorID uuid.UUID) (PmReportDetailView, error) {
 	wo, err := s.workOrders.Get(ctx, workOrderID)
 	if err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if wo.CurrentRoundID == nil {
-		return repository.PmReportDetail{}, httpx.Err(httpx.ErrWorkOrderStatusInvalid).
+		return PmReportDetailView{}, httpx.Err(httpx.ErrWorkOrderStatusInvalid).
 			WithField("id", httpx.IssueInvalid, "This work order has no active round to submit.")
 	}
 
 	report, err := s.repo.GetDetailByRound(ctx, *wo.CurrentRoundID)
 	if err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if report.Status != "DRAFT" {
-		return repository.PmReportDetail{}, httpx.Err(httpx.ErrPmReportNotDraft)
+		return PmReportDetailView{}, httpx.Err(httpx.ErrPmReportNotDraft)
 	}
 	if err := s.checkScheduleRequirements(wo, report); err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 
 	now := time.Now()
 	if _, err := s.repo.Submit(ctx, report.ID, actorID, now); err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if _, err := s.workOrders.MarkSubmitted(ctx, workOrderID, now, actorID); err != nil {
-		return repository.PmReportDetail{}, err
+		return PmReportDetailView{}, err
 	}
 	if s.notify != nil && wo.RequestedBy != uuid.Nil {
 		_, _ = s.notify.Create(ctx, NotificationCreateInput{
@@ -179,7 +206,11 @@ func (s *PmReportService) Submit(ctx context.Context, workOrderID uuid.UUID, act
 		})
 	}
 
-	return s.repo.GetDetail(ctx, report.ID)
+	detail, err := s.repo.GetDetail(ctx, report.ID)
+	if err != nil {
+		return PmReportDetailView{}, err
+	}
+	return s.withOpenCm(ctx, detail)
 }
 
 // checkScheduleRequirements enforces the 3-month / 6-month section rules from

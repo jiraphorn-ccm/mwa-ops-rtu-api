@@ -102,6 +102,7 @@ func mountPanels(api chi.Router, h *handler.Handlers) {
 
 			r.Get("/work-orders", h.WorkOrders.ListByPanel)
 			r.Post("/work-orders", h.WorkOrders.CreateForPanel)
+			r.Get("/open-cm-work-orders", h.WorkOrders.ListOpenCmByPanel)
 
 			r.Get("/pm-reports", h.PmReports.ListHistoryByPanel)
 			r.Get("/cm-reports", h.CmReports.ListHistoryByPanel)
@@ -227,6 +228,7 @@ func mountWorkOrders(api chi.Router, h *handler.Handlers) {
 			r.Post("/restore", h.WorkOrders.Restore)
 
 			r.Post("/reassign", h.WorkOrders.Reassign)
+			r.Get("/open-cm-work-orders", h.WorkOrders.ListOpenCmByWorkOrder)
 			r.Post("/check-in", h.WorkOrders.CheckIn)
 			r.Post("/check-out", h.WorkOrders.CheckOut)
 

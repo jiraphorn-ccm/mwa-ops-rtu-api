@@ -345,6 +345,34 @@ func (s *WorkOrderService) FindOpenWorkOrder(ctx context.Context, panelID uuid.U
 	return s.repo.FindOpenForPanel(ctx, panelID, workOrderType)
 }
 
+// ListOpenCmForPanel returns CM work orders on a panel in ASSIGNED,
+// IN_PROGRESS, PENDING, or PENDING_APPROVAL status.
+func (s *WorkOrderService) ListOpenCmForPanel(ctx context.Context, panelID uuid.UUID, filter repository.OpenCmWorkOrderFilter) ([]repository.OpenCmWorkOrderSummary, error) {
+	if _, err := s.panels.Get(ctx, panelID); err != nil {
+		return nil, err
+	}
+	if filter.PanelDeviceID != nil {
+		if err := s.checkDeviceInPanel(ctx, *filter.PanelDeviceID, panelID); err != nil {
+			return nil, err
+		}
+	}
+	return s.repo.ListOpenCmForPanel(ctx, panelID, filter)
+}
+
+// ListOpenCmForWorkOrder resolves the panel of a work order and lists open CM
+// work orders on that panel. When the caller is a CM work order, it is
+// excluded from the result set.
+func (s *WorkOrderService) ListOpenCmForWorkOrder(ctx context.Context, workOrderID uuid.UUID, filter repository.OpenCmWorkOrderFilter) ([]repository.OpenCmWorkOrderSummary, error) {
+	wo, err := s.Get(ctx, workOrderID)
+	if err != nil {
+		return nil, err
+	}
+	if wo.WorkOrderType == "CM" {
+		filter.ExcludeWorkOrderID = &workOrderID
+	}
+	return s.ListOpenCmForPanel(ctx, wo.PanelID, filter)
+}
+
 // ListActivity returns the full status/assignment timeline of a work order —
 // when it was opened, assigned, started, sent for approval and rejected.
 func (s *WorkOrderService) ListActivity(ctx context.Context, id uuid.UUID) ([]sqlc.WorkOrderActivityLog, error) {

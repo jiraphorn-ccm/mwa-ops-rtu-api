@@ -286,3 +286,49 @@ func (h *WorkOrderHandler) ListActivity(w http.ResponseWriter, r *http.Request) 
 
 	httpx.Success(w, r, httpx.SuccessList, httpx.NewCollection(logs))
 }
+
+// ListOpenCmByPanel handles GET /panels/{id}/open-cm-work-orders.
+func (h *WorkOrderHandler) ListOpenCmByPanel(w http.ResponseWriter, r *http.Request) {
+	panelID, err := httpx.UUIDParam(r, "id")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	filter, err := service.ParseOpenCmWorkOrderFilter(r)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	items, err := h.svc.ListOpenCmForPanel(r.Context(), panelID, filter)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	httpx.Success(w, r, httpx.SuccessList, httpx.NewCollection(items))
+}
+
+// ListOpenCmByWorkOrder handles GET /work-orders/{id}/open-cm-work-orders.
+func (h *WorkOrderHandler) ListOpenCmByWorkOrder(w http.ResponseWriter, r *http.Request) {
+	workOrderID, err := httpx.UUIDParam(r, "id")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	filter, err := service.ParseOpenCmWorkOrderFilter(r)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	items, err := h.svc.ListOpenCmForWorkOrder(r.Context(), workOrderID, filter)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+
+	httpx.Success(w, r, httpx.SuccessList, httpx.NewCollection(items))
+}

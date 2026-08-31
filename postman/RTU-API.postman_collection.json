@@ -1215,6 +1215,76 @@
           ]
         },
         {
+          "name": "List Open CM Work Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/open-cm-work-orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "panels",
+                "{{panel_id}}",
+                "open-cm-work-orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "panel_device_id",
+                  "value": "{{panel_device_id}}"
+                },
+                {
+                  "key": "problem_topic_id",
+                  "value": "{{problem_topic_id}}"
+                },
+                {
+                  "key": "exclude_work_order_id",
+                  "value": "{{work_order_id}}"
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "List PM Report History",
           "request": {
             "method": "GET",
@@ -5328,6 +5398,42 @@
                   "language": "json"
                 }
               }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Open CM Work Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/open-cm-work-orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "open-cm-work-orders"
+              ]
             }
           },
           "description": "",

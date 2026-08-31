@@ -174,3 +174,17 @@ func ParseNotificationList(r *http.Request, recipientID uuid.UUID) (httpx.Page, 
 	}
 	return page, filter, q.Err()
 }
+
+// OpenCmWorkOrderFilter narrows duplicate/open CM lookups on a panel.
+type OpenCmWorkOrderFilter = repository.OpenCmWorkOrderFilter
+
+// ParseOpenCmWorkOrderFilter reads optional query params for open CM listings.
+func ParseOpenCmWorkOrderFilter(r *http.Request) (OpenCmWorkOrderFilter, error) {
+	q := httpx.NewQuery(r)
+	filter := OpenCmWorkOrderFilter{
+		PanelDeviceID:      q.UUID("panel_device_id"),
+		ProblemTopicID:     q.UUID("problem_topic_id"),
+		ExcludeWorkOrderID: q.UUID("exclude_work_order_id"),
+	}
+	return filter, q.Err()
+}
