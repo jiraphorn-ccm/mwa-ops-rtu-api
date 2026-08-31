@@ -271,6 +271,7 @@ const WO_PM_CREATE = {
 
 const WO_CM_CREATE = {
   work_order_type: "CM",
+  problem_topic_id: "{{problem_topic_id}}",
   requested_by: "{{actor_id}}",
   assigned_to: "{{actor_id}}",
   assigned_by: "{{actor_id}}",

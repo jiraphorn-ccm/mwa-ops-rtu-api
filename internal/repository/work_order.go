@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -249,6 +250,8 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 	assignedTo, assignedBy uuid.UUID,
 	assignedAt time.Time,
 	actorID uuid.UUID,
+	initialCmReport *sqlc.CreateCmReportParams,
+	openCmDuplicate *OpenCmWorkOrderFilter,
 ) (sqlc.WorkOrder, sqlc.WorkOrderRound, error) {
 	createdBy, updatedBy := createAudit(ctx)
 	woArg.CreatedBy, woArg.UpdatedBy = createdBy, updatedBy
@@ -258,7 +261,16 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 		round sqlc.WorkOrderRound
 	)
 
-	err := db.InTx(ctx, r.pool, func(q *sqlc.Queries) error {
+	err := db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if openCmDuplicate != nil {
+			if err := LockPanelCmWrites(ctx, tx, woArg.PanelID); err != nil {
+				return err
+			}
+			if err := EnsureNoOpenCmConflict(ctx, tx, woArg.PanelID, *openCmDuplicate); err != nil {
+				return err
+			}
+		}
+
 		total, err := q.CountWorkOrdersByPanelAndType(ctx, sqlc.CountWorkOrdersByPanelAndTypeParams{
 			PanelID:       woArg.PanelID,
 			WorkOrderType: woArg.WorkOrderType,
@@ -307,9 +319,26 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 		}); err != nil {
 			return db.Translate(err)
 		}
+
+		if initialCmReport != nil {
+			woID := created.ID
+			roundID := round.ID
+			initialCmReport.WorkOrderID = &woID
+			initialCmReport.WorkOrderRoundID = &roundID
+			initialCmReport.PanelID = created.PanelID
+			initialCmReport.CreatedBy = createdBy
+			initialCmReport.UpdatedBy = updatedBy
+			if _, err := q.CreateCmReport(ctx, *initialCmReport); err != nil {
+				return db.Translate(err, db.Options{Constraints: cmReportConstraints})
+			}
+		}
 		return nil
 	})
 	if err != nil {
+		var conflict *OpenCmConflictError
+		if errors.As(err, &conflict) {
+			return sqlc.WorkOrder{}, sqlc.WorkOrderRound{}, err
+		}
 		return sqlc.WorkOrder{}, sqlc.WorkOrderRound{}, db.Translate(err)
 	}
 
@@ -429,7 +458,8 @@ func (r *WorkOrderRepository) SetActive(ctx context.Context, id uuid.UUID, activ
 }
 
 // OpenCmWorkOrderFilter narrows open CM work orders on a panel — used when
-// creating a CM (duplicate check) or when viewing a PM visit on the same panel.
+// listing open CMs on a PM visit or checking panel+topic duplicates (device
+// filter applies to list queries only; duplicate checks ignore device scope).
 type OpenCmWorkOrderFilter struct {
 	PanelDeviceID      *uuid.UUID
 	ProblemTopicID     *uuid.UUID
@@ -499,19 +529,5 @@ func buildOpenCmWorkOrderConditions(a *args, panelID uuid.UUID, filter OpenCmWor
 // ListOpenCmForPanel returns active CM work orders on a panel whose status
 // is ASSIGNED, IN_PROGRESS, PENDING, or PENDING_APPROVAL.
 func (r *WorkOrderRepository) ListOpenCmForPanel(ctx context.Context, panelID uuid.UUID, filter OpenCmWorkOrderFilter) ([]OpenCmWorkOrderSummary, error) {
-	a := &args{}
-	conds := buildOpenCmWorkOrderConditions(a, panelID, filter)
-
-	query := fmt.Sprintf(openCmWorkOrderSelect, conds.where())
-	rows, err := r.pool.Query(ctx, query, a.values...)
-	if err != nil {
-		return nil, db.Translate(err)
-	}
-	defer rows.Close()
-
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[OpenCmWorkOrderSummary])
-	if err != nil {
-		return nil, db.Translate(err)
-	}
-	return items, nil
+	return queryOpenCmForPanel(ctx, r.pool, panelID, filter)
 }

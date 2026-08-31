@@ -425,7 +425,7 @@ Submit บังคับ power test (PM3) หรือ calibration (PM6) ตา
 (รหัสใบงาน, สถานะ, อุปกรณ์, หัวข้อปัญหา) สำหรับแสดงการ์ดเตือนบน UI
 
 ดึงแยกได้ที่ `GET /work-orders/{id}/open-cm-work-orders` หรือ `GET /panels/{id}/open-cm-work-orders`
-Filter: `panel_device_id`, `problem_topic_id` (ส่งคู่กันเพื่อเช็คงานซ้ำ — CM ที่ยังไม่มี report จะ match ตาม device),
+Filter: `panel_device_id`, `problem_topic_id` (สำหรับจำกัดรายการ UI — duplicate check ใช้ panel + topic เท่านั้น),
 `exclude_work_order_id` (ไม่นับใบงาน CM ที่กำลังแก้ไข)
 
 ### CM reports
@@ -522,6 +522,11 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 * Approval reject → rework เปิด round ใหม่; escalate → spawn/reuse CM work order
 * Panel `last_pm_date` / `next_pm_date` sync เมื่อ PM ถึง COMPLETED หรือ CONDITIONAL
 * CM report: `problem_topic_id` ต้องชี้ topic ที่ `active=true` (`E300_244`); inactive / ไม่พบ → `E300_242` / `E300_244`
+* CM duplicate: ห้ามเปิด CM ใหม่ (หรือบันทึกรายงาน CM) ซ้ำบนตู้เดียวกัน + หัวข้อปัญหาเดียวกัน ขณะมีใบเปิดอยู่ (`ASSIGNED`, `IN_PROGRESS`, `PENDING`, `PENDING_APPROVAL`) → `E300_246` (panel-wide — ไม่แยก device)
+* CM create: `problem_topic_id` **บังคับ** เมื่อ `work_order_type=CM` (`E300_247`) — duplicate check รัน **ใน transaction** (advisory lock ต่อ panel) ก่อน insert; seed `cm_reports` ใน tx เดียวกัน
+* CM escalate (PM reject): `problem_topic_id` บังคับเมื่อ `escalate=true` — reuse CM เปิดอยู่ที่ topic ตรงกัน (`FindMatchingOpenCm`, approval path เท่านั้น)
+* PM escalate (`POST .../escalate`): สร้าง CM ใหม่ผ่าน create path — ถ้ามี CM เปิด topic เดียวกันแล้ว → `E300_246`; อัปเดต seeded report ด้วย `pm_report_id`
+* `PUT .../cm-report`: `problem_topic_id` **บังคับ** (`validate:"required"`) — ห้ามลบ topic ผ่าน PATCH (`E300_247`)
 
 ---
 

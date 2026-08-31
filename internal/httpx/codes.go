@@ -175,6 +175,9 @@ var (
 	ErrProblemTopicCodeDup          = ErrorCode{"E300_243", CtxProblemTopic, "Problem topic code already exists.", http.StatusConflict}
 	ErrProblemTopicInactive         = ErrorCode{"E300_244", CtxProblemTopic, "Problem topic is inactive.", http.StatusBadRequest}
 	ErrProblemTopicInUse            = ErrorCode{"E300_245", CtxProblemTopic, "Cannot delete problem topic: CM reports reference it.", http.StatusConflict}
+	ErrOpenCmDuplicate              = ErrorCode{"E300_246", CtxWorkOrder, "An open CM work order already exists for this panel and problem topic.", http.StatusConflict}
+	ErrCmProblemTopicRequired       = ErrorCode{"E300_247", CtxWorkOrder, "problem_topic_id is required when work_order_type is CM.", http.StatusBadRequest}
+	ErrCmProblemTopicNotAllowed     = ErrorCode{"E300_248", CtxWorkOrder, "problem_topic_id must not be set when work_order_type is PM.", http.StatusBadRequest}
 )
 
 // Database / domain (E400_*).

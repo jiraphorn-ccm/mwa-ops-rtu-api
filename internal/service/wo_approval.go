@@ -46,6 +46,9 @@ type ApprovalDecisionInput struct {
 	// AssignedTo is who a *newly created* CM work order's first round is
 	// assigned to. Not needed when an existing open CM work order is reused.
 	AssignedTo *uuid.UUID `json:"assigned_to"`
+	// ProblemTopicID is required when Escalate is true — the spawned CM work
+	// order is created with this topic and an initial cm_report row.
+	ProblemTopicID *uuid.UUID `json:"problem_topic_id"`
 }
 
 // Decide records a review decision for a work order's current round and
@@ -75,6 +78,10 @@ func (s *ApprovalService) Decide(ctx context.Context, workOrderID uuid.UUID, in 
 		if in.RepairDate == nil {
 			return repository.WorkOrderView{}, httpx.Err(httpx.ErrApprovalRepairDateRequired).
 				WithField("repair_date", httpx.IssueRequired, "Required when escalating to a CM work order.")
+		}
+		if in.ProblemTopicID == nil || *in.ProblemTopicID == uuid.Nil {
+			return repository.WorkOrderView{}, httpx.Err(httpx.ErrCmProblemTopicRequired).
+				WithField("problem_topic_id", httpx.IssueRequired, "Required when escalating to a CM work order.")
 		}
 		repairDate = in.RepairDate
 
@@ -219,11 +226,13 @@ func (s *ApprovalService) emitCompleted(ctx context.Context, wo repository.WorkO
 // resolveCMWorkOrder finds a reusable CM work order for the panel, or creates
 // a new one when none qualifies.
 func (s *ApprovalService) resolveCMWorkOrder(ctx context.Context, wo repository.WorkOrderView, in ApprovalDecisionInput) (uuid.UUID, error) {
-	existing, err := s.workOrders.FindReusableCMWorkOrder(ctx, wo.PanelID)
-	if err != nil {
-		return uuid.Nil, err
+	if in.ProblemTopicID == nil {
+		return uuid.Nil, httpx.Err(httpx.ErrCmProblemTopicRequired).
+			WithField("problem_topic_id", httpx.IssueRequired, "Required when escalating to a CM work order.")
 	}
-	if existing != nil {
+	if existing, err := s.workOrders.FindMatchingOpenCm(ctx, wo.PanelID, in.ProblemTopicID); err != nil {
+		return uuid.Nil, err
+	} else if existing != nil {
 		return *existing, nil
 	}
 
@@ -241,6 +250,8 @@ func (s *ApprovalService) resolveCMWorkOrder(ctx context.Context, wo repository.
 		AssignedTo:         *in.AssignedTo,
 		AssignedBy:         in.ReviewerID,
 		RelatedWorkOrderID: &wo.ID,
+		DueDate:            in.RepairDate,
+		ProblemTopicID:     in.ProblemTopicID,
 	})
 	if err != nil {
 		return uuid.Nil, err

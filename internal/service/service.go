@@ -30,11 +30,12 @@ type Services struct {
 // New wires the services onto the repository store.
 func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Services {
 	workOrders := &WorkOrderService{
-		repo:     store.WorkOrders,
-		rounds:   store.WorkOrderRounds,
-		activity: store.WorkOrderActivityLogs,
-		panels:   store.Panels,
-		devices:  store.PanelDevices,
+		repo:          store.WorkOrders,
+		rounds:        store.WorkOrderRounds,
+		activity:      store.WorkOrderActivityLogs,
+		panels:        store.Panels,
+		devices:       store.PanelDevices,
+		problemTopics: store.ProblemTopics,
 	}
 	notifications := &NotificationService{
 		repo:       store.Notifications,

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,12 +20,13 @@ import (
 // those actions reads and mutates the work order's status alongside the
 // round; see ApprovalService for what happens after a round is reviewed.
 type WorkOrderService struct {
-	repo     *repository.WorkOrderRepository
-	rounds   *repository.WorkOrderRoundRepository
-	activity *repository.WorkOrderActivityLogRepository
-	panels   *repository.PanelRepository
-	devices  *repository.PanelDeviceRepository
-	notify   *NotificationService
+	repo          *repository.WorkOrderRepository
+	rounds        *repository.WorkOrderRoundRepository
+	activity      *repository.WorkOrderActivityLogRepository
+	panels        *repository.PanelRepository
+	devices       *repository.PanelDeviceRepository
+	problemTopics *repository.ProblemTopicRepository
+	notify        *NotificationService
 }
 
 // WorkOrderCreateInput is the POST /work-orders body. PanelID has no
@@ -47,6 +50,8 @@ type WorkOrderCreateInput struct {
 	RelatedWorkOrderID *uuid.UUID  `json:"related_work_order_id"`
 	PlannedDate        *httpx.Date `json:"planned_date"`
 	DueDate            *httpx.Date `json:"due_date"`
+	// Required on CM create (client API). Stored on the initial cm_report row.
+	ProblemTopicID *uuid.UUID `json:"problem_topic_id"`
 }
 
 // WorkOrderUpdateInput is the PATCH /work-orders/{id} body. Status is not
@@ -97,6 +102,9 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 	if err := checkPmScheduleType(in.WorkOrderType, in.PmScheduleType); err != nil {
 		return repository.WorkOrderView{}, err
 	}
+	if err := checkCmProblemTopic(in.WorkOrderType, in.ProblemTopicID); err != nil {
+		return repository.WorkOrderView{}, err
+	}
 
 	panel, err := s.panels.Get(ctx, in.PanelID)
 	if err != nil {
@@ -110,6 +118,24 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 	if in.PanelDeviceID != nil {
 		if err := s.checkDeviceInPanel(ctx, *in.PanelDeviceID, in.PanelID); err != nil {
 			return repository.WorkOrderView{}, err
+		}
+	}
+
+	var initialCmReport *sqlc.CreateCmReportParams
+	var openCmDuplicate *repository.OpenCmWorkOrderFilter
+	if in.WorkOrderType == "CM" {
+		topicID, tagCode, err := s.resolveProblemTopic(ctx, *in.ProblemTopicID)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		openCmDuplicate = &repository.OpenCmWorkOrderFilter{
+			ProblemTopicID: topicID,
+		}
+		initialCmReport = &sqlc.CreateCmReportParams{
+			ReportedBy:     in.RequestedBy,
+			ProblemTopicID: topicID,
+			TagCode:        tagCode,
+			PanelDeviceID:  in.PanelDeviceID,
 		}
 	}
 
@@ -127,8 +153,11 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 		RelatedWorkOrderID: in.RelatedWorkOrderID,
 		PlannedDate:        in.PlannedDate,
 		DueDate:            in.DueDate,
-	}, panel.Code, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy)
+	}, panel.Code, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy, initialCmReport, openCmDuplicate)
 	if err != nil {
+		if conflict := openCmConflictError(err); conflict != nil {
+			return repository.WorkOrderView{}, appErrFromOpenCmConflict(conflict.Conflict)
+		}
 		return repository.WorkOrderView{}, err
 	}
 
@@ -326,18 +355,62 @@ func (s *WorkOrderService) ListRounds(ctx context.Context, id uuid.UUID) ([]sqlc
 	return s.rounds.ListByWorkOrder(ctx, id)
 }
 
-// FindReusableCMWorkOrder returns a PENDING CM on the panel whose current
-// round has no report yet — safe for PM escalation reuse.
-func (s *WorkOrderService) FindReusableCMWorkOrder(ctx context.Context, panelID uuid.UUID) (*uuid.UUID, error) {
-	return s.repo.FindReusableCMForPanel(ctx, panelID)
+// FindMatchingOpenCm returns an open CM work order on the panel that already
+// covers the same problem topic (panel-wide, regardless of device scope).
+func (s *WorkOrderService) FindMatchingOpenCm(ctx context.Context, panelID uuid.UUID, problemTopicID *uuid.UUID) (*uuid.UUID, error) {
+	if problemTopicID == nil {
+		return nil, nil
+	}
+	items, err := s.ListOpenCmForPanel(ctx, panelID, repository.OpenCmWorkOrderFilter{
+		ProblemTopicID: problemTopicID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	id := items[0].WorkOrderID
+	return &id, nil
 }
 
-// FindOpenWorkOrder returns the id of an open (not completed/cancelled) work
-// order of the given type for a panel, if any. Used by ApprovalService to
-// decide whether escalating a rejected PM to CM should reuse an existing CM
-// work order or create a new one.
-func (s *WorkOrderService) FindOpenWorkOrder(ctx context.Context, panelID uuid.UUID, workOrderType string) (*uuid.UUID, error) {
-	return s.repo.FindOpenForPanel(ctx, panelID, workOrderType)
+// EnsureNoOpenCmDuplicate rejects creating or saving a CM when another open
+// work order on the same panel already covers the same problem topic.
+// excludeWorkOrderID skips the caller's own work order during upsert/update.
+func (s *WorkOrderService) EnsureNoOpenCmDuplicate(ctx context.Context, panelID uuid.UUID, problemTopicID *uuid.UUID, excludeWorkOrderID *uuid.UUID) error {
+	if problemTopicID == nil {
+		return nil
+	}
+	filter := repository.OpenCmWorkOrderFilter{
+		ProblemTopicID:     problemTopicID,
+		ExcludeWorkOrderID: excludeWorkOrderID,
+	}
+	items, err := s.ListOpenCmForPanel(ctx, panelID, filter)
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return appErrFromOpenCmConflict(items[0])
+}
+
+func appErrFromOpenCmConflict(conflict repository.OpenCmWorkOrderSummary) error {
+	msg := fmt.Sprintf("Open CM work order %s already covers this problem topic.", conflict.WorkOrderNo)
+	if conflict.ProblemTopicName != nil && *conflict.ProblemTopicName != "" {
+		msg = fmt.Sprintf("Open CM work order %s already covers problem topic %q.", conflict.WorkOrderNo, *conflict.ProblemTopicName)
+	}
+	return httpx.Err(httpx.ErrOpenCmDuplicate).
+		WithField("problem_topic_id", httpx.IssueDuplicate, msg).
+		WithField("work_order_id", httpx.IssueDuplicate, conflict.WorkOrderID.String())
+}
+
+func openCmConflictError(err error) *repository.OpenCmConflictError {
+	var conflict *repository.OpenCmConflictError
+	if errors.As(err, &conflict) {
+		return conflict
+	}
+	return nil
 }
 
 // ListOpenCmForPanel returns CM work orders on a panel in ASSIGNED,
@@ -399,4 +472,37 @@ func checkPmScheduleType(workOrderType string, pmScheduleType *string) error {
 			WithField("pm_schedule_type", httpx.IssueInvalid, "Must not be set when work_order_type is CM.")
 	}
 	return nil
+}
+
+func checkCmProblemTopic(workOrderType string, problemTopicID *uuid.UUID) error {
+	if workOrderType == "PM" && problemTopicID != nil {
+		return httpx.Err(httpx.ErrCmProblemTopicNotAllowed).
+			WithField("problem_topic_id", httpx.IssueInvalid, "Must not be set when work_order_type is PM.")
+	}
+	if workOrderType == "CM" {
+		if problemTopicID == nil {
+			return httpx.Err(httpx.ErrCmProblemTopicRequired).
+				WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
+		}
+		if *problemTopicID == uuid.Nil {
+			return httpx.Err(httpx.ErrValidationFailed).
+				WithField("problem_topic_id", httpx.IssueInvalid, "Must be a valid UUID.")
+		}
+	}
+	return nil
+}
+
+func (s *WorkOrderService) resolveProblemTopic(ctx context.Context, topicID uuid.UUID) (*uuid.UUID, *string, error) {
+	if s.problemTopics == nil {
+		return &topicID, nil, nil
+	}
+	topic, err := s.problemTopics.Get(ctx, topicID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !topic.Active {
+		return nil, nil, httpx.Err(httpx.ErrProblemTopicInactive)
+	}
+	code := topic.Code
+	return &topicID, &code, nil
 }

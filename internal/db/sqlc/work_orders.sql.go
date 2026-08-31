@@ -47,7 +47,7 @@ type CountWorkOrdersByPanelAndTypeParams struct {
 	WorkOrderType string    `db:"work_order_type" json:"work_order_type"`
 }
 
-// Used to generate the human-readable work_order_no sequence, e.g. PM-U120-4.
+// Next sequence for work_order_no on a panel (TYPE-PANEL_CODE-0001).
 func (q *Queries) CountWorkOrdersByPanelAndType(ctx context.Context, arg CountWorkOrdersByPanelAndTypeParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countWorkOrdersByPanelAndType, arg.PanelID, arg.WorkOrderType)
 	var total int64

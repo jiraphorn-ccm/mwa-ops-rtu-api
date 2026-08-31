@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/rtu-api/internal/db/sqlc"
 	"github.com/rtu-api/internal/httpx"
@@ -36,7 +37,7 @@ type CmReportSaveInput struct {
 	// ReportedBy defaults to the work order's requested_by when omitted.
 	ReportedBy       *uuid.UUID `json:"reported_by"`
 	PanelDeviceID    *uuid.UUID `json:"panel_device_id"`
-	ProblemTopicID   *uuid.UUID `json:"problem_topic_id"`
+	ProblemTopicID   uuid.UUID  `json:"problem_topic_id" validate:"required"`
 	TagCode          *string    `json:"tag_code" validate:"omitempty,max=100"`
 	ErrorLogs        *string    `json:"error_logs"`
 	ProblemDetail    *string    `json:"problem_detail"`
@@ -59,9 +60,9 @@ type CmReportEscalateInput struct {
 	ReportedBy    uuid.UUID   `json:"reported_by" validate:"required"`
 	AssignedTo    uuid.UUID   `json:"assigned_to" validate:"required"`
 	AssignedBy    uuid.UUID   `json:"assigned_by" validate:"required"`
-	PanelDeviceID *uuid.UUID  `json:"panel_device_id"`
-	ProblemTopicID *uuid.UUID `json:"problem_topic_id"`
-	TagCode       *string     `json:"tag_code" validate:"omitempty,max=100"`
+	PanelDeviceID  *uuid.UUID  `json:"panel_device_id"`
+	ProblemTopicID uuid.UUID   `json:"problem_topic_id" validate:"required"`
+	TagCode        *string     `json:"tag_code" validate:"omitempty,max=100"`
 	ErrorLogs     *string     `json:"error_logs"`
 	ProblemDetail *string     `json:"problem_detail"`
 	RepairDate    *httpx.Date `json:"repair_date"`
@@ -133,75 +134,94 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 	if err := s.checkDeviceInPanel(ctx, wo.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
-	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, in.ProblemTopicID, in.TagCode)
+	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, &in.ProblemTopicID, in.TagCode)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
 
-	existing, err := s.repo.FindByRound(ctx, *wo.CurrentRoundID)
-	if err != nil {
-		return sqlc.CmReport{}, err
-	}
+	var report sqlc.CmReport
+	err = s.repo.WithPanelCmLock(ctx, wo.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if err := repository.EnsureNoOpenCmConflict(ctx, tx, wo.PanelID, repository.OpenCmWorkOrderFilter{
+			ProblemTopicID:     problemTopicID,
+			ExcludeWorkOrderID: &workOrderID,
+		}); err != nil {
+			return err
+		}
 
-	if existing != nil {
-		return s.repo.Update(ctx, sqlc.UpdateCmReportParams{
-			ID:                       existing.ID,
-			PanelDeviceID:            in.PanelDeviceID,
-			PanelDeviceIDDoUpdate:    true,
-			ProblemTopicID:           problemTopicID,
-			ProblemTopicIDDoUpdate:   true,
-			TagCode:                  tagCode,
-			TagCodeDoUpdate:          true,
-			ErrorLogs:                in.ErrorLogs,
-			ErrorLogsDoUpdate:        true,
-			ProblemDetail:            in.ProblemDetail,
-			ProblemDetailDoUpdate:    true,
-			RootCause:                in.RootCause,
-			RootCauseDoUpdate:        true,
-			ReferenceInfo:            in.ReferenceInfo,
-			ReferenceInfoDoUpdate:    true,
-			CorrectiveAction:         in.CorrectiveAction,
-			CorrectiveActionDoUpdate: true,
-			Recommendation:           in.Recommendation,
-			RecommendationDoUpdate:   true,
-			PendingReason:            in.PendingReason,
-			PendingReasonDoUpdate:    true,
-			RepairedBy:               in.RepairedBy,
-			RepairedByDoUpdate:       true,
-			ReportedAt:               in.ReportedAt,
-			ReportedAtDoUpdate:       true,
-			StartedAt:                in.StartedAt,
-			StartedAtDoUpdate:        true,
-			EndedAt:                  in.EndedAt,
-			EndedAtDoUpdate:          true,
+		existing, err := s.repo.FindByRoundQ(ctx, q, *wo.CurrentRoundID)
+		if err != nil {
+			return err
+		}
+
+		if existing != nil {
+			report, err = s.repo.UpdateQ(ctx, q, sqlc.UpdateCmReportParams{
+				ID:                       existing.ID,
+				PanelDeviceID:            in.PanelDeviceID,
+				PanelDeviceIDDoUpdate:    true,
+				ProblemTopicID:           problemTopicID,
+				ProblemTopicIDDoUpdate:   true,
+				TagCode:                  tagCode,
+				TagCodeDoUpdate:          true,
+				ErrorLogs:                in.ErrorLogs,
+				ErrorLogsDoUpdate:        true,
+				ProblemDetail:            in.ProblemDetail,
+				ProblemDetailDoUpdate:    true,
+				RootCause:                in.RootCause,
+				RootCauseDoUpdate:        true,
+				ReferenceInfo:            in.ReferenceInfo,
+				ReferenceInfoDoUpdate:    true,
+				CorrectiveAction:         in.CorrectiveAction,
+				CorrectiveActionDoUpdate: true,
+				Recommendation:           in.Recommendation,
+				RecommendationDoUpdate:   true,
+				PendingReason:            in.PendingReason,
+				PendingReasonDoUpdate:    true,
+				RepairedBy:               in.RepairedBy,
+				RepairedByDoUpdate:       true,
+				ReportedAt:               in.ReportedAt,
+				ReportedAtDoUpdate:       true,
+				StartedAt:                in.StartedAt,
+				StartedAtDoUpdate:        true,
+				EndedAt:                  in.EndedAt,
+				EndedAtDoUpdate:          true,
+			})
+			return err
+		}
+
+		reportedBy := wo.RequestedBy
+		if in.ReportedBy != nil {
+			reportedBy = *in.ReportedBy
+		}
+
+		report, err = s.repo.CreateQ(ctx, q, sqlc.CreateCmReportParams{
+			WorkOrderID:      &workOrderID,
+			WorkOrderRoundID: wo.CurrentRoundID,
+			PanelID:          wo.PanelID,
+			PanelDeviceID:    in.PanelDeviceID,
+			ReportedBy:       reportedBy,
+			ProblemTopicID:   problemTopicID,
+			TagCode:          tagCode,
+			ErrorLogs:        in.ErrorLogs,
+			ProblemDetail:    in.ProblemDetail,
+			RootCause:        in.RootCause,
+			ReferenceInfo:    in.ReferenceInfo,
+			CorrectiveAction: in.CorrectiveAction,
+			Recommendation:   in.Recommendation,
+			PendingReason:    in.PendingReason,
+			RepairedBy:       in.RepairedBy,
+			ReportedAt:       in.ReportedAt,
+			StartedAt:        in.StartedAt,
+			EndedAt:          in.EndedAt,
 		})
-	}
-
-	reportedBy := wo.RequestedBy
-	if in.ReportedBy != nil {
-		reportedBy = *in.ReportedBy
-	}
-
-	return s.repo.Create(ctx, sqlc.CreateCmReportParams{
-		WorkOrderID:      &workOrderID,
-		WorkOrderRoundID: wo.CurrentRoundID,
-		PanelID:          wo.PanelID,
-		PanelDeviceID:    in.PanelDeviceID,
-		ReportedBy:       reportedBy,
-		ProblemTopicID:   problemTopicID,
-		TagCode:          tagCode,
-		ErrorLogs:        in.ErrorLogs,
-		ProblemDetail:    in.ProblemDetail,
-		RootCause:        in.RootCause,
-		ReferenceInfo:    in.ReferenceInfo,
-		CorrectiveAction: in.CorrectiveAction,
-		Recommendation:   in.Recommendation,
-		PendingReason:    in.PendingReason,
-		RepairedBy:       in.RepairedBy,
-		ReportedAt:       in.ReportedAt,
-		StartedAt:        in.StartedAt,
-		EndedAt:          in.EndedAt,
+		return err
 	})
+	if err != nil {
+		if conflict := openCmConflictError(err); conflict != nil {
+			return sqlc.CmReport{}, appErrFromOpenCmConflict(conflict.Conflict)
+		}
+		return sqlc.CmReport{}, err
+	}
+	return report, nil
 }
 
 // GetForWorkOrder returns the CM report tied to a work order's current round.
@@ -307,12 +327,12 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
-	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, in.ProblemTopicID, in.TagCode)
+	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, &in.ProblemTopicID, in.TagCode)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
 
-	cmID, err := s.resolveOrCreateCM(ctx, wo, in)
+	cmID, err := s.resolveOrCreateCM(ctx, wo, in, problemTopicID)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
@@ -325,20 +345,34 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 			WithField("id", httpx.IssueInvalid, "CM work order has no active round.")
 	}
 
+	existing, err := s.repo.FindByRound(ctx, *cmWO.CurrentRoundID)
+	if err != nil {
+		return sqlc.CmReport{}, err
+	}
+	if existing == nil {
+		return sqlc.CmReport{}, httpx.Err(httpx.ErrCmReportNotFnd).
+			WithField("work_order_id", httpx.IssueInvalid, "CM work order is missing its seeded report.")
+	}
+
 	now := time.Now()
-	report, err := s.repo.Create(ctx, sqlc.CreateCmReportParams{
-		WorkOrderID:      &cmID,
-		WorkOrderRoundID: cmWO.CurrentRoundID,
-		PmReportID:       &pmReportID,
-		PanelID:          pmReport.PanelID,
-		PanelDeviceID:    in.PanelDeviceID,
-		ReportedBy:       in.ReportedBy,
-		ProblemTopicID:   problemTopicID,
-		TagCode:          tagCode,
-		ErrorLogs:        in.ErrorLogs,
-		ProblemDetail:    in.ProblemDetail,
-		PendingReason:    &in.PendingReason,
-		ReportedAt:       &now,
+	report, err := s.repo.Update(ctx, sqlc.UpdateCmReportParams{
+		ID:                       existing.ID,
+		PmReportID:               &pmReportID,
+		PmReportIDDoUpdate:       true,
+		PanelDeviceID:            in.PanelDeviceID,
+		PanelDeviceIDDoUpdate:    true,
+		ProblemTopicID:           problemTopicID,
+		ProblemTopicIDDoUpdate:   true,
+		TagCode:                  tagCode,
+		TagCodeDoUpdate:          true,
+		ErrorLogs:                in.ErrorLogs,
+		ErrorLogsDoUpdate:        true,
+		ProblemDetail:            in.ProblemDetail,
+		ProblemDetailDoUpdate:    true,
+		PendingReason:            &in.PendingReason,
+		PendingReasonDoUpdate:    true,
+		ReportedAt:               &now,
+		ReportedAtDoUpdate:       true,
 	})
 	if err != nil {
 		return sqlc.CmReport{}, err
@@ -364,14 +398,7 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 	return report, nil
 }
 
-func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository.WorkOrderView, in CmReportEscalateInput) (uuid.UUID, error) {
-	existing, err := s.workOrders.FindReusableCMWorkOrder(ctx, pmWO.PanelID)
-	if err != nil {
-		return uuid.Nil, err
-	}
-	if existing != nil {
-		return *existing, nil
-	}
+func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository.WorkOrderView, in CmReportEscalateInput, problemTopicID *uuid.UUID) (uuid.UUID, error) {
 	cm, err := s.workOrders.Create(ctx, WorkOrderCreateInput{
 		PanelID:            pmWO.PanelID,
 		WorkOrderType:      "CM",
@@ -383,6 +410,7 @@ func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository
 		AssignedBy:         in.AssignedBy,
 		RelatedWorkOrderID: &pmWO.ID,
 		DueDate:            in.RepairDate,
+		ProblemTopicID:     problemTopicID,
 	})
 	if err != nil {
 		return uuid.Nil, err
@@ -402,6 +430,11 @@ func (s *CmReportService) Get(ctx context.Context, id uuid.UUID) (sqlc.CmReport,
 
 // Update applies a partial update to any CM report, regardless of origin.
 func (s *CmReportService) Update(ctx context.Context, id uuid.UUID, fields httpx.FieldSet, in CmReportUpdateInput) (sqlc.CmReport, error) {
+	current, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return sqlc.CmReport{}, err
+	}
+
 	params := sqlc.UpdateCmReportParams{ID: id}
 	params.PanelDeviceID, params.PanelDeviceIDDoUpdate = patchNullable(fields, "panel_device_id", in.PanelDeviceID)
 
@@ -410,6 +443,19 @@ func (s *CmReportService) Update(ctx context.Context, id uuid.UUID, fields httpx
 		return sqlc.CmReport{}, err
 	}
 	if fields.Has("problem_topic_id") {
+		var exclude *uuid.UUID
+		if current.WorkOrderID != nil {
+			exclude = current.WorkOrderID
+		}
+		if err := s.workOrders.EnsureNoOpenCmDuplicate(ctx, current.PanelID, problemTopicID, exclude); err != nil {
+			return sqlc.CmReport{}, err
+		}
+	}
+	if fields.Has("problem_topic_id") {
+		if problemTopicID == nil {
+			return sqlc.CmReport{}, httpx.Err(httpx.ErrCmProblemTopicRequired).
+				WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
+		}
 		params.ProblemTopicID = problemTopicID
 		params.ProblemTopicIDDoUpdate = true
 		if problemTopicID != nil {

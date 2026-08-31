@@ -79,8 +79,13 @@ func (r *CmReportRepository) ListByPmReport(ctx context.Context, pmReportID uuid
 
 // Create inserts a CM report for either origin.
 func (r *CmReportRepository) Create(ctx context.Context, arg sqlc.CreateCmReportParams) (sqlc.CmReport, error) {
+	return r.CreateQ(ctx, r.q, arg)
+}
+
+// CreateQ inserts a CM report using the given Queries handle (for use inside a transaction).
+func (r *CmReportRepository) CreateQ(ctx context.Context, q *sqlc.Queries, arg sqlc.CreateCmReportParams) (sqlc.CmReport, error) {
 	arg.CreatedBy, arg.UpdatedBy = createAudit(ctx)
-	report, err := r.q.CreateCmReport(ctx, arg)
+	report, err := q.CreateCmReport(ctx, arg)
 	if err != nil {
 		return sqlc.CmReport{}, db.Translate(err, db.Options{Constraints: cmReportConstraints})
 	}
@@ -89,8 +94,13 @@ func (r *CmReportRepository) Create(ctx context.Context, arg sqlc.CreateCmReport
 
 // Update applies a partial update.
 func (r *CmReportRepository) Update(ctx context.Context, arg sqlc.UpdateCmReportParams) (sqlc.CmReport, error) {
+	return r.UpdateQ(ctx, r.q, arg)
+}
+
+// UpdateQ applies a partial update using the given Queries handle.
+func (r *CmReportRepository) UpdateQ(ctx context.Context, q *sqlc.Queries, arg sqlc.UpdateCmReportParams) (sqlc.CmReport, error) {
 	arg.UpdatedBy = updateAudit(ctx)
-	report, err := r.q.UpdateCmReport(ctx, arg)
+	report, err := q.UpdateCmReport(ctx, arg)
 	if err != nil {
 		return sqlc.CmReport{}, db.Translate(err, db.Options{
 			NotFound:    &httpx.ErrCmReportNotFnd,
@@ -98,6 +108,28 @@ func (r *CmReportRepository) Update(ctx context.Context, arg sqlc.UpdateCmReport
 		})
 	}
 	return report, nil
+}
+
+// WithPanelCmLock runs fn inside a transaction serialized per panel for CM writes.
+func (r *CmReportRepository) WithPanelCmLock(ctx context.Context, panelID uuid.UUID, fn func(tx pgx.Tx, q *sqlc.Queries) error) error {
+	return db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if err := LockPanelCmWrites(ctx, tx, panelID); err != nil {
+			return err
+		}
+		return fn(tx, q)
+	})
+}
+
+// FindByRoundQ returns the CM report for a round using the given Queries handle.
+func (r *CmReportRepository) FindByRoundQ(ctx context.Context, q *sqlc.Queries, roundID uuid.UUID) (*sqlc.CmReport, error) {
+	report, err := q.GetCmReportByRound(ctx, roundID)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, db.Translate(err)
+	}
+	return &report, nil
 }
 
 // Delete removes a CM report permanently.

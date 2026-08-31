@@ -41,6 +41,7 @@ SELECT * FROM rtu.cm_reports WHERE pm_report_id = @pm_report_id::uuid ORDER BY c
 
 -- name: UpdateCmReport :one
 UPDATE rtu.cm_reports SET
+    pm_report_id      = CASE WHEN @pm_report_id_do_update::boolean THEN sqlc.narg('pm_report_id')::uuid ELSE pm_report_id END,
     panel_device_id   = CASE WHEN @panel_device_id_do_update::boolean THEN sqlc.narg('panel_device_id')::uuid ELSE panel_device_id END,
     problem_topic_id  = CASE WHEN @problem_topic_id_do_update::boolean THEN sqlc.narg('problem_topic_id')::uuid ELSE problem_topic_id END,
     tag_code          = CASE WHEN @tag_code_do_update::boolean THEN sqlc.narg('tag_code')::varchar ELSE tag_code END,

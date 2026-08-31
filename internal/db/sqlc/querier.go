@@ -24,7 +24,7 @@ type Querier interface {
 	// (status <> COMPLETED/CANCELLED) one already exists for the panel to reuse.
 	CountOpenWorkOrdersForPanel(ctx context.Context, arg CountOpenWorkOrdersForPanelParams) (uuid.UUID, error)
 	CountUnreadNotifications(ctx context.Context, recipientID uuid.UUID) (int64, error)
-	// Used to generate the human-readable work_order_no sequence, e.g. PM-U120-4.
+	// Next sequence for work_order_no on a panel (TYPE-PANEL_CODE-0001).
 	CountWorkOrdersByPanelAndType(ctx context.Context, arg CountWorkOrdersByPanelAndTypeParams) (int64, error)
 	CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (Attachment, error)
 	CreateCalibration(ctx context.Context, arg CreateCalibrationParams) (Calibration, error)

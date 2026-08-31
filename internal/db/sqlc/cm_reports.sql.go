@@ -269,26 +269,29 @@ func (q *Queries) ListCmReportsByPmReport(ctx context.Context, pmReportID uuid.U
 
 const updateCmReport = `-- name: UpdateCmReport :one
 UPDATE rtu.cm_reports SET
-    panel_device_id   = CASE WHEN $1::boolean THEN $2::uuid ELSE panel_device_id END,
-    problem_topic_id  = CASE WHEN $3::boolean THEN $4::uuid ELSE problem_topic_id END,
-    tag_code          = CASE WHEN $5::boolean THEN $6::varchar ELSE tag_code END,
-    error_logs        = CASE WHEN $7::boolean THEN $8::text ELSE error_logs END,
-    problem_detail    = CASE WHEN $9::boolean THEN $10::text ELSE problem_detail END,
-    root_cause        = CASE WHEN $11::boolean THEN $12::text ELSE root_cause END,
-    reference_info    = CASE WHEN $13::boolean THEN $14::text ELSE reference_info END,
-    corrective_action = CASE WHEN $15::boolean THEN $16::text ELSE corrective_action END,
-    recommendation    = CASE WHEN $17::boolean THEN $18::text ELSE recommendation END,
-    pending_reason    = CASE WHEN $19::boolean THEN $20::text ELSE pending_reason END,
-    repaired_by       = CASE WHEN $21::boolean THEN $22::uuid ELSE repaired_by END,
-    reported_at       = CASE WHEN $23::boolean THEN $24::timestamptz ELSE reported_at END,
-    started_at        = CASE WHEN $25::boolean THEN $26::timestamptz ELSE started_at END,
-    ended_at          = CASE WHEN $27::boolean THEN $28::timestamptz ELSE ended_at END,
-    updated_by        = $29::uuid
-WHERE id = $30::uuid
+    pm_report_id      = CASE WHEN $1::boolean THEN $2::uuid ELSE pm_report_id END,
+    panel_device_id   = CASE WHEN $3::boolean THEN $4::uuid ELSE panel_device_id END,
+    problem_topic_id  = CASE WHEN $5::boolean THEN $6::uuid ELSE problem_topic_id END,
+    tag_code          = CASE WHEN $7::boolean THEN $8::varchar ELSE tag_code END,
+    error_logs        = CASE WHEN $9::boolean THEN $10::text ELSE error_logs END,
+    problem_detail    = CASE WHEN $11::boolean THEN $12::text ELSE problem_detail END,
+    root_cause        = CASE WHEN $13::boolean THEN $14::text ELSE root_cause END,
+    reference_info    = CASE WHEN $15::boolean THEN $16::text ELSE reference_info END,
+    corrective_action = CASE WHEN $17::boolean THEN $18::text ELSE corrective_action END,
+    recommendation    = CASE WHEN $19::boolean THEN $20::text ELSE recommendation END,
+    pending_reason    = CASE WHEN $21::boolean THEN $22::text ELSE pending_reason END,
+    repaired_by       = CASE WHEN $23::boolean THEN $24::uuid ELSE repaired_by END,
+    reported_at       = CASE WHEN $25::boolean THEN $26::timestamptz ELSE reported_at END,
+    started_at        = CASE WHEN $27::boolean THEN $28::timestamptz ELSE started_at END,
+    ended_at          = CASE WHEN $29::boolean THEN $30::timestamptz ELSE ended_at END,
+    updated_by        = $31::uuid
+WHERE id = $32::uuid
 RETURNING id, work_order_id, work_order_round_id, pm_report_id, panel_id, panel_device_id, reported_by, tag_code, error_logs, problem_detail, root_cause, reference_info, corrective_action, recommendation, pending_reason, repaired_by, reported_at, started_at, ended_at, created_at, updated_at, created_by, updated_by, problem_topic_id
 `
 
 type UpdateCmReportParams struct {
+	PmReportIDDoUpdate       bool       `db:"pm_report_id_do_update" json:"pm_report_id_do_update"`
+	PmReportID               *uuid.UUID `db:"pm_report_id" json:"pm_report_id"`
 	PanelDeviceIDDoUpdate    bool       `db:"panel_device_id_do_update" json:"panel_device_id_do_update"`
 	PanelDeviceID            *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
 	ProblemTopicIDDoUpdate   bool       `db:"problem_topic_id_do_update" json:"problem_topic_id_do_update"`
@@ -323,6 +326,8 @@ type UpdateCmReportParams struct {
 
 func (q *Queries) UpdateCmReport(ctx context.Context, arg UpdateCmReportParams) (CmReport, error) {
 	row := q.db.QueryRow(ctx, updateCmReport,
+		arg.PmReportIDDoUpdate,
+		arg.PmReportID,
 		arg.PanelDeviceIDDoUpdate,
 		arg.PanelDeviceID,
 		arg.ProblemTopicIDDoUpdate,

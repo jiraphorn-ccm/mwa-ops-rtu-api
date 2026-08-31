@@ -5153,7 +5153,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"work_order_type\": \"CM\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"CM demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
+              "raw": "{\n  \"work_order_type\": \"CM\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"CM demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
