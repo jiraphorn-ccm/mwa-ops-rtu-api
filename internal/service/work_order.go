@@ -66,6 +66,15 @@ type WorkOrderUpdateInput struct {
 	DueDate       *httpx.Date `json:"due_date"`
 }
 
+var workOrderEditableFields = map[string]struct{}{
+	"panel_device_id": {},
+	"title":           {},
+	"description":     {},
+	"priority":        {},
+	"planned_date":    {},
+	"due_date":        {},
+}
+
 // ReassignInput is the POST /work-orders/{id}/reassign body. Only valid
 // before the current round has checked in.
 type ReassignInput struct {
@@ -179,6 +188,12 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 
 // Update applies a partial update to a work order's editable fields.
 func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields httpx.FieldSet, in WorkOrderUpdateInput) (repository.WorkOrderView, error) {
+	if len(fields) > 0 && !fields.HasAny(workOrderEditableFields) {
+		return repository.WorkOrderView{}, httpx.Err(httpx.ErrValidationFailed).
+			WithField("body", httpx.IssueInvalid,
+				"No editable fields in request. Accepted keys: panel_device_id, title, description, priority, planned_date, due_date.")
+	}
+
 	current, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return repository.WorkOrderView{}, err
@@ -203,10 +218,19 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 	}
 	params.Priority, params.PriorityDoUpdate = priority, setPriority
 
+	if !workOrderUpdateHasChanges(params) {
+		return s.repo.GetView(ctx, id)
+	}
+
 	if _, err := s.repo.Update(ctx, params); err != nil {
 		return repository.WorkOrderView{}, err
 	}
 	return s.repo.GetView(ctx, id)
+}
+
+func workOrderUpdateHasChanges(p sqlc.UpdateWorkOrderParams) bool {
+	return p.PanelDeviceIDDoUpdate || p.TitleDoUpdate || p.DescriptionDoUpdate ||
+		p.PriorityDoUpdate || p.PlannedDateDoUpdate || p.DueDateDoUpdate
 }
 
 // Reassign changes the assignee of the round currently in progress, before

@@ -392,8 +392,8 @@ Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query
 | GET · POST | `/work-orders/{id}/attachments` |
 
 `PATCH` / `PUT /work-orders/{id}` แก้ได้เฉพาะ: `title`, `description`, `priority`, `planned_date`, `due_date`, `panel_device_id`  
-field อื่นจาก GET (เช่น `status`, `work_order_type`, `panel_id`, `requested_by`) **ไม่เปลี่ยน** — ส่งมาได้ (round-trip จาก UI) แต่จะถูกละเว้น  
-เปลี่ยนผู้รับผิดชอบ → `POST .../reassign` · เปลี่ยนสถานะ → check-in / check-out / submit / approve
+**แก้ไม่ได้:** `panel_id`, `pm_schedule_type`, `work_order_type`, `status`, `requested_by`, `assigned_to` (ตั้งตอน create / เปลี่ยนผ่าน action อื่น)  
+ส่งมาเฉพาะ field ที่แก้ไม่ได้ → `400 E100_003` พร้อมข้อความบอก key ที่รับได้ (ไม่ success เงียบๆ)
 
 Nested ใต้ panel / device:
 

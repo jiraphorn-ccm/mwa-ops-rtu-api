@@ -23,6 +23,16 @@ func (f FieldSet) Has(name string) bool {
 	return ok
 }
 
+// HasAny reports whether the client sent at least one of the given JSON keys.
+func (f FieldSet) HasAny(names map[string]struct{}) bool {
+	for name := range names {
+		if f.Has(name) {
+			return true
+		}
+	}
+	return false
+}
+
 // Bind decodes and validates a JSON request body and reports which keys were
 // present. An empty body is treated as `{}` so PATCH with no changes is legal.
 func Bind(r *http.Request, dst any) (FieldSet, error) {
