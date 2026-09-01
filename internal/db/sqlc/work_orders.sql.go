@@ -294,36 +294,41 @@ func (q *Queries) SetWorkOrderCurrentRound(ctx context.Context, arg SetWorkOrder
 
 const updateWorkOrder = `-- name: UpdateWorkOrder :one
 UPDATE rtu.work_orders SET
-    panel_device_id = CASE WHEN $1::boolean THEN $2::uuid ELSE panel_device_id END,
-    title           = CASE WHEN $3::boolean THEN $4::varchar ELSE title END,
-    description     = CASE WHEN $5::boolean THEN $6::text ELSE description END,
-    priority        = CASE WHEN $7::boolean THEN $8::varchar ELSE priority END,
-    planned_date    = CASE WHEN $9::boolean THEN $10::date ELSE planned_date END,
-    due_date        = CASE WHEN $11::boolean THEN $12::date ELSE due_date END,
-    updated_by      = $13::uuid
-WHERE id = $14::uuid
+    pm_schedule_type = CASE WHEN $1::boolean THEN $2::varchar ELSE pm_schedule_type END,
+    panel_device_id = CASE WHEN $3::boolean THEN $4::uuid ELSE panel_device_id END,
+    title           = CASE WHEN $5::boolean THEN $6::varchar ELSE title END,
+    description     = CASE WHEN $7::boolean THEN $8::text ELSE description END,
+    priority        = CASE WHEN $9::boolean THEN $10::varchar ELSE priority END,
+    planned_date    = CASE WHEN $11::boolean THEN $12::date ELSE planned_date END,
+    due_date        = CASE WHEN $13::boolean THEN $14::date ELSE due_date END,
+    updated_by      = $15::uuid
+WHERE id = $16::uuid
 RETURNING id, work_order_no, work_order_type, pm_schedule_type, panel_id, panel_device_id, title, description, status, priority, source, requested_by, current_round_id, related_work_order_id, planned_date, due_date, closed_at, active, created_at, updated_at, created_by, updated_by
 `
 
 type UpdateWorkOrderParams struct {
-	PanelDeviceIDDoUpdate bool        `db:"panel_device_id_do_update" json:"panel_device_id_do_update"`
-	PanelDeviceID         *uuid.UUID  `db:"panel_device_id" json:"panel_device_id"`
-	TitleDoUpdate         bool        `db:"title_do_update" json:"title_do_update"`
-	Title                 *string     `db:"title" json:"title"`
-	DescriptionDoUpdate   bool        `db:"description_do_update" json:"description_do_update"`
-	Description           *string     `db:"description" json:"description"`
-	PriorityDoUpdate      bool        `db:"priority_do_update" json:"priority_do_update"`
-	Priority              string      `db:"priority" json:"priority"`
-	PlannedDateDoUpdate   bool        `db:"planned_date_do_update" json:"planned_date_do_update"`
-	PlannedDate           *httpx.Date `db:"planned_date" json:"planned_date"`
-	DueDateDoUpdate       bool        `db:"due_date_do_update" json:"due_date_do_update"`
-	DueDate               *httpx.Date `db:"due_date" json:"due_date"`
-	UpdatedBy             *uuid.UUID  `db:"updated_by" json:"updated_by"`
-	ID                    uuid.UUID   `db:"id" json:"id"`
+	PmScheduleTypeDoUpdate bool        `db:"pm_schedule_type_do_update" json:"pm_schedule_type_do_update"`
+	PmScheduleType         *string     `db:"pm_schedule_type" json:"pm_schedule_type"`
+	PanelDeviceIDDoUpdate  bool        `db:"panel_device_id_do_update" json:"panel_device_id_do_update"`
+	PanelDeviceID          *uuid.UUID  `db:"panel_device_id" json:"panel_device_id"`
+	TitleDoUpdate          bool        `db:"title_do_update" json:"title_do_update"`
+	Title                  *string     `db:"title" json:"title"`
+	DescriptionDoUpdate    bool        `db:"description_do_update" json:"description_do_update"`
+	Description            *string     `db:"description" json:"description"`
+	PriorityDoUpdate       bool        `db:"priority_do_update" json:"priority_do_update"`
+	Priority               string      `db:"priority" json:"priority"`
+	PlannedDateDoUpdate    bool        `db:"planned_date_do_update" json:"planned_date_do_update"`
+	PlannedDate            *httpx.Date `db:"planned_date" json:"planned_date"`
+	DueDateDoUpdate        bool        `db:"due_date_do_update" json:"due_date_do_update"`
+	DueDate                *httpx.Date `db:"due_date" json:"due_date"`
+	UpdatedBy              *uuid.UUID  `db:"updated_by" json:"updated_by"`
+	ID                     uuid.UUID   `db:"id" json:"id"`
 }
 
 func (q *Queries) UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams) (WorkOrder, error) {
 	row := q.db.QueryRow(ctx, updateWorkOrder,
+		arg.PmScheduleTypeDoUpdate,
+		arg.PmScheduleType,
 		arg.PanelDeviceIDDoUpdate,
 		arg.PanelDeviceID,
 		arg.TitleDoUpdate,

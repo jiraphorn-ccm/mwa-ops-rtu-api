@@ -63,6 +63,7 @@ LIMIT 1;
 
 -- name: UpdateWorkOrder :one
 UPDATE rtu.work_orders SET
+    pm_schedule_type = CASE WHEN @pm_schedule_type_do_update::boolean THEN sqlc.narg('pm_schedule_type')::varchar ELSE pm_schedule_type END,
     panel_device_id = CASE WHEN @panel_device_id_do_update::boolean THEN sqlc.narg('panel_device_id')::uuid ELSE panel_device_id END,
     title           = CASE WHEN @title_do_update::boolean THEN sqlc.narg('title')::varchar ELSE title END,
     description     = CASE WHEN @description_do_update::boolean THEN sqlc.narg('description')::text ELSE description END,

@@ -58,21 +58,29 @@ type WorkOrderCreateInput struct {
 // editable here — it only ever changes through the check-in/check-out/
 // submit/approve actions, which keep the activity log consistent.
 type WorkOrderUpdateInput struct {
-	PanelDeviceID *uuid.UUID  `json:"panel_device_id"`
-	Title         *string     `json:"title" validate:"omitempty,max=255"`
-	Description   *string     `json:"description" validate:"omitempty,max=4000"`
-	Priority      *string     `json:"priority" validate:"omitempty,oneof=HIGH MEDIUM LOW"`
-	PlannedDate   *httpx.Date `json:"planned_date"`
-	DueDate       *httpx.Date `json:"due_date"`
+	PmScheduleType *string     `json:"pm_schedule_type" validate:"omitempty,oneof=THREE_MONTH SIX_MONTH"`
+	PanelDeviceID  *uuid.UUID  `json:"panel_device_id"`
+	Title          *string     `json:"title" validate:"omitempty,max=255"`
+	Description    *string     `json:"description" validate:"omitempty,max=4000"`
+	Priority       *string     `json:"priority" validate:"omitempty,oneof=HIGH MEDIUM LOW"`
+	PlannedDate    *httpx.Date `json:"planned_date"`
+	DueDate        *httpx.Date `json:"due_date"`
 }
 
 var workOrderEditableFields = map[string]struct{}{
-	"panel_device_id": {},
-	"title":           {},
-	"description":     {},
-	"priority":        {},
-	"planned_date":    {},
-	"due_date":        {},
+	"pm_schedule_type": {},
+	"panel_device_id":  {},
+	"title":            {},
+	"description":      {},
+	"priority":         {},
+	"planned_date":     {},
+	"due_date":         {},
+}
+
+var pmScheduleTypeEditableStatuses = map[string]struct{}{
+	"ASSIGNED":    {},
+	"IN_PROGRESS": {},
+	"PENDING":     {},
 }
 
 // ReassignInput is the POST /work-orders/{id}/reassign body. Only valid
@@ -191,7 +199,7 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 	if len(fields) > 0 && !fields.HasAny(workOrderEditableFields) {
 		return repository.WorkOrderView{}, httpx.Err(httpx.ErrValidationFailed).
 			WithField("body", httpx.IssueInvalid,
-				"No editable fields in request. Accepted keys: panel_device_id, title, description, priority, planned_date, due_date.")
+				"No editable fields in request. Accepted keys: pm_schedule_type, panel_device_id, title, description, priority, planned_date, due_date.")
 	}
 
 	current, err := s.repo.Get(ctx, id)
@@ -200,6 +208,19 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 	}
 
 	params := sqlc.UpdateWorkOrderParams{ID: id}
+
+	if fields.Has("pm_schedule_type") {
+		if err := checkPmScheduleTypePatch(current, in.PmScheduleType); err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		schedule, setSchedule, err := patchRequired(fields, "pm_schedule_type", in.PmScheduleType)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		params.PmScheduleType = &schedule
+		params.PmScheduleTypeDoUpdate = setSchedule
+	}
+
 	params.PanelDeviceID, params.PanelDeviceIDDoUpdate = patchNullable(fields, "panel_device_id", in.PanelDeviceID)
 	if params.PanelDeviceIDDoUpdate && params.PanelDeviceID != nil {
 		if err := s.checkDeviceInPanel(ctx, *params.PanelDeviceID, current.PanelID); err != nil {
@@ -229,8 +250,25 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 }
 
 func workOrderUpdateHasChanges(p sqlc.UpdateWorkOrderParams) bool {
-	return p.PanelDeviceIDDoUpdate || p.TitleDoUpdate || p.DescriptionDoUpdate ||
+	return p.PmScheduleTypeDoUpdate || p.PanelDeviceIDDoUpdate || p.TitleDoUpdate || p.DescriptionDoUpdate ||
 		p.PriorityDoUpdate || p.PlannedDateDoUpdate || p.DueDateDoUpdate
+}
+
+func checkPmScheduleTypePatch(wo sqlc.WorkOrder, pmScheduleType *string) error {
+	if wo.WorkOrderType != "PM" {
+		return httpx.Err(httpx.ErrPmScheduleTypeNotAllowed).
+			WithField("pm_schedule_type", httpx.IssueInvalid, "Must not be set when work_order_type is CM.")
+	}
+	if _, ok := pmScheduleTypeEditableStatuses[wo.Status]; !ok {
+		return httpx.Err(httpx.ErrWorkOrderStatusInvalid).
+			WithField("pm_schedule_type", httpx.IssueInvalid,
+				"Can only be changed while status is ASSIGNED, IN_PROGRESS, or PENDING.")
+	}
+	if pmScheduleType == nil {
+		return httpx.Err(httpx.ErrPmScheduleTypeRequired).
+			WithField("pm_schedule_type", httpx.IssueRequired, "Required when work_order_type is PM.")
+	}
+	return nil
 }
 
 // Reassign changes the assignee of the round currently in progress, before

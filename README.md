@@ -391,9 +391,9 @@ Filter เพิ่ม: `work_order_id`, `pm_report_id` (ผ่าน list query
 | GET | `/work-orders/{id}/cm-reports` |
 | GET · POST | `/work-orders/{id}/attachments` |
 
-`PATCH` / `PUT /work-orders/{id}` แก้ได้เฉพาะ: `title`, `description`, `priority`, `planned_date`, `due_date`, `panel_device_id`  
-**แก้ไม่ได้:** `panel_id`, `pm_schedule_type`, `work_order_type`, `status`, `requested_by`, `assigned_to` (ตั้งตอน create / เปลี่ยนผ่าน action อื่น)  
-ส่งมาเฉพาะ field ที่แก้ไม่ได้ → `400 E100_003` พร้อมข้อความบอก key ที่รับได้ (ไม่ success เงียบๆ)
+`PATCH` / `PUT /work-orders/{id}` แก้ได้: `title`, `description`, `priority`, `planned_date`, `due_date`, `panel_device_id`, `pm_schedule_type` (PM เท่านั้น — เฉพาะ status `ASSIGNED`, `IN_PROGRESS`, `PENDING`)  
+**แก้ไม่ได้:** `panel_id`, `work_order_type`, `status`, `requested_by`, `assigned_to` (ตั้งตอน create / เปลี่ยนผ่าน action อื่น)  
+ส่งมาเฉพาะ field ที่แก้ไม่ได้ → `400 E100_003` พร้อมข้อความบอก key ที่รับได้
 
 Nested ใต้ panel / device:
 
