@@ -439,7 +439,7 @@ Filter: `panel_device_id`, `problem_topic_id` (สำหรับจำกัด
 | GET · PUT · PATCH · DELETE | `/cm-reports/{id}` |
 | GET · POST | `/cm-reports/{id}/attachments` |
 
-Body สำคัญ: `problem_topic_id` (FK → `/problem-topics`, sync `tag_code` เป็น `code` อัตโนมัติ), `problem_detail`, `corrective_action`, …  
+Body สำคัญ: `problem_topic_id` และ/หรือ `problem_topic_ids[]` (อย่างน้อย 1 — topic แรก = หลักบน report, sync add-only เข้า junction), `problem_detail`, `corrective_action`, …  
 `tag_code` free text ยังรับได้ (legacy) แต่แนะนำใช้ `problem_topic_id`
 
 ### Engineers, checklist & problem master
@@ -527,10 +527,10 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 * Panel `last_pm_date` / `next_pm_date` sync เมื่อ PM ถึง COMPLETED หรือ CONDITIONAL
 * CM report: `problem_topic_id` ต้องชี้ topic ที่ `active=true` (`E300_244`); inactive / ไม่พบ → `E300_242` / `E300_244`
 * CM duplicate: ห้ามเปิด CM ใหม่ (หรือบันทึกรายงาน CM) ซ้ำบนตู้เดียวกัน + หัวข้อปัญหาเดียวกัน ขณะมีใบเปิดอยู่ (`ASSIGNED`, `IN_PROGRESS`, `PENDING`, `PENDING_APPROVAL`) → `E300_246` (panel-wide — ไม่แยก device)
-* CM create: `problem_topic_id` และ/หรือ `problem_topic_ids[]` **บังคับอย่างน้อย 1 หัวข้อ** เมื่อ `work_order_type=CM` (`E300_247`) — เก็บใน `work_order_problem_topics` + seed `cm_reports` (หัวข้อแรก); duplicate check ใช้ panel + **แต่ละ topic** ขณะ status เปิด → `409 E300_246`
-* CM escalate (PM reject): `problem_topic_id` บังคับเมื่อ `escalate=true` — reuse CM เปิดอยู่ที่ topic ตรงกัน (`FindMatchingOpenCm`, approval path เท่านั้น)
-* PM escalate (`POST .../escalate`): สร้าง CM ใหม่ผ่าน create path — ถ้ามี CM เปิด topic เดียวกันแล้ว → `E300_246`; อัปเดต seeded report ด้วย `pm_report_id`
-* `PUT .../cm-report`: `problem_topic_id` **บังคับ** (`validate:"required"`) — ห้ามลบ topic ผ่าน PATCH (`E300_247`)
+* CM create / PATCH work-order: `problem_topic_id` และ/หรือ `problem_topic_ids[]` อย่างน้อย 1 — junction + seed report (topic แรก); PATCH WO replace ชุด topic ได้
+* CM escalate: `problem_topic_id` / `problem_topic_ids[]` อย่างน้อย 1
+* `PUT/PATCH cm-report`, `PATCH cm-reports/{id}`: `problem_topic_id` และ/หรือ `problem_topic_ids[]` อย่างน้อย 1 — topic แรก = หลักบน report; sync add-only เข้า junction
+* `GET /work-orders`: filter `status` / `statuses` หลายค่าได้ (`?status=ASSIGNED&status=IN_PROGRESS` หรือ comma-separated)
 
 ---
 

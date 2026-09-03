@@ -18,7 +18,8 @@
 
 | Field | ชนิด | บังคับ | เงื่อนไข |
 |-------|------|--------|----------|
-| `problem_topic_id` | UUID | ✅ | topic ต้อง `active=true` |
+| `problem_topic_id` | UUID | เงื่อนไข | topic หลักของรายงาน — ส่งคู่กับหรือแทน `problem_topic_ids` |
+| `problem_topic_ids` | UUID[] | เงื่อนไข | **อย่างน้อย 1 หัวข้อ** (รวมกับ `problem_topic_id`); topic แรก = หลักบน `cm_reports` + sync add-only ทุก topic เข้า junction |
 | `reported_by` | UUID | ไม่ | default = `requested_by` ของใบ |
 | `panel_device_id` | UUID | ไม่ | ต้องอยู่ใน panel |
 | `tag_code` | string | ไม่ | legacy; sync จาก topic `code` ถ้ามี topic |
@@ -63,8 +64,9 @@
 
 | Field | เงื่อนไขพิเศษ |
 |-------|----------------|
-| `problem_topic_id` | **ห้าม PATCH เป็น null** → `E300_247` |
-| `problem_topic_id` | เปลี่ยน topic → duplicate check panel+topic |
+| `problem_topic_id` | ส่งคู่กับหรือแทน `problem_topic_ids` — **ห้าม PATCH เป็น null** → `E300_247` |
+| `problem_topic_ids` | อย่างน้อย 1 เมื่อส่ง topic; topic แรก = หลักบน report; sync add-only ทุก topic เข้า junction |
+| `problem_topic_id` | topic ใหม่ → duplicate check panel+topic (ทุก topic ใน request) |
 
 ### `DELETE /cm-reports/{id}`
 

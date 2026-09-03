@@ -80,6 +80,10 @@
       "value": ""
     },
     {
+      "key": "problem_topic_id_2",
+      "value": ""
+    },
+    {
       "key": "work_order_id",
       "value": ""
     },
@@ -4732,6 +4736,7 @@
                   "} else if (pm.response.code === 200) {",
                   "    const items = pm.response.json().data?.items;",
                   "    if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);",
+                  "    if (items?.length > 1 && items[1]?.id) pm.collectionVariables.set('problem_topic_id_2', items[1].id);",
                   "}"
                 ]
               }
@@ -4781,6 +4786,7 @@
                   "} else if (pm.response.code === 200) {",
                   "    const items = pm.response.json().data?.items;",
                   "    if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);",
+                  "    if (items?.length > 1 && items[1]?.id) pm.collectionVariables.set('problem_topic_id_2', items[1].id);",
                   "}"
                 ]
               }
@@ -5063,11 +5069,90 @@
                 },
                 {
                   "key": "status",
-                  "value": ""
+                  "value": "ASSIGNED"
+                },
+                {
+                  "key": "status",
+                  "value": "IN_PROGRESS",
+                  "disabled": true
+                },
+                {
+                  "key": "statuses",
+                  "value": "",
+                  "disabled": true
                 },
                 {
                   "key": "pm_schedule_type",
                   "value": ""
+                },
+                {
+                  "key": "problem_topic_id",
+                  "value": "{{problem_topic_id}}",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "description": "Use repeated `status` or comma-separated values; optional `statuses` param also works.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List (multi status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "work_order_type",
+                  "value": "CM"
+                },
+                {
+                  "key": "status",
+                  "value": "ASSIGNED,IN_PROGRESS,PENDING"
                 }
               ]
             }
@@ -5173,7 +5258,56 @@
                   "    const json = pm.response.json();",
                   "    pm.expect(json.status).to.eql('success');",
                   "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});"
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create CM (multi-topic)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_order_type\": \"CM\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"CM multi-topic demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Requires problem_topic_id + problem_topic_id_2 (run Problem Topics → List first).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);",
+                  "}"
                 ]
               }
             }
@@ -5241,6 +5375,50 @@
             }
           },
           "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH (problem topics)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "CM only; replaces junction topics. Must keep current cm-report topic in the list.",
           "event": [
             {
               "listen": "test",
@@ -5923,7 +6101,55 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Pump fault\",\n  \"corrective_action\": \"Replace seal\"\n}",
+              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Pump fault\",\n  \"corrective_action\": \"Replace seal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "problem_topic_id (single) or problem_topic_ids[] (array). First topic = report primary + tag_code.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save CM Report (single topic)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/cm-report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "cm-report"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Single topic report\",\n  \"corrective_action\": \"Inspect seal\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6313,7 +6539,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\"\n}",
+              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6672,6 +6898,50 @@
         },
         {
           "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/cm-reports/{{cm_report_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "cm-reports",
+                "{{cm_report_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"recommendation\": \"Monitor for 7 days\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "problem_topic_id or problem_topic_ids[] — sync add-only to work order junction.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH (single topic)",
           "request": {
             "method": "PATCH",
             "header": [],

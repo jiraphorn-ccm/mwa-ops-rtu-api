@@ -573,3 +573,179 @@ func TestIntegrationCmPatchProblemTopics(t *testing.T) {
 		t.Fatalf("want 2 topics after patch, got %+v", getResp.Data.ProblemTopics)
 	}
 }
+
+func TestIntegrationCmReportPutMultiTopic(t *testing.T) {
+	h := integrationRouter(t)
+	prefix := "/api/rtu/v1"
+	actorID := uuid.New()
+
+	panelBody, _ := json.Marshal(map[string]any{
+		"code": "PUTCM-" + uuid.NewString()[:8],
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, prefix+"/panels", bytes.NewReader(panelBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create panel: status=%d", rec.Code)
+	}
+	var panelResp struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &panelResp); err != nil {
+		t.Fatal(err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, prefix+"/problem-topics?active=true", nil)
+	h.ServeHTTP(rec, req)
+	var topicsResp struct {
+		Data struct {
+			Items []struct {
+				ID uuid.UUID `json:"id"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &topicsResp); err != nil {
+		t.Fatal(err)
+	}
+	if len(topicsResp.Data.Items) < 2 {
+		t.Skip("need at least 2 problem topics")
+	}
+	topic1 := topicsResp.Data.Items[0].ID
+	topic2 := topicsResp.Data.Items[1].ID
+
+	cmBody, _ := json.Marshal(map[string]any{
+		"work_order_type":  "CM",
+		"panel_id":         panelResp.Data.ID.String(),
+		"problem_topic_id": topic1.String(),
+		"requested_by":     actorID.String(),
+		"assigned_to":      actorID.String(),
+		"assigned_by":      actorID.String(),
+	})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, prefix+"/work-orders", bytes.NewReader(cmBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create CM: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var woResp struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &woResp); err != nil {
+		t.Fatal(err)
+	}
+
+	putBody, _ := json.Marshal(map[string]any{
+		"problem_topic_ids": []string{topic1.String(), topic2.String()},
+		"problem_detail":    "multi topic report",
+	})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPut, prefix+"/work-orders/"+woResp.Data.ID.String()+"/cm-report", bytes.NewReader(putBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put cm-report: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, prefix+"/work-orders/"+woResp.Data.ID.String(), nil)
+	h.ServeHTTP(rec, req)
+	var getResp struct {
+		Data struct {
+			ProblemTopics []struct {
+				ID uuid.UUID `json:"id"`
+			} `json:"problem_topics"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &getResp); err != nil {
+		t.Fatal(err)
+	}
+	if len(getResp.Data.ProblemTopics) != 2 {
+		t.Fatalf("want 2 topics on WO after PUT cm-report, got %+v", getResp.Data.ProblemTopics)
+	}
+}
+
+func TestIntegrationWorkOrderListMultiStatus(t *testing.T) {
+	h := integrationRouter(t)
+	prefix := "/api/rtu/v1"
+	actorID := uuid.New()
+
+	panelBody, _ := json.Marshal(map[string]any{
+		"code": "STFL-" + uuid.NewString()[:8],
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, prefix+"/panels", bytes.NewReader(panelBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create panel: %d", rec.Code)
+	}
+	var panelResp struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &panelResp); err != nil {
+		t.Fatal(err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, prefix+"/problem-topics?active=true", nil)
+	h.ServeHTTP(rec, req)
+	var topicsResp struct {
+		Data struct {
+			Items []struct {
+				ID uuid.UUID `json:"id"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &topicsResp); err != nil {
+		t.Fatal(err)
+	}
+	if len(topicsResp.Data.Items) == 0 {
+		t.Skip("no topics")
+	}
+	topicID := topicsResp.Data.Items[0].ID
+
+	cmBody, _ := json.Marshal(map[string]any{
+		"work_order_type":  "CM",
+		"panel_id":         panelResp.Data.ID.String(),
+		"problem_topic_id": topicID.String(),
+		"requested_by":     actorID.String(),
+		"assigned_to":      actorID.String(),
+		"assigned_by":      actorID.String(),
+	})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, prefix+"/work-orders", bytes.NewReader(cmBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create CM: %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, prefix+"/work-orders?panel_id="+panelResp.Data.ID.String()+"&status=ASSIGNED&status=IN_PROGRESS", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list multi status: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var listResp struct {
+		Data struct {
+			Items []struct {
+				Status string `json:"status"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &listResp); err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Data.Items) == 0 {
+		t.Fatalf("expected at least one ASSIGNED CM")
+	}
+}

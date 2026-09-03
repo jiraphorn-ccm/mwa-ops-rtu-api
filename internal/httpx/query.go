@@ -66,6 +66,40 @@ func (q *Query) Enum(name string, allowed ...string) *string {
 	return nil
 }
 
+// Enums returns zero or more values for a query param. Supports repeated keys
+// (?status=A&status=B) and comma-separated values (?status=A,B).
+func (q *Query) Enums(name string, allowed ...string) []string {
+	rawValues, ok := q.values[name]
+	if !ok || len(rawValues) == 0 {
+		return nil
+	}
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, a := range allowed {
+		allowedSet[a] = struct{}{}
+	}
+	seen := make(map[string]struct{})
+	var out []string
+	for _, raw := range rawValues {
+		for part := range strings.SplitSeq(raw, ",") {
+			v := strings.TrimSpace(part)
+			if v == "" {
+				continue
+			}
+			upper := strings.ToUpper(v)
+			if _, ok := allowedSet[upper]; !ok {
+				q.fail(name, fmt.Sprintf("Must be one of: %s.", strings.Join(allowed, ", ")))
+				continue
+			}
+			if _, ok := seen[upper]; ok {
+				continue
+			}
+			seen[upper] = struct{}{}
+			out = append(out, upper)
+		}
+	}
+	return out
+}
+
 // Bool returns an optional boolean parameter.
 func (q *Query) Bool(name string) *bool {
 	v, ok := q.raw(name)

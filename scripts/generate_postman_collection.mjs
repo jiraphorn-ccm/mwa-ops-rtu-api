@@ -23,6 +23,7 @@ const COLLECTION_VARS = [
   ["engineer_id", ""],
   ["checklist_item_id", ""],
   ["problem_topic_id", ""],
+  ["problem_topic_id_2", ""],
   ["work_order_id", ""],
   ["pm_report_id", ""],
   ["cm_report_id", ""],
@@ -101,6 +102,7 @@ const SAVE_ID = {
 } else if (pm.response.code === 200) {
     const items = pm.response.json().data?.items;
     if (items?.length && items[0]?.id) pm.collectionVariables.set('problem_topic_id', items[0].id);
+    if (items?.length > 1 && items[1]?.id) pm.collectionVariables.set('problem_topic_id_2', items[1].id);
 }`,
   work_order_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('work_order_id', pm.response.json().data.id);
@@ -276,6 +278,21 @@ const WO_CM_CREATE = {
   assigned_to: "{{actor_id}}",
   assigned_by: "{{actor_id}}",
   title: "CM demo",
+};
+
+const WO_CM_CREATE_MULTI = {
+  work_order_type: "CM",
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  requested_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  title: "CM multi-topic demo",
+};
+
+const CM_REPORT_SAVE = {
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  problem_detail: "Pump fault",
+  corrective_action: "Replace seal",
 };
 
 function build() {
@@ -1000,8 +1017,18 @@ function build() {
           req("List", "GET", [...api, "work-orders"], {
             query: q([
               { key: "work_order_type", value: "" },
-              { key: "status", value: "" },
+              { key: "status", value: "ASSIGNED" },
+              { key: "status", value: "IN_PROGRESS", disabled: true },
+              { key: "statuses", value: "", disabled: true },
               { key: "pm_schedule_type", value: "" },
+              { key: "problem_topic_id", value: "{{problem_topic_id}}", disabled: true },
+            ]),
+            desc: "Use repeated `status` or comma-separated values; optional `statuses` param also works.",
+          }),
+          req("List (multi status)", "GET", [...api, "work-orders"], {
+            query: q([
+              { key: "work_order_type", value: "CM" },
+              { key: "status", value: "ASSIGNED,IN_PROGRESS,PENDING" },
             ]),
           }),
           req("Create PM", "POST", [...api, "work-orders"], {
@@ -1010,6 +1037,12 @@ function build() {
           }),
           req("Create CM", "POST", [...api, "work-orders"], {
             body: { ...WO_CM_CREATE, panel_id: "{{panel_id}}" },
+            saveVar: "work_order_id",
+          }),
+          req("Create CM (multi-topic)", "POST", [...api, "work-orders"], {
+            body: { ...WO_CM_CREATE_MULTI, panel_id: "{{panel_id}}" },
+            saveVar: "work_order_id",
+            desc: "Requires problem_topic_id + problem_topic_id_2 (run Problem Topics → List first).",
           }),
           req("Get by ID", "GET", [...api, "work-orders", "{{work_order_id}}"]),
           req(
@@ -1017,6 +1050,20 @@ function build() {
             "PATCH",
             [...api, "work-orders", "{{work_order_id}}"],
             { body: { priority: "HIGH" } },
+          ),
+          req(
+            "Update PATCH (problem topics)",
+            "PATCH",
+            [...api, "work-orders", "{{work_order_id}}"],
+            {
+              body: {
+                problem_topic_ids: [
+                  "{{problem_topic_id}}",
+                  "{{problem_topic_id_2}}",
+                ],
+              },
+              desc: "CM only; replaces junction topics. Must keep current cm-report topic in the list.",
+            },
           ),
           req(
             "Update PUT",
@@ -1156,10 +1203,20 @@ function build() {
             "{{work_order_id}}",
             "cm-report",
           ], {
+            body: CM_REPORT_SAVE,
+            saveVar: "cm_report_id",
+            desc: "problem_topic_id (single) or problem_topic_ids[] (array). First topic = report primary + tag_code.",
+          }),
+          req("Save CM Report (single topic)", "PUT", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "cm-report",
+          ], {
             body: {
               problem_topic_id: "{{problem_topic_id}}",
-              problem_detail: "Pump fault",
-              corrective_action: "Replace seal",
+              problem_detail: "Single topic report",
+              corrective_action: "Inspect seal",
             },
             saveVar: "cm_report_id",
           }),
@@ -1230,7 +1287,10 @@ function build() {
               reported_by: "{{actor_id}}",
               assigned_to: "{{actor_id}}",
               assigned_by: "{{actor_id}}",
-              problem_topic_id: "{{problem_topic_id}}",
+              problem_topic_ids: [
+                "{{problem_topic_id}}",
+                "{{problem_topic_id_2}}",
+              ],
             },
             saveVar: "cm_report_id",
           },
@@ -1293,6 +1353,20 @@ function build() {
       folder("CM Reports", [
         req("Get by ID", "GET", [...api, "cm-reports", "{{cm_report_id}}"]),
         req("Update PATCH", "PATCH", [
+          ...api,
+          "cm-reports",
+          "{{cm_report_id}}",
+        ], {
+          body: {
+            problem_topic_ids: [
+              "{{problem_topic_id}}",
+              "{{problem_topic_id_2}}",
+            ],
+            recommendation: "Monitor for 7 days",
+          },
+          desc: "problem_topic_id or problem_topic_ids[] — sync add-only to work order junction.",
+        }),
+        req("Update PATCH (single topic)", "PATCH", [
           ...api,
           "cm-reports",
           "{{cm_report_id}}",

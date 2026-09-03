@@ -53,6 +53,7 @@ type WorkOrderFilter struct {
 	WorkOrderType  *string
 	PmScheduleType *string
 	Status         *string
+	Statuses       []string
 	Priority       *string
 	PanelID        *uuid.UUID
 	PanelDeviceID  *uuid.UUID
@@ -116,7 +117,9 @@ func (r *WorkOrderRepository) List(ctx context.Context, page httpx.Page, filter 
 	if filter.PmScheduleType != nil {
 		conds = append(conds, "wo.pm_schedule_type = "+a.add(*filter.PmScheduleType))
 	}
-	if filter.Status != nil {
+	if len(filter.Statuses) > 0 {
+		conds = append(conds, "wo.status = ANY("+a.add(filter.Statuses)+")")
+	} else if filter.Status != nil {
 		conds = append(conds, "wo.status = "+a.add(*filter.Status))
 	}
 	if filter.Priority != nil {
@@ -476,6 +479,24 @@ func (r *WorkOrderRepository) SyncProblemTopicFromReport(
 ) error {
 	sync := func(qtx pgx.Tx) error {
 		return r.topics.SyncFromReport(ctx, qtx, workOrderID, newTopicID)
+	}
+	if tx != nil {
+		return sync(tx)
+	}
+	return db.InTxConn(ctx, r.pool, func(qtx pgx.Tx, _ *sqlc.Queries) error {
+		return sync(qtx)
+	})
+}
+
+// SyncProblemTopicsFromReport adds each report topic to the work order junction.
+func (r *WorkOrderRepository) SyncProblemTopicsFromReport(
+	ctx context.Context,
+	tx pgx.Tx,
+	workOrderID uuid.UUID,
+	topicIDs []uuid.UUID,
+) error {
+	sync := func(qtx pgx.Tx) error {
+		return r.topics.SyncAllFromReport(ctx, qtx, workOrderID, topicIDs)
 	}
 	if tx != nil {
 		return sync(tx)

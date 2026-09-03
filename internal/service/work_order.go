@@ -606,6 +606,16 @@ func (s *WorkOrderService) SyncProblemTopicFromReport(
 	return s.repo.SyncProblemTopicFromReport(ctx, tx, workOrderID, newTopicID)
 }
 
+// SyncProblemTopicsFromReport adds every report topic to the work order junction.
+func (s *WorkOrderService) SyncProblemTopicsFromReport(
+	ctx context.Context,
+	tx pgx.Tx,
+	workOrderID uuid.UUID,
+	topicIDs []uuid.UUID,
+) error {
+	return s.repo.SyncProblemTopicsFromReport(ctx, tx, workOrderID, topicIDs)
+}
+
 // ListActivity returns the full status/assignment timeline of a work order —
 // when it was opened, assigned, started, sent for approval and rejected.
 func (s *WorkOrderService) ListActivity(ctx context.Context, id uuid.UUID) ([]sqlc.WorkOrderActivityLog, error) {

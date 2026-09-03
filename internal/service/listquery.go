@@ -138,11 +138,16 @@ func ParsePanelImageList(r *http.Request, panelID uuid.UUID) (httpx.Page, PanelI
 func ParseWorkOrderList(r *http.Request, panelID, panelDeviceID *uuid.UUID) (httpx.Page, WorkOrderListFilter, error) {
 	q := httpx.NewQuery(r)
 	page := httpx.ParsePage(q, WorkOrderSortable(), "created_at")
+	woStatuses := []string{"ASSIGNED", "IN_PROGRESS", "PENDING", "PENDING_APPROVAL", "COMPLETED", "CONDITIONAL", "CANCELLED"}
+	statuses := q.Enums("status", woStatuses...)
+	if more := q.Enums("statuses", woStatuses...); len(more) > 0 {
+		statuses = mergeEnumValues(statuses, more)
+	}
 	filter := WorkOrderListFilter{
 		PanelID:        panelID,
 		PanelDeviceID:  panelDeviceID,
 		WorkOrderType:  q.Enum("work_order_type", "PM", "CM"),
-		Status:         q.Enum("status", "ASSIGNED", "IN_PROGRESS", "PENDING", "PENDING_APPROVAL", "COMPLETED", "CONDITIONAL", "CANCELLED"),
+		Statuses:       statuses,
 		Priority:       q.Enum("priority", "HIGH", "MEDIUM", "LOW"),
 		Active:         q.Bool("active"),
 		AssignedTo:     q.UUID("assigned_to"),
@@ -162,6 +167,22 @@ func ParseWorkOrderList(r *http.Request, panelID, panelDeviceID *uuid.UUID) (htt
 		filter.PanelDeviceID = q.UUID("panel_device_id")
 	}
 	return page, filter, q.Err()
+}
+
+func mergeEnumValues(a, b []string) []string {
+	if len(b) == 0 {
+		return a
+	}
+	seen := make(map[string]struct{}, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, v := range append(a, b...) {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }
 
 // ParseNotificationList reads query params for GET /notifications.

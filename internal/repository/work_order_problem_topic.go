@@ -101,6 +101,22 @@ func (r *WorkOrderProblemTopicRepository) SyncFromReport(
 	return nil
 }
 
+// SyncAllFromReport adds each topic to the work order junction when missing.
+func (r *WorkOrderProblemTopicRepository) SyncAllFromReport(
+	ctx context.Context,
+	qtx pgx.Tx,
+	workOrderID uuid.UUID,
+	topicIDs []uuid.UUID,
+) error {
+	for _, topicID := range topicIDs {
+		id := topicID
+		if err := r.SyncFromReport(ctx, qtx, workOrderID, &id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ListByWorkOrder returns topics linked to one work order.
 func (r *WorkOrderProblemTopicRepository) ListByWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]ProblemTopicBrief, error) {
 	rows, err := r.q.ListProblemTopicsByWorkOrder(ctx, workOrderID)

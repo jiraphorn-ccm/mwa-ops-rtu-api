@@ -35,21 +35,22 @@ type CmReportService struct {
 // CmReportSaveInput is the PUT /work-orders/{id}/cm-report body.
 type CmReportSaveInput struct {
 	// ReportedBy defaults to the work order's requested_by when omitted.
-	ReportedBy       *uuid.UUID `json:"reported_by"`
-	PanelDeviceID    *uuid.UUID `json:"panel_device_id"`
-	ProblemTopicID   uuid.UUID  `json:"problem_topic_id" validate:"required"`
-	TagCode          *string    `json:"tag_code" validate:"omitempty,max=100"`
-	ErrorLogs        *string    `json:"error_logs"`
-	ProblemDetail    *string    `json:"problem_detail"`
-	RootCause        *string    `json:"root_cause"`
-	ReferenceInfo    *string    `json:"reference_info"`
-	CorrectiveAction *string    `json:"corrective_action"`
-	Recommendation   *string    `json:"recommendation"`
-	PendingReason    *string    `json:"pending_reason"`
-	RepairedBy       *uuid.UUID `json:"repaired_by"`
-	ReportedAt       *time.Time `json:"reported_at"`
-	StartedAt        *time.Time `json:"started_at"`
-	EndedAt          *time.Time `json:"ended_at"`
+	ReportedBy       *uuid.UUID  `json:"reported_by"`
+	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
+	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
+	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
+	ErrorLogs        *string     `json:"error_logs"`
+	ProblemDetail    *string     `json:"problem_detail"`
+	RootCause        *string     `json:"root_cause"`
+	ReferenceInfo    *string     `json:"reference_info"`
+	CorrectiveAction *string     `json:"corrective_action"`
+	Recommendation   *string     `json:"recommendation"`
+	PendingReason    *string     `json:"pending_reason"`
+	RepairedBy       *uuid.UUID  `json:"repaired_by"`
+	ReportedAt       *time.Time  `json:"reported_at"`
+	StartedAt        *time.Time  `json:"started_at"`
+	EndedAt          *time.Time  `json:"ended_at"`
 }
 
 // CmReportEscalateInput is the POST /pm-reports/{id}/escalate body —
@@ -60,22 +61,24 @@ type CmReportEscalateInput struct {
 	ReportedBy    uuid.UUID   `json:"reported_by" validate:"required"`
 	AssignedTo    uuid.UUID   `json:"assigned_to" validate:"required"`
 	AssignedBy    uuid.UUID   `json:"assigned_by" validate:"required"`
-	PanelDeviceID  *uuid.UUID  `json:"panel_device_id"`
-	ProblemTopicID uuid.UUID   `json:"problem_topic_id" validate:"required"`
-	TagCode        *string     `json:"tag_code" validate:"omitempty,max=100"`
-	ErrorLogs     *string     `json:"error_logs"`
-	ProblemDetail *string     `json:"problem_detail"`
-	RepairDate    *httpx.Date `json:"repair_date"`
+	PanelDeviceID   *uuid.UUID  `json:"panel_device_id"`
+	ProblemTopicID  *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs []uuid.UUID `json:"problem_topic_ids"`
+	TagCode         *string     `json:"tag_code" validate:"omitempty,max=100"`
+	ErrorLogs       *string     `json:"error_logs"`
+	ProblemDetail   *string     `json:"problem_detail"`
+	RepairDate      *httpx.Date `json:"repair_date"`
 }
 
 // CmReportOnsiteInput is the POST /pm-reports/{id}/onsite-fixes body — a
 // repair made during the PM visit itself, before the PM report is even
 // submitted.
 type CmReportOnsiteInput struct {
-	PanelDeviceID    *uuid.UUID `json:"panel_device_id"`
-	ReportedBy       uuid.UUID  `json:"reported_by" validate:"required"`
-	ProblemTopicID   *uuid.UUID `json:"problem_topic_id"`
-	TagCode          *string    `json:"tag_code" validate:"omitempty,max=100"`
+	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
+	ReportedBy       uuid.UUID   `json:"reported_by" validate:"required"`
+	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
+	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
 	ErrorLogs        *string    `json:"error_logs"`
 	ProblemDetail    *string    `json:"problem_detail"`
 	RootCause        *string    `json:"root_cause"`
@@ -93,9 +96,10 @@ type CmReportOnsiteInput struct {
 // CmReportUpdateInput is the PATCH /cm-reports/{id} body — used for any
 // origin once the record exists.
 type CmReportUpdateInput struct {
-	PanelDeviceID    *uuid.UUID `json:"panel_device_id"`
-	ProblemTopicID   *uuid.UUID `json:"problem_topic_id"`
-	TagCode          *string    `json:"tag_code" validate:"omitempty,max=100"`
+	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
+	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
+	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
 	ErrorLogs        *string    `json:"error_logs"`
 	ProblemDetail    *string    `json:"problem_detail"`
 	RootCause        *string    `json:"root_cause"`
@@ -134,15 +138,15 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 	if err := s.checkDeviceInPanel(ctx, wo.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
-	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, &in.ProblemTopicID, in.TagCode)
+	topicIDs, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, true)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
 
 	var report sqlc.CmReport
 	err = s.repo.WithPanelCmLock(ctx, wo.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
-		if err := repository.EnsureNoOpenCmConflict(ctx, tx, wo.PanelID, repository.OpenCmWorkOrderFilter{
-			ProblemTopicID:     problemTopicID,
+		if err := repository.EnsureNoOpenCmConflictForTopics(ctx, tx, wo.PanelID, repository.OpenCmDuplicateCheck{
+			TopicIDs:           topicIDs,
 			ExcludeWorkOrderID: &workOrderID,
 		}); err != nil {
 			return err
@@ -153,7 +157,7 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 			return err
 		}
 
-		if err := s.workOrders.SyncProblemTopicFromReport(ctx, tx, workOrderID, problemTopicID); err != nil {
+		if err := s.workOrders.SyncProblemTopicsFromReport(ctx, tx, workOrderID, topicIDs); err != nil {
 			return err
 		}
 
@@ -162,7 +166,7 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 				ID:                       existing.ID,
 				PanelDeviceID:            in.PanelDeviceID,
 				PanelDeviceIDDoUpdate:    true,
-				ProblemTopicID:           problemTopicID,
+				ProblemTopicID:           primaryTopicID,
 				ProblemTopicIDDoUpdate:   true,
 				TagCode:                  tagCode,
 				TagCodeDoUpdate:          true,
@@ -203,7 +207,7 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 			PanelID:          wo.PanelID,
 			PanelDeviceID:    in.PanelDeviceID,
 			ReportedBy:       reportedBy,
-			ProblemTopicID:   problemTopicID,
+			ProblemTopicID:   primaryTopicID,
 			TagCode:          tagCode,
 			ErrorLogs:        in.ErrorLogs,
 			ProblemDetail:    in.ProblemDetail,
@@ -283,7 +287,7 @@ func (s *CmReportService) CreateOnsiteFix(ctx context.Context, pmReportID uuid.U
 	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
-	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, in.ProblemTopicID, in.TagCode)
+	_, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, false)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
@@ -299,7 +303,7 @@ func (s *CmReportService) CreateOnsiteFix(ctx context.Context, pmReportID uuid.U
 		PanelID:          pmReport.PanelID,
 		PanelDeviceID:    in.PanelDeviceID,
 		ReportedBy:       in.ReportedBy,
-		ProblemTopicID:   problemTopicID,
+		ProblemTopicID:   primaryTopicID,
 		TagCode:          tagCode,
 		ErrorLogs:        in.ErrorLogs,
 		ProblemDetail:    in.ProblemDetail,
@@ -331,12 +335,12 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
-	problemTopicID, tagCode, err := s.resolveProblemTopic(ctx, &in.ProblemTopicID, in.TagCode)
+	topicIDs, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, true)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
 
-	cmID, err := s.resolveOrCreateCM(ctx, wo, in, problemTopicID)
+	cmID, err := s.resolveOrCreateCM(ctx, wo, in, topicIDs)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
@@ -361,7 +365,7 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 	now := time.Now()
 	var report sqlc.CmReport
 	err = s.repo.WithPanelCmLock(ctx, pmReport.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
-		if err := s.workOrders.SyncProblemTopicFromReport(ctx, tx, cmID, problemTopicID); err != nil {
+		if err := s.workOrders.SyncProblemTopicsFromReport(ctx, tx, cmID, topicIDs); err != nil {
 			return err
 		}
 		var err error
@@ -371,7 +375,7 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 			PmReportIDDoUpdate:       true,
 			PanelDeviceID:            in.PanelDeviceID,
 			PanelDeviceIDDoUpdate:    true,
-			ProblemTopicID:           problemTopicID,
+			ProblemTopicID:           primaryTopicID,
 			ProblemTopicIDDoUpdate:   true,
 			TagCode:                  tagCode,
 			TagCodeDoUpdate:          true,
@@ -410,8 +414,8 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 	return report, nil
 }
 
-func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository.WorkOrderView, in CmReportEscalateInput, problemTopicID *uuid.UUID) (uuid.UUID, error) {
-	cm, err := s.workOrders.Create(ctx, WorkOrderCreateInput{
+func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository.WorkOrderView, in CmReportEscalateInput, topicIDs []uuid.UUID) (uuid.UUID, error) {
+	create := WorkOrderCreateInput{
 		PanelID:            pmWO.PanelID,
 		WorkOrderType:      "CM",
 		PanelDeviceID:      in.PanelDeviceID,
@@ -422,8 +426,13 @@ func (s *CmReportService) resolveOrCreateCM(ctx context.Context, pmWO repository
 		AssignedBy:         in.AssignedBy,
 		RelatedWorkOrderID: &pmWO.ID,
 		DueDate:            in.RepairDate,
-		ProblemTopicID:     problemTopicID,
-	})
+		ProblemTopicIDs:    topicIDs,
+	}
+	if len(topicIDs) == 1 {
+		id := topicIDs[0]
+		create.ProblemTopicID = &id
+	}
+	cm, err := s.workOrders.Create(ctx, create)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -453,29 +462,34 @@ func (s *CmReportService) Update(ctx context.Context, id uuid.UUID, fields httpx
 		}
 	}
 
-	problemTopicID, tagCode, err := s.resolveProblemTopicPatch(ctx, fields, in.ProblemTopicID, in.TagCode)
+	problemTopicID, tagCode, err := s.resolveCmReportProblemTopicsPatch(ctx, fields, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode)
 	if err != nil {
 		return sqlc.CmReport{}, err
 	}
-	if fields.Has("problem_topic_id") && problemTopicID == nil {
+	topicField := fields.Has("problem_topic_id") || fields.Has("problem_topic_ids")
+	if topicField && problemTopicID == nil {
 		return sqlc.CmReport{}, httpx.Err(httpx.ErrCmProblemTopicRequired).
 			WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
 	}
 
 	params := s.buildCmReportUpdateParams(id, fields, in, problemTopicID, tagCode)
 
-	if fields.Has("problem_topic_id") {
+	if topicField {
+		topicIDs, _, _, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, true)
+		if err != nil {
+			return sqlc.CmReport{}, err
+		}
 		var updated sqlc.CmReport
 		err = s.repo.WithPanelCmLock(ctx, current.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
-			filter := repository.OpenCmWorkOrderFilter{ProblemTopicID: problemTopicID}
+			check := repository.OpenCmDuplicateCheck{TopicIDs: topicIDs}
 			if current.WorkOrderID != nil {
-				filter.ExcludeWorkOrderID = current.WorkOrderID
+				check.ExcludeWorkOrderID = current.WorkOrderID
 			}
-			if err := repository.EnsureNoOpenCmConflict(ctx, tx, current.PanelID, filter); err != nil {
+			if err := repository.EnsureNoOpenCmConflictForTopics(ctx, tx, current.PanelID, check); err != nil {
 				return err
 			}
 			if current.WorkOrderID != nil {
-				if err := s.workOrders.SyncProblemTopicFromReport(ctx, tx, *current.WorkOrderID, problemTopicID); err != nil {
+				if err := s.workOrders.SyncProblemTopicsFromReport(ctx, tx, *current.WorkOrderID, topicIDs); err != nil {
 					return err
 				}
 			}
@@ -504,7 +518,7 @@ func (s *CmReportService) buildCmReportUpdateParams(
 ) sqlc.UpdateCmReportParams {
 	params := sqlc.UpdateCmReportParams{ID: id}
 	params.PanelDeviceID, params.PanelDeviceIDDoUpdate = patchNullable(fields, "panel_device_id", in.PanelDeviceID)
-	if fields.Has("problem_topic_id") {
+	if fields.Has("problem_topic_id") || fields.Has("problem_topic_ids") {
 		params.ProblemTopicID = problemTopicID
 		params.ProblemTopicIDDoUpdate = true
 		params.TagCode = tagCode
@@ -564,6 +578,56 @@ func (s *CmReportService) checkDeviceInPanel(ctx context.Context, panelID uuid.U
 
 // resolveProblemTopic validates an optional master topic and mirrors its code
 // into tag_code so legacy clients keep working.
+func (s *CmReportService) resolveCmReportProblemTopics(
+	ctx context.Context,
+	single *uuid.UUID,
+	many []uuid.UUID,
+	tagCode *string,
+	required bool,
+) ([]uuid.UUID, *uuid.UUID, *string, error) {
+	ids, err := normalizeProblemTopicIDs(single, many)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if required && len(ids) == 0 {
+		return nil, nil, nil, httpx.Err(httpx.ErrCmProblemTopicRequired).
+			WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
+	}
+	if len(ids) == 0 {
+		return nil, nil, tagCode, nil
+	}
+	resolved := make([]uuid.UUID, 0, len(ids))
+	var primary *uuid.UUID
+	var firstTag *string
+	for i, id := range ids {
+		topicID := id
+		resolvedID, code, err := s.resolveProblemTopic(ctx, &topicID, tagCode)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		resolved = append(resolved, *resolvedID)
+		if i == 0 {
+			primary = resolvedID
+			firstTag = code
+		}
+	}
+	return resolved, primary, firstTag, nil
+}
+
+func (s *CmReportService) resolveCmReportProblemTopicsPatch(
+	ctx context.Context,
+	fields httpx.FieldSet,
+	single *uuid.UUID,
+	many []uuid.UUID,
+	tagCode *string,
+) (*uuid.UUID, *string, error) {
+	if !fields.Has("problem_topic_id") && !fields.Has("problem_topic_ids") {
+		return nil, nil, nil
+	}
+	_, primary, code, err := s.resolveCmReportProblemTopics(ctx, single, many, tagCode, false)
+	return primary, code, err
+}
+
 func (s *CmReportService) resolveProblemTopic(ctx context.Context, topicID *uuid.UUID, tagCode *string) (*uuid.UUID, *string, error) {
 	if topicID == nil {
 		return nil, tagCode, nil
@@ -580,14 +644,4 @@ func (s *CmReportService) resolveProblemTopic(ctx context.Context, topicID *uuid
 	}
 	code := topic.Code
 	return topicID, &code, nil
-}
-
-func (s *CmReportService) resolveProblemTopicPatch(ctx context.Context, fields httpx.FieldSet, topicID *uuid.UUID, tagCode *string) (*uuid.UUID, *string, error) {
-	if !fields.Has("problem_topic_id") {
-		return nil, nil, nil
-	}
-	if topicID == nil {
-		return nil, tagCode, nil
-	}
-	return s.resolveProblemTopic(ctx, topicID, tagCode)
 }

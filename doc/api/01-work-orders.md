@@ -96,7 +96,7 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 |-------|-----|
 | `work_order_type` | `PM` / `CM` |
 | `pm_schedule_type` | `THREE_MONTH` / `SIX_MONTH` |
-| `status` | `ASSIGNED`, `IN_PROGRESS`, `PENDING`, `PENDING_APPROVAL`, `COMPLETED`, `CONDITIONAL`, `CANCELLED` |
+| `status` | หนึ่งหรือหลายสถานะ — `?status=ASSIGNED&status=IN_PROGRESS` หรือ `?status=ASSIGNED,PENDING` หรือ `?statuses=...` |
 | `priority` | `HIGH`, `MEDIUM`, `LOW` |
 | `active` | boolean |
 | `assigned_to` | UUID (ผู้รับผิดชอบรอบปัจจุบัน) |
