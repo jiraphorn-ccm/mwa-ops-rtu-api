@@ -356,6 +356,112 @@ const CM_REPORT_SAVE_SINGLE = {
   repaired_by: null,
 };
 
+const WO_PM_CREATE_SIX_MONTH = {
+  ...WO_PM_CREATE,
+  pm_schedule_type: "SIX_MONTH",
+  title: "PM 6-month demo",
+};
+
+const WO_PM_CREATE_NESTED_SIX_MONTH = {
+  ...WO_PM_CREATE_NESTED,
+  pm_schedule_type: "SIX_MONTH",
+  title: "PM 6-month demo",
+};
+
+const WO_PM_DOC = [
+  "### PM create (default body)",
+  "",
+  "| Field | เงื่อนไข |",
+  "|-------|----------|",
+  "| `work_order_type` | **`PM`** |",
+  "| `pm_schedule_type` | **`THREE_MONTH`** หรือ **`SIX_MONTH`** — บังคับ |",
+  "| `problem_topic_id` / `problem_topic_ids` | **ห้ามส่ง** |",
+  "| `requested_by`, `assigned_to`, `assigned_by` | UUID บังคับ |",
+  "| `panel_id` | บังคับ (ยกเว้น nested `/panels/{id}/work-orders`) |",
+  "",
+  "Prerequisite: รัน **01 — Smoke Flow** หรือสร้าง Panel ก่อน (`panel_id`).",
+  "เปิด **Examples** สำหรับ PM SIX_MONTH / CM.",
+].join("\n");
+
+const PM_REPORT_SAVE_FULL = {
+  engineer_id: "{{engineer_id}}",
+  note: "PM completed per schedule",
+  report_date: "2026-09-03T09:00:00+07:00",
+  checklist_results: [
+    {
+      checklist_item_id: "{{checklist_item_id}}",
+      panel_device_id: "{{panel_device_id}}",
+      status: "OK",
+      value: "Normal",
+      note: "Visual inspection passed",
+      checked_by: "{{actor_id}}",
+    },
+  ],
+  ground_test: {
+    resistance_lg: 0.5,
+    resistance_ng: 0.6,
+    voltage_lg: 0.1,
+    voltage_ng: 0.1,
+    result: "PASS",
+    note: "Within spec",
+    measured_by: "{{actor_id}}",
+  },
+  power_test: {
+    instrument_id: "{{instrument_id}}",
+    tested_by: "{{actor_id}}",
+    tested_at: "2026-09-03T10:00:00+07:00",
+    points: [
+      {
+        equipment_role: "CIRCUIT_BREAKER",
+        brand: "Schneider",
+        model: "NSX100",
+        input_accept_range: "220-240V",
+        input_result_value: 230,
+        input_unit: "V",
+        result: "ACCEPT",
+      },
+      {
+        equipment_role: "DC_POWER_SUPPLY",
+        brand: "Mean Well",
+        model: "DR-120",
+        output_accept_range: "24V",
+        output_result_value: 24.1,
+        output_unit: "V",
+        result: "ACCEPT",
+      },
+    ],
+  },
+};
+
+const PM_REPORT_SAVE_MINIMAL = {
+  engineer_id: "{{engineer_id}}",
+  note: null,
+  report_date: null,
+  checklist_results: [
+    {
+      checklist_item_id: "{{checklist_item_id}}",
+      status: "OK",
+    },
+  ],
+  ground_test: null,
+  power_test: null,
+};
+
+const PM_REPORT_DOC = [
+  "### PUT pm-report — replace aggregate (ส่ง body ครบทุกครั้ง)",
+  "",
+  "| Field | หมายเหตุ |",
+  "|-------|----------|",
+  "| `engineer_id` | วิศวกรผู้ทำ PM — รัน **Engineers → Create** หรือ **02 — PM Smoke Flow** |",
+  "| `checklist_results[]` | ต้องมี `checklist_item_id` — รัน **Checklist Items → Create** |",
+  "| `ground_test` | optional |",
+  "| `power_test` | **บังคับก่อน submit** เมื่อ `pm_schedule_type = THREE_MONTH` |",
+  "",
+  "**SIX_MONTH submit:** ต้องมี calibration ≥ 1 ผูกใบ PM (ไม่ใช่ power_test).",
+  "",
+  "Flow: Check In → Save PM Report → (Check Out optional) → Submit → Approval.",
+].join("\n");
+
 const WO_TOPIC_DOC = [
   "### Problem topics (CM only)",
   "",
@@ -376,6 +482,7 @@ const WO_LIST_DOC = [
   "| Param | Values |",
   "|-------|--------|",
   "| `work_order_type` | `PM` / `CM` |",
+  "| `pm_schedule_type` | `THREE_MONTH` / `SIX_MONTH` (PM) |",
   "| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |",
   "| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |",
   "| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
@@ -437,16 +544,16 @@ function woCreateDesc(nested = false) {
     "### POST /work-orders — body ครบทุก field ที่รับ",
     nested ? "(`panel_id` มาจาก URL — **ไม่ต้องส่ง** ใน body)" : "",
     "",
-    WO_TOPIC_DOC,
+    WO_PM_DOC,
     "",
-    "**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.",
-    "**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+    WO_TOPIC_DOC,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 function woCreateExamples(segments, { nested = false } = {}) {
+  const pmSix = nested ? WO_PM_CREATE_NESTED_SIX_MONTH : WO_PM_CREATE_SIX_MONTH;
   const cmSingle = nested
     ? withoutPanelId(WO_CM_CREATE_FULL)
     : WO_CM_CREATE_FULL;
@@ -454,6 +561,10 @@ function woCreateExamples(segments, { nested = false } = {}) {
     ? withoutPanelId(WO_CM_CREATE_MULTI_FULL)
     : WO_CM_CREATE_MULTI_FULL;
   return [
+    example("PM — SIX_MONTH (full body)", "POST", segments, {
+      body: pmSix,
+      code: 201,
+    }),
     example("CM — single topic (full body)", "POST", segments, {
       body: cmSingle,
       code: 201,
@@ -476,7 +587,7 @@ function build() {
         "**Setup**",
         "1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)",
         "2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)",
-        "3. Run **01 — Smoke Flow** to populate collection variables",
+        "3. Run **01 — Smoke Flow** then **02 — PM Smoke Flow** to exercise PM end-to-end",
         "",
         "Alternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.",
         "Health routes return raw JSON. API routes use the MWA envelope.",
@@ -602,6 +713,73 @@ function build() {
         ]),
         req("7. Summary", "GET", [...api, "calibrations", "summary"]),
       ]),
+      folder(
+        "02 — PM Smoke Flow (run in order)",
+        [
+          req("1. Create Engineer", "POST", [...api, "engineers"], {
+            body: {
+              full_name: "Somchai Engineer",
+              license_no: "ENG-SMOKE",
+              position: "Field Engineer",
+            },
+            saveVar: "engineer_id",
+          }),
+          req("2. Create Checklist Item", "POST", [...api, "checklist-items"], {
+            body: {
+              code: "PM-SMOKE",
+              name: "Visual inspection",
+              action_type: "VISUAL_INSPECTION",
+              applicable_pm: "BOTH",
+              sort_order: 1,
+            },
+            saveVar: "checklist_item_id",
+          }),
+          req("3. Create PM Work Order", "POST", [...api, "work-orders"], {
+            body: WO_PM_CREATE,
+            saveVar: "work_order_id",
+            desc: WO_PM_DOC,
+          }),
+          req("4. Check In", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "check-in",
+          ], {
+            body: { lat: 13.8622, lng: 100.5601 },
+          }),
+          req("5. Save PM Report", "PUT", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-report",
+          ], {
+            body: PM_REPORT_SAVE_FULL,
+            saveVar: "pm_report_id",
+            desc: PM_REPORT_DOC,
+          }),
+          req("6. Submit PM Report", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "pm-report",
+            "submit",
+          ], {
+            body: { actor_id: "{{actor_id}}" },
+          }),
+          req("7. Approve", "POST", [
+            ...api,
+            "work-orders",
+            "{{work_order_id}}",
+            "approvals",
+          ], {
+            body: {
+              reviewer_id: "{{actor_id}}",
+              decision: "APPROVED",
+            },
+          }),
+        ],
+        "Requires **01 — Smoke Flow** first (`panel_id`, `panel_device_id`, `instrument_id`). Creates PM THREE_MONTH → check-in → save report → submit → approve.",
+      ),
       folder("API Root", [
         req("GET /api/rtu/v1/", "GET", [...api], { desc: "Service root under API prefix." }),
       ]),
@@ -1200,6 +1378,18 @@ function build() {
             ]),
             desc: WO_LIST_DOC,
             examples: [
+              example("filter work_order_type PM", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "PM" },
+                  { key: "pm_schedule_type", value: "" },
+                ]),
+              }),
+              example("filter pm_schedule_type SIX_MONTH", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "PM" },
+                  { key: "pm_schedule_type", value: "SIX_MONTH" },
+                ]),
+              }),
               example("filter work_order_type CM", "GET", [...api, "work-orders"], {
                 query: q([
                   { key: "work_order_type", value: "CM" },
@@ -1362,6 +1552,46 @@ function build() {
               reviewer_id: "{{actor_id}}",
               decision: "APPROVED",
             },
+            desc: [
+              "### POST approvals — หลัง submit report (WO status = PENDING_APPROVAL)",
+              "",
+              "| decision | ผล |",
+              "|----------|-----|",
+              "| `APPROVED` | ปิดงานสำเร็จ |",
+              "| `APPROVED_CONDITION` | ปิดแบบมีเงื่อนไข |",
+              "| `REJECTED` | rework หรือ escalate → CM |",
+            ].join("\n"),
+            examples: [
+              example("REJECTED — rework", "POST", [
+                ...api,
+                "work-orders",
+                "{{work_order_id}}",
+                "approvals",
+              ], {
+                body: {
+                  reviewer_id: "{{actor_id}}",
+                  decision: "REJECTED",
+                  note: "Recheck power test readings",
+                  reassign_to: "{{actor_id}}",
+                },
+              }),
+              example("REJECTED — escalate to CM", "POST", [
+                ...api,
+                "work-orders",
+                "{{work_order_id}}",
+                "approvals",
+              ], {
+                body: {
+                  reviewer_id: "{{actor_id}}",
+                  decision: "REJECTED",
+                  escalate: true,
+                  repair_date: "2026-09-10",
+                  assigned_to: "{{actor_id}}",
+                  problem_topic_id: "{{problem_topic_id}}",
+                  note: "Outside PM contractor scope",
+                },
+              }),
+            ],
           }),
           req("Get PM Report", "GET", [
             ...api,
@@ -1375,25 +1605,19 @@ function build() {
             "{{work_order_id}}",
             "pm-report",
           ], {
-            body: {
-              engineer_id: "{{engineer_id}}",
-              checklist_results: [
-                {
-                  checklist_item_id: "{{checklist_item_id}}",
-                  status: "OK",
-                },
-              ],
-              power_test: {
-                tested_by: "{{actor_id}}",
-                points: [
-                  {
-                    equipment_role: "CIRCUIT_BREAKER",
-                    result: "ACCEPT",
-                  },
-                ],
-              },
-            },
+            body: PM_REPORT_SAVE_FULL,
             saveVar: "pm_report_id",
+            desc: PM_REPORT_DOC,
+            examples: [
+              example("minimal draft (checklist only)", "PUT", [
+                ...api,
+                "work-orders",
+                "{{work_order_id}}",
+                "pm-report",
+              ], {
+                body: PM_REPORT_SAVE_MINIMAL,
+              }),
+            ],
           }),
           req("Submit PM Report", "POST", [
             ...api,
@@ -1469,7 +1693,9 @@ function build() {
             { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
           ),
         ],
-        "Run Check In → Save PM Report → Submit → Approval in order for PM flow.\n\n" +
+        "Run **02 — PM Smoke Flow** for end-to-end PM, or **Create** (default = PM THREE_MONTH) then Check In → Save PM Report → Submit → Approval.\n\n" +
+          WO_PM_DOC +
+          "\n\n" +
           WO_TOPIC_DOC,
       ),
       folder("PM Reports", [

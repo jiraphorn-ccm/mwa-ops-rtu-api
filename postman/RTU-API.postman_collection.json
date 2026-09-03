@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "rtu-api-mwa-collection",
     "name": "RTU API",
-    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** to populate collection variables\n\nAlternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.\nHealth routes return raw JSON. API routes use the MWA envelope.",
+    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** then **02 — PM Smoke Flow** to exercise PM end-to-end\n\nAlternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.\nHealth routes return raw JSON. API routes use the MWA envelope.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -586,6 +586,335 @@
           ]
         }
       ]
+    },
+    {
+      "name": "02 — PM Smoke Flow (run in order)",
+      "item": [
+        {
+          "name": "1. Create Engineer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/engineers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "engineers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Somchai Engineer\",\n  \"license_no\": \"ENG-SMOKE\",\n  \"position\": \"Field Engineer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('engineer_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Create Checklist Item",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/checklist-items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "checklist-items"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PM-SMOKE\",\n  \"name\": \"Visual inspection\",\n  \"action_type\": \"VISUAL_INSPECTION\",\n  \"applicable_pm\": \"BOTH\",\n  \"sort_order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('checklist_item_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Create PM Work Order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"THREE_MONTH\",\n  \"panel_id\": \"{{panel_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"PM demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "### PM create (default body)\n\n| Field | เงื่อนไข |\n|-------|----------|\n| `work_order_type` | **`PM`** |\n| `pm_schedule_type` | **`THREE_MONTH`** หรือ **`SIX_MONTH`** — บังคับ |\n| `problem_topic_id` / `problem_topic_ids` | **ห้ามส่ง** |\n| `requested_by`, `assigned_to`, `assigned_by` | UUID บังคับ |\n| `panel_id` | บังคับ (ยกเว้น nested `/panels/{id}/work-orders`) |\n\nPrerequisite: รัน **01 — Smoke Flow** หรือสร้าง Panel ก่อน (`panel_id`).\nเปิด **Examples** สำหรับ PM SIX_MONTH / CM.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Check In",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/check-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 13.8622,\n  \"lng\": 100.5601\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Save PM Report",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/pm-report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "pm-report"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"engineer_id\": \"{{engineer_id}}\",\n  \"note\": \"PM completed per schedule\",\n  \"report_date\": \"2026-09-03T09:00:00+07:00\",\n  \"checklist_results\": [\n    {\n      \"checklist_item_id\": \"{{checklist_item_id}}\",\n      \"panel_device_id\": \"{{panel_device_id}}\",\n      \"status\": \"OK\",\n      \"value\": \"Normal\",\n      \"note\": \"Visual inspection passed\",\n      \"checked_by\": \"{{actor_id}}\"\n    }\n  ],\n  \"ground_test\": {\n    \"resistance_lg\": 0.5,\n    \"resistance_ng\": 0.6,\n    \"voltage_lg\": 0.1,\n    \"voltage_ng\": 0.1,\n    \"result\": \"PASS\",\n    \"note\": \"Within spec\",\n    \"measured_by\": \"{{actor_id}}\"\n  },\n  \"power_test\": {\n    \"instrument_id\": \"{{instrument_id}}\",\n    \"tested_by\": \"{{actor_id}}\",\n    \"tested_at\": \"2026-09-03T10:00:00+07:00\",\n    \"points\": [\n      {\n        \"equipment_role\": \"CIRCUIT_BREAKER\",\n        \"brand\": \"Schneider\",\n        \"model\": \"NSX100\",\n        \"input_accept_range\": \"220-240V\",\n        \"input_result_value\": 230,\n        \"input_unit\": \"V\",\n        \"result\": \"ACCEPT\"\n      },\n      {\n        \"equipment_role\": \"DC_POWER_SUPPLY\",\n        \"brand\": \"Mean Well\",\n        \"model\": \"DR-120\",\n        \"output_accept_range\": \"24V\",\n        \"output_result_value\": 24.1,\n        \"output_unit\": \"V\",\n        \"result\": \"ACCEPT\"\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "### PUT pm-report — replace aggregate (ส่ง body ครบทุกครั้ง)\n\n| Field | หมายเหตุ |\n|-------|----------|\n| `engineer_id` | วิศวกรผู้ทำ PM — รัน **Engineers → Create** หรือ **02 — PM Smoke Flow** |\n| `checklist_results[]` | ต้องมี `checklist_item_id` — รัน **Checklist Items → Create** |\n| `ground_test` | optional |\n| `power_test` | **บังคับก่อน submit** เมื่อ `pm_schedule_type = THREE_MONTH` |\n\n**SIX_MONTH submit:** ต้องมี calibration ≥ 1 ผูกใบ PM (ไม่ใช่ power_test).\n\nFlow: Check In → Save PM Report → (Check Out optional) → Submit → Approval.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "const d = pm.response.json().data;",
+                  "if (pm.response.code === 200 && d?.id) pm.collectionVariables.set('pm_report_id', d.id);",
+                  "if (d?.ground_test?.id) pm.collectionVariables.set('ground_test_id', d.ground_test.id);",
+                  "if (d?.power_test_points?.[0]?.id) pm.collectionVariables.set('power_test_point_id', d.power_test_points[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Submit PM Report",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/pm-report/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "pm-report",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actor_id\": \"{{actor_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Approve",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/approvals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "work-orders",
+                "{{work_order_id}}",
+                "approvals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewer_id\": \"{{actor_id}}\",\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Requires **01 — Smoke Flow** first (`panel_id`, `panel_device_id`, `instrument_id`). Creates PM THREE_MONTH → check-in → save report → submit → approve."
     },
     {
       "name": "API Root",
@@ -1197,8 +1526,46 @@
               }
             }
           },
-          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n(`panel_id` มาจาก URL — **ไม่ต้องส่ง** ใน body)\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.\n**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n(`panel_id` มาจาก URL — **ไม่ต้องส่ง** ใน body)\n### PM create (default body)\n\n| Field | เงื่อนไข |\n|-------|----------|\n| `work_order_type` | **`PM`** |\n| `pm_schedule_type` | **`THREE_MONTH`** หรือ **`SIX_MONTH`** — บังคับ |\n| `problem_topic_id` / `problem_topic_ids` | **ห้ามส่ง** |\n| `requested_by`, `assigned_to`, `assigned_by` | UUID บังคับ |\n| `panel_id` | บังคับ (ยกเว้น nested `/panels/{id}/work-orders`) |\n\nPrerequisite: รัน **01 — Smoke Flow** หรือสร้าง Panel ก่อน (`panel_id`).\nเปิด **Examples** สำหรับ PM SIX_MONTH / CM.\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
           "response": [
+            {
+              "name": "Example: PM — SIX_MONTH (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "panels",
+                    "{{panel_id}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"SIX_MONTH\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"PM 6-month demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
             {
               "name": "Example: CM — single topic (full body)",
               "originalRequest": {
@@ -5156,8 +5523,122 @@
               ]
             }
           },
-          "description": "Query filters — เปิด **Examples** สำหรับแต่ละ filter.\n\n| Param | Values |\n|-------|--------|\n| `work_order_type` | `PM` / `CM` |\n| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |\n| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |\n| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
+          "description": "Query filters — เปิด **Examples** สำหรับแต่ละ filter.\n\n| Param | Values |\n|-------|--------|\n| `work_order_type` | `PM` / `CM` |\n| `pm_schedule_type` | `THREE_MONTH` / `SIX_MONTH` (PM) |\n| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |\n| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |\n| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
           "response": [
+            {
+              "name": "Example: filter work_order_type PM",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "PM"
+                    },
+                    {
+                      "key": "pm_schedule_type",
+                      "value": ""
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: filter pm_schedule_type SIX_MONTH",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "PM"
+                    },
+                    {
+                      "key": "pm_schedule_type",
+                      "value": "SIX_MONTH"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
             {
               "name": "Example: filter work_order_type CM",
               "originalRequest": {
@@ -5494,8 +5975,44 @@
               }
             }
           },
-          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.\n**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n### PM create (default body)\n\n| Field | เงื่อนไข |\n|-------|----------|\n| `work_order_type` | **`PM`** |\n| `pm_schedule_type` | **`THREE_MONTH`** หรือ **`SIX_MONTH`** — บังคับ |\n| `problem_topic_id` / `problem_topic_ids` | **ห้ามส่ง** |\n| `requested_by`, `assigned_to`, `assigned_by` | UUID บังคับ |\n| `panel_id` | บังคับ (ยกเว้น nested `/panels/{id}/work-orders`) |\n\nPrerequisite: รัน **01 — Smoke Flow** หรือสร้าง Panel ก่อน (`panel_id`).\nเปิด **Examples** สำหรับ PM SIX_MONTH / CM.\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
           "response": [
+            {
+              "name": "Example: PM — SIX_MONTH (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"SIX_MONTH\",\n  \"panel_id\": \"{{panel_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"PM 6-month demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
             {
               "name": "Example: CM — single topic (full body)",
               "originalRequest": {
@@ -6165,7 +6682,85 @@
               }
             }
           },
-          "description": "",
+          "description": "### POST approvals — หลัง submit report (WO status = PENDING_APPROVAL)\n\n| decision | ผล |\n|----------|-----|\n| `APPROVED` | ปิดงานสำเร็จ |\n| `APPROVED_CONDITION` | ปิดแบบมีเงื่อนไข |\n| `REJECTED` | rework หรือ escalate → CM |",
+          "response": [
+            {
+              "name": "Example: REJECTED — rework",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/approvals",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "approvals"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewer_id\": \"{{actor_id}}\",\n  \"decision\": \"REJECTED\",\n  \"note\": \"Recheck power test readings\",\n  \"reassign_to\": \"{{actor_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: REJECTED — escalate to CM",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/approvals",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "approvals"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewer_id\": \"{{actor_id}}\",\n  \"decision\": \"REJECTED\",\n  \"escalate\": true,\n  \"repair_date\": \"2026-09-10\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"note\": \"Outside PM contractor scope\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -6242,7 +6837,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"engineer_id\": \"{{engineer_id}}\",\n  \"checklist_results\": [\n    {\n      \"checklist_item_id\": \"{{checklist_item_id}}\",\n      \"status\": \"OK\"\n    }\n  ],\n  \"power_test\": {\n    \"tested_by\": \"{{actor_id}}\",\n    \"points\": [\n      {\n        \"equipment_role\": \"CIRCUIT_BREAKER\",\n        \"result\": \"ACCEPT\"\n      }\n    ]\n  }\n}",
+              "raw": "{\n  \"engineer_id\": \"{{engineer_id}}\",\n  \"note\": \"PM completed per schedule\",\n  \"report_date\": \"2026-09-03T09:00:00+07:00\",\n  \"checklist_results\": [\n    {\n      \"checklist_item_id\": \"{{checklist_item_id}}\",\n      \"panel_device_id\": \"{{panel_device_id}}\",\n      \"status\": \"OK\",\n      \"value\": \"Normal\",\n      \"note\": \"Visual inspection passed\",\n      \"checked_by\": \"{{actor_id}}\"\n    }\n  ],\n  \"ground_test\": {\n    \"resistance_lg\": 0.5,\n    \"resistance_ng\": 0.6,\n    \"voltage_lg\": 0.1,\n    \"voltage_ng\": 0.1,\n    \"result\": \"PASS\",\n    \"note\": \"Within spec\",\n    \"measured_by\": \"{{actor_id}}\"\n  },\n  \"power_test\": {\n    \"instrument_id\": \"{{instrument_id}}\",\n    \"tested_by\": \"{{actor_id}}\",\n    \"tested_at\": \"2026-09-03T10:00:00+07:00\",\n    \"points\": [\n      {\n        \"equipment_role\": \"CIRCUIT_BREAKER\",\n        \"brand\": \"Schneider\",\n        \"model\": \"NSX100\",\n        \"input_accept_range\": \"220-240V\",\n        \"input_result_value\": 230,\n        \"input_unit\": \"V\",\n        \"result\": \"ACCEPT\"\n      },\n      {\n        \"equipment_role\": \"DC_POWER_SUPPLY\",\n        \"brand\": \"Mean Well\",\n        \"model\": \"DR-120\",\n        \"output_accept_range\": \"24V\",\n        \"output_result_value\": 24.1,\n        \"output_unit\": \"V\",\n        \"result\": \"ACCEPT\"\n      }\n    ]\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6250,7 +6845,47 @@
               }
             }
           },
-          "description": "",
+          "description": "### PUT pm-report — replace aggregate (ส่ง body ครบทุกครั้ง)\n\n| Field | หมายเหตุ |\n|-------|----------|\n| `engineer_id` | วิศวกรผู้ทำ PM — รัน **Engineers → Create** หรือ **02 — PM Smoke Flow** |\n| `checklist_results[]` | ต้องมี `checklist_item_id` — รัน **Checklist Items → Create** |\n| `ground_test` | optional |\n| `power_test` | **บังคับก่อน submit** เมื่อ `pm_schedule_type = THREE_MONTH` |\n\n**SIX_MONTH submit:** ต้องมี calibration ≥ 1 ผูกใบ PM (ไม่ใช่ power_test).\n\nFlow: Check In → Save PM Report → (Check Out optional) → Submit → Approval.",
+          "response": [
+            {
+              "name": "Example: minimal draft (checklist only)",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/pm-report",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "pm-report"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"engineer_id\": \"{{engineer_id}}\",\n  \"note\": null,\n  \"report_date\": null,\n  \"checklist_results\": [\n    {\n      \"checklist_item_id\": \"{{checklist_item_id}}\",\n      \"status\": \"OK\"\n    }\n  ],\n  \"ground_test\": null,\n  \"power_test\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -6657,7 +7292,7 @@
           ]
         }
       ],
-      "description": "Run Check In → Save PM Report → Submit → Approval in order for PM flow.\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี."
+      "description": "Run **02 — PM Smoke Flow** for end-to-end PM, or **Create** (default = PM THREE_MONTH) then Check In → Save PM Report → Submit → Approval.\n\n### PM create (default body)\n\n| Field | เงื่อนไข |\n|-------|----------|\n| `work_order_type` | **`PM`** |\n| `pm_schedule_type` | **`THREE_MONTH`** หรือ **`SIX_MONTH`** — บังคับ |\n| `problem_topic_id` / `problem_topic_ids` | **ห้ามส่ง** |\n| `requested_by`, `assigned_to`, `assigned_by` | UUID บังคับ |\n| `panel_id` | บังคับ (ยกเว้น nested `/panels/{id}/work-orders`) |\n\nPrerequisite: รัน **01 — Smoke Flow** หรือสร้าง Panel ก่อน (`panel_id`).\nเปิด **Examples** สำหรับ PM SIX_MONTH / CM.\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี."
     },
     {
       "name": "PM Reports",
