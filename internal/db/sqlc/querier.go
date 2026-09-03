@@ -63,6 +63,8 @@ type Querier interface {
 	DeletePmPowerTestPointsByTest(ctx context.Context, pmPowerTestID uuid.UUID) (int64, error)
 	DeletePmReport(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteProblemTopic(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteWorkOrderProblemTopic(ctx context.Context, arg DeleteWorkOrderProblemTopicParams) error
+	DeleteWorkOrderProblemTopicsByWorkOrder(ctx context.Context, workOrderID uuid.UUID) error
 	DeviceModelExists(ctx context.Context, id uuid.UUID) (bool, error)
 	DeviceModelIsActive(ctx context.Context, id uuid.UUID) (bool, error)
 	EngineerExists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -100,6 +102,7 @@ type Querier interface {
 	GetWoApprovalByRound(ctx context.Context, workOrderRoundID uuid.UUID) (WoApproval, error)
 	GetWorkOrder(ctx context.Context, id uuid.UUID) (WorkOrder, error)
 	GetWorkOrderRound(ctx context.Context, id uuid.UUID) (WorkOrderRound, error)
+	InsertWorkOrderProblemTopic(ctx context.Context, arg InsertWorkOrderProblemTopicParams) error
 	ListAttachmentsByEntity(ctx context.Context, arg ListAttachmentsByEntityParams) ([]Attachment, error)
 	ListCalibrationReadings(ctx context.Context, calibrationID uuid.UUID) ([]CalibrationReading, error)
 	ListCalibrationReadingsForCalibrations(ctx context.Context, calibrationIds []uuid.UUID) ([]CalibrationReading, error)
@@ -112,12 +115,15 @@ type Querier interface {
 	ListCmReportsByPmReport(ctx context.Context, pmReportID uuid.UUID) ([]CmReport, error)
 	ListPmPowerTestPointsByTest(ctx context.Context, pmPowerTestID uuid.UUID) ([]PmPowerTestPoint, error)
 	ListProblemTopics(ctx context.Context, activeFilter *bool) ([]RtuProblemTopic, error)
+	ListProblemTopicsByWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]ListProblemTopicsByWorkOrderRow, error)
+	ListProblemTopicsByWorkOrders(ctx context.Context, workOrderIds []uuid.UUID) ([]ListProblemTopicsByWorkOrdersRow, error)
 	ListWoApprovalsByWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]WoApproval, error)
 	ListWorkOrderActivityLogs(ctx context.Context, workOrderID uuid.UUID) ([]WorkOrderActivityLog, error)
 	ListWorkOrderRoundsByWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]WorkOrderRound, error)
 	MarkAllNotificationsRead(ctx context.Context, arg MarkAllNotificationsReadParams) (int64, error)
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
 	NextCalibrationReadingSequence(ctx context.Context, calibrationID uuid.UUID) (int16, error)
+	NextWorkOrderProblemTopicSortOrder(ctx context.Context, workOrderID uuid.UUID) (int16, error)
 	NextWorkOrderRoundNo(ctx context.Context, workOrderID uuid.UUID) (int16, error)
 	PanelDeviceExists(ctx context.Context, id uuid.UUID) (bool, error)
 	PanelDeviceIsActive(ctx context.Context, id uuid.UUID) (bool, error)
@@ -163,6 +169,7 @@ type Querier interface {
 	UpsertPmGroundTest(ctx context.Context, arg UpsertPmGroundTestParams) (PmGroundTest, error)
 	UpsertPmPowerTest(ctx context.Context, arg UpsertPmPowerTestParams) (PmPowerTest, error)
 	WorkOrderExists(ctx context.Context, id uuid.UUID) (bool, error)
+	WorkOrderHasProblemTopic(ctx context.Context, arg WorkOrderHasProblemTopicParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

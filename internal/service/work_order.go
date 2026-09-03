@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"github.com/rtu-api/internal/db/sqlc"
@@ -26,6 +27,7 @@ type WorkOrderService struct {
 	panels        *repository.PanelRepository
 	devices       *repository.PanelDeviceRepository
 	problemTopics *repository.ProblemTopicRepository
+	cmReports     *repository.CmReportRepository
 	notify        *NotificationService
 }
 
@@ -50,34 +52,46 @@ type WorkOrderCreateInput struct {
 	RelatedWorkOrderID *uuid.UUID  `json:"related_work_order_id"`
 	PlannedDate        *httpx.Date `json:"planned_date"`
 	DueDate            *httpx.Date `json:"due_date"`
-	// Required on CM create (client API). Stored on the initial cm_report row.
-	ProblemTopicID *uuid.UUID `json:"problem_topic_id"`
+	// Required on CM create (client API). Stored on work_order_problem_topics
+	// and the initial cm_report row (first topic).
+	ProblemTopicID  *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs []uuid.UUID `json:"problem_topic_ids"`
 }
 
 // WorkOrderUpdateInput is the PATCH /work-orders/{id} body. Status is not
 // editable here — it only ever changes through the check-in/check-out/
 // submit/approve actions, which keep the activity log consistent.
 type WorkOrderUpdateInput struct {
-	PmScheduleType *string     `json:"pm_schedule_type" validate:"omitempty,oneof=THREE_MONTH SIX_MONTH"`
-	PanelDeviceID  *uuid.UUID  `json:"panel_device_id"`
-	Title          *string     `json:"title" validate:"omitempty,max=255"`
-	Description    *string     `json:"description" validate:"omitempty,max=4000"`
-	Priority       *string     `json:"priority" validate:"omitempty,oneof=HIGH MEDIUM LOW"`
-	PlannedDate    *httpx.Date `json:"planned_date"`
-	DueDate        *httpx.Date `json:"due_date"`
+	PmScheduleType  *string     `json:"pm_schedule_type" validate:"omitempty,oneof=THREE_MONTH SIX_MONTH"`
+	PanelDeviceID   *uuid.UUID  `json:"panel_device_id"`
+	Title           *string     `json:"title" validate:"omitempty,max=255"`
+	Description     *string     `json:"description" validate:"omitempty,max=4000"`
+	Priority        *string     `json:"priority" validate:"omitempty,oneof=HIGH MEDIUM LOW"`
+	PlannedDate     *httpx.Date `json:"planned_date"`
+	DueDate         *httpx.Date `json:"due_date"`
+	ProblemTopicID  *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs []uuid.UUID `json:"problem_topic_ids"`
 }
 
 var workOrderEditableFields = map[string]struct{}{
-	"pm_schedule_type": {},
-	"panel_device_id":  {},
-	"title":            {},
-	"description":      {},
-	"priority":         {},
-	"planned_date":     {},
-	"due_date":         {},
+	"pm_schedule_type":  {},
+	"panel_device_id":   {},
+	"title":             {},
+	"description":       {},
+	"priority":          {},
+	"planned_date":      {},
+	"due_date":          {},
+	"problem_topic_id":  {},
+	"problem_topic_ids": {},
 }
 
 var pmScheduleTypeEditableStatuses = map[string]struct{}{
+	"ASSIGNED":    {},
+	"IN_PROGRESS": {},
+	"PENDING":     {},
+}
+
+var cmProblemTopicEditableStatuses = map[string]struct{}{
 	"ASSIGNED":    {},
 	"IN_PROGRESS": {},
 	"PENDING":     {},
@@ -119,7 +133,7 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 	if err := checkPmScheduleType(in.WorkOrderType, in.PmScheduleType); err != nil {
 		return repository.WorkOrderView{}, err
 	}
-	if err := checkCmProblemTopic(in.WorkOrderType, in.ProblemTopicID); err != nil {
+	if err := checkCmProblemTopics(in.WorkOrderType, in.ProblemTopicID, in.ProblemTopicIDs); err != nil {
 		return repository.WorkOrderView{}, err
 	}
 
@@ -139,19 +153,26 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 	}
 
 	var initialCmReport *sqlc.CreateCmReportParams
-	var openCmDuplicate *repository.OpenCmWorkOrderFilter
+	var openCmDuplicate *repository.OpenCmDuplicateCheck
+	var problemTopicIDs []uuid.UUID
 	if in.WorkOrderType == "CM" {
-		topicID, tagCode, err := s.resolveProblemTopic(ctx, *in.ProblemTopicID)
+		topicIDs, err := normalizeProblemTopicIDs(in.ProblemTopicID, in.ProblemTopicIDs)
 		if err != nil {
 			return repository.WorkOrderView{}, err
 		}
-		openCmDuplicate = &repository.OpenCmWorkOrderFilter{
-			ProblemTopicID: topicID,
+		problemTopicIDs = topicIDs
+		resolved, firstTag, err := s.resolveProblemTopics(ctx, topicIDs)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		problemTopicIDs = resolved
+		openCmDuplicate = &repository.OpenCmDuplicateCheck{
+			TopicIDs: problemTopicIDs,
 		}
 		initialCmReport = &sqlc.CreateCmReportParams{
 			ReportedBy:     in.RequestedBy,
-			ProblemTopicID: topicID,
-			TagCode:        tagCode,
+			ProblemTopicID: &problemTopicIDs[0],
+			TagCode:        firstTag,
 			PanelDeviceID:  in.PanelDeviceID,
 		}
 	}
@@ -170,7 +191,7 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 		RelatedWorkOrderID: in.RelatedWorkOrderID,
 		PlannedDate:        in.PlannedDate,
 		DueDate:            in.DueDate,
-	}, panel.Code, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy, initialCmReport, openCmDuplicate)
+	}, panel.Code, in.AssignedTo, in.AssignedBy, assignedAt, in.AssignedBy, initialCmReport, openCmDuplicate, problemTopicIDs)
 	if err != nil {
 		if conflict := openCmConflictError(err); conflict != nil {
 			return repository.WorkOrderView{}, appErrFromOpenCmConflict(conflict.Conflict)
@@ -196,10 +217,11 @@ func (s *WorkOrderService) Create(ctx context.Context, in WorkOrderCreateInput) 
 
 // Update applies a partial update to a work order's editable fields.
 func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields httpx.FieldSet, in WorkOrderUpdateInput) (repository.WorkOrderView, error) {
+	topicField := fields.Has("problem_topic_id") || fields.Has("problem_topic_ids")
 	if len(fields) > 0 && !fields.HasAny(workOrderEditableFields) {
 		return repository.WorkOrderView{}, httpx.Err(httpx.ErrValidationFailed).
 			WithField("body", httpx.IssueInvalid,
-				"No editable fields in request. Accepted keys: pm_schedule_type, panel_device_id, title, description, priority, planned_date, due_date.")
+				"No editable fields in request. Accepted keys: pm_schedule_type, panel_device_id, title, description, priority, planned_date, due_date, problem_topic_id, problem_topic_ids.")
 	}
 
 	current, err := s.repo.Get(ctx, id)
@@ -239,7 +261,44 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 	}
 	params.Priority, params.PriorityDoUpdate = priority, setPriority
 
-	if !workOrderUpdateHasChanges(params) {
+	var newTopicIDs []uuid.UUID
+	if topicField {
+		if err := checkCmProblemTopics(current.WorkOrderType, in.ProblemTopicID, in.ProblemTopicIDs); err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		if err := checkCmProblemTopicsPatch(current); err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		topicIDs, err := normalizeProblemTopicIDs(in.ProblemTopicID, in.ProblemTopicIDs)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		resolved, _, err := s.resolveProblemTopics(ctx, topicIDs)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		if err := s.ensureCmReportTopicIncluded(ctx, current, resolved); err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		newTopicIDs = resolved
+	}
+
+	hasFieldChanges := workOrderUpdateHasChanges(params)
+	if !hasFieldChanges && !topicField {
+		return s.repo.GetView(ctx, id)
+	}
+
+	if topicField {
+		var woUpdate *sqlc.UpdateWorkOrderParams
+		if hasFieldChanges {
+			woUpdate = &params
+		}
+		if err := s.repo.ReplaceCmProblemTopics(ctx, current.PanelID, id, newTopicIDs, woUpdate); err != nil {
+			if conflict := openCmConflictError(err); conflict != nil {
+				return repository.WorkOrderView{}, appErrFromOpenCmConflict(conflict.Conflict)
+			}
+			return repository.WorkOrderView{}, err
+		}
 		return s.repo.GetView(ctx, id)
 	}
 
@@ -252,6 +311,40 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 func workOrderUpdateHasChanges(p sqlc.UpdateWorkOrderParams) bool {
 	return p.PmScheduleTypeDoUpdate || p.PanelDeviceIDDoUpdate || p.TitleDoUpdate || p.DescriptionDoUpdate ||
 		p.PriorityDoUpdate || p.PlannedDateDoUpdate || p.DueDateDoUpdate
+}
+
+func checkCmProblemTopicsPatch(wo sqlc.WorkOrder) error {
+	if wo.WorkOrderType != "CM" {
+		return httpx.Err(httpx.ErrCmProblemTopicNotAllowed).
+			WithField("problem_topic_id", httpx.IssueInvalid, "Must not be set when work_order_type is PM.")
+	}
+	if _, ok := cmProblemTopicEditableStatuses[wo.Status]; !ok {
+		return httpx.Err(httpx.ErrWorkOrderStatusInvalid).
+			WithField("problem_topic_id", httpx.IssueInvalid,
+				"Can only be changed while status is ASSIGNED, IN_PROGRESS, or PENDING.")
+	}
+	return nil
+}
+
+func (s *WorkOrderService) ensureCmReportTopicIncluded(ctx context.Context, wo sqlc.WorkOrder, topicIDs []uuid.UUID) error {
+	if s.cmReports == nil || wo.CurrentRoundID == nil {
+		return nil
+	}
+	report, err := s.cmReports.FindByRound(ctx, *wo.CurrentRoundID)
+	if err != nil {
+		return err
+	}
+	if report == nil || report.ProblemTopicID == nil {
+		return nil
+	}
+	for _, id := range topicIDs {
+		if id == *report.ProblemTopicID {
+			return nil
+		}
+	}
+	return httpx.Err(httpx.ErrValidationFailed).
+		WithField("problem_topic_ids", httpx.IssueInvalid,
+			"Must include the current CM report problem_topic_id. Change the CM report first or keep that topic in the list.")
 }
 
 func checkPmScheduleTypePatch(wo sqlc.WorkOrder, pmScheduleType *string) error {
@@ -503,6 +596,16 @@ func (s *WorkOrderService) ListOpenCmForWorkOrder(ctx context.Context, workOrder
 	return s.ListOpenCmForPanel(ctx, wo.PanelID, filter)
 }
 
+// SyncProblemTopicFromReport keeps junction topics aligned with cm_reports changes.
+func (s *WorkOrderService) SyncProblemTopicFromReport(
+	ctx context.Context,
+	tx pgx.Tx,
+	workOrderID uuid.UUID,
+	newTopicID *uuid.UUID,
+) error {
+	return s.repo.SyncProblemTopicFromReport(ctx, tx, workOrderID, newTopicID)
+}
+
 // ListActivity returns the full status/assignment timeline of a work order —
 // when it was opened, assigned, started, sent for approval and rejected.
 func (s *WorkOrderService) ListActivity(ctx context.Context, id uuid.UUID) ([]sqlc.WorkOrderActivityLog, error) {
@@ -536,22 +639,60 @@ func checkPmScheduleType(workOrderType string, pmScheduleType *string) error {
 	return nil
 }
 
-func checkCmProblemTopic(workOrderType string, problemTopicID *uuid.UUID) error {
-	if workOrderType == "PM" && problemTopicID != nil {
+func normalizeProblemTopicIDs(single *uuid.UUID, many []uuid.UUID) ([]uuid.UUID, error) {
+	if single != nil && *single != uuid.Nil {
+		many = append([]uuid.UUID{*single}, many...)
+	}
+	if len(many) == 0 {
+		return nil, httpx.Err(httpx.ErrCmProblemTopicRequired).
+			WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
+	}
+	seen := make(map[uuid.UUID]struct{}, len(many))
+	out := make([]uuid.UUID, 0, len(many))
+	for _, id := range many {
+		if id == uuid.Nil {
+			return nil, httpx.Err(httpx.ErrValidationFailed).
+				WithField("problem_topic_id", httpx.IssueInvalid, "Must be a valid UUID.")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+func checkCmProblemTopics(workOrderType string, single *uuid.UUID, many []uuid.UUID) error {
+	if workOrderType == "PM" && (single != nil || len(many) > 0) {
 		return httpx.Err(httpx.ErrCmProblemTopicNotAllowed).
 			WithField("problem_topic_id", httpx.IssueInvalid, "Must not be set when work_order_type is PM.")
 	}
 	if workOrderType == "CM" {
-		if problemTopicID == nil {
-			return httpx.Err(httpx.ErrCmProblemTopicRequired).
-				WithField("problem_topic_id", httpx.IssueRequired, "Required when work_order_type is CM.")
-		}
-		if *problemTopicID == uuid.Nil {
-			return httpx.Err(httpx.ErrValidationFailed).
-				WithField("problem_topic_id", httpx.IssueInvalid, "Must be a valid UUID.")
-		}
+		_, err := normalizeProblemTopicIDs(single, many)
+		return err
 	}
 	return nil
+}
+
+func (s *WorkOrderService) resolveProblemTopics(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, *string, error) {
+	resolved := make([]uuid.UUID, 0, len(ids))
+	var firstTag *string
+	for i, id := range ids {
+		topicID, tagCode, err := s.resolveProblemTopic(ctx, id)
+		if err != nil {
+			return nil, nil, err
+		}
+		resolved = append(resolved, *topicID)
+		if i == 0 {
+			firstTag = tagCode
+		}
+	}
+	return resolved, firstTag, nil
+}
+
+func checkCmProblemTopic(workOrderType string, problemTopicID *uuid.UUID) error {
+	return checkCmProblemTopics(workOrderType, problemTopicID, nil)
 }
 
 func (s *WorkOrderService) resolveProblemTopic(ctx context.Context, topicID uuid.UUID) (*uuid.UUID, *string, error) {

@@ -139,17 +139,18 @@ func ParseWorkOrderList(r *http.Request, panelID, panelDeviceID *uuid.UUID) (htt
 	q := httpx.NewQuery(r)
 	page := httpx.ParsePage(q, WorkOrderSortable(), "created_at")
 	filter := WorkOrderListFilter{
-		PanelID:       panelID,
-		PanelDeviceID: panelDeviceID,
-		WorkOrderType: q.Enum("work_order_type", "PM", "CM"),
-		Status:        q.Enum("status", "ASSIGNED", "IN_PROGRESS", "PENDING", "PENDING_APPROVAL", "COMPLETED", "CONDITIONAL", "CANCELLED"),
-		Priority:      q.Enum("priority", "HIGH", "MEDIUM", "LOW"),
-		Active:        q.Bool("active"),
-		AssignedTo:    q.UUID("assigned_to"),
-		PlannedFrom:   q.Time("planned_from"),
-		PlannedTo:     q.Time("planned_to"),
-		DueFrom:       q.Time("due_from"),
-		DueTo:         q.Time("due_to"),
+		PanelID:        panelID,
+		PanelDeviceID:  panelDeviceID,
+		WorkOrderType:  q.Enum("work_order_type", "PM", "CM"),
+		Status:         q.Enum("status", "ASSIGNED", "IN_PROGRESS", "PENDING", "PENDING_APPROVAL", "COMPLETED", "CONDITIONAL", "CANCELLED"),
+		Priority:       q.Enum("priority", "HIGH", "MEDIUM", "LOW"),
+		Active:         q.Bool("active"),
+		AssignedTo:     q.UUID("assigned_to"),
+		ProblemTopicID: q.UUID("problem_topic_id"),
+		PlannedFrom:    q.Time("planned_from"),
+		PlannedTo:      q.Time("planned_to"),
+		DueFrom:        q.Time("due_from"),
+		DueTo:          q.Time("due_to"),
 	}
 	if t := q.Enum("pm_schedule_type", "THREE_MONTH", "SIX_MONTH"); t != nil {
 		filter.PmScheduleType = t

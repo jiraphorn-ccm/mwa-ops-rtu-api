@@ -19,8 +19,9 @@ import (
 // WorkOrderRepository reads and writes rtu.work_orders, together with the
 // creation of a work order's first round (see CreateWithFirstRound).
 type WorkOrderRepository struct {
-	pool *pgxpool.Pool
-	q    *sqlc.Queries
+	pool   *pgxpool.Pool
+	q      *sqlc.Queries
+	topics *WorkOrderProblemTopicRepository
 }
 
 var workOrderConstraints = db.Constraints{
@@ -55,6 +56,7 @@ type WorkOrderFilter struct {
 	Priority       *string
 	PanelID        *uuid.UUID
 	PanelDeviceID  *uuid.UUID
+	ProblemTopicID *uuid.UUID
 	AssignedTo     *uuid.UUID
 	Active         *bool
 	PlannedFrom    *time.Time
@@ -64,18 +66,23 @@ type WorkOrderFilter struct {
 }
 
 // WorkOrderView is a work order joined with its panel and the state of its
-// current round (assignee, check-in/out, submission).
+// current round (assignee, check-in/out, submission). CM rows include
+// problem_topics loaded from rtu.work_order_problem_topics.
 type WorkOrderView struct {
 	sqlc.WorkOrder
-	PanelCode          string     `db:"panel_code" json:"panel_code"`
-	PanelDeviceTagName *string    `db:"panel_device_tag_name" json:"panel_device_tag_name"`
-	CurrentRoundNo     *int16     `db:"current_round_no" json:"current_round_no"`
-	CurrentAssignedTo  *uuid.UUID `db:"current_assigned_to" json:"current_assigned_to"`
-	CurrentAssignedAt  *time.Time `db:"current_assigned_at" json:"current_assigned_at"`
-	CurrentCheckInAt   *time.Time `db:"current_check_in_at" json:"current_check_in_at"`
-	CurrentCheckOutAt  *time.Time `db:"current_check_out_at" json:"current_check_out_at"`
-	CurrentSubmittedAt *time.Time `db:"current_submitted_at" json:"current_submitted_at"`
-	TotalCount         int64      `db:"total_count" json:"-"`
+	PanelCode          string              `db:"panel_code" json:"panel_code"`
+	PanelDeviceTagName *string             `db:"panel_device_tag_name" json:"panel_device_tag_name"`
+	ProblemTopicID     *uuid.UUID          `json:"problem_topic_id,omitempty"`
+	ProblemTopicCode   *string             `json:"problem_topic_code,omitempty"`
+	ProblemTopicName   *string             `json:"problem_topic_name,omitempty"`
+	ProblemTopics      []ProblemTopicBrief `json:"problem_topics"`
+	CurrentRoundNo     *int16              `db:"current_round_no" json:"current_round_no"`
+	CurrentAssignedTo  *uuid.UUID          `db:"current_assigned_to" json:"current_assigned_to"`
+	CurrentAssignedAt  *time.Time          `db:"current_assigned_at" json:"current_assigned_at"`
+	CurrentCheckInAt   *time.Time          `db:"current_check_in_at" json:"current_check_in_at"`
+	CurrentCheckOutAt  *time.Time          `db:"current_check_out_at" json:"current_check_out_at"`
+	CurrentSubmittedAt *time.Time          `db:"current_submitted_at" json:"current_submitted_at"`
+	TotalCount         int64               `db:"total_count" json:"-"`
 }
 
 const workOrderColumns = `
@@ -120,6 +127,13 @@ func (r *WorkOrderRepository) List(ctx context.Context, page httpx.Page, filter 
 	}
 	if filter.PanelDeviceID != nil {
 		conds = append(conds, "wo.panel_device_id = "+a.add(*filter.PanelDeviceID))
+	}
+	if filter.ProblemTopicID != nil {
+		topic := a.add(*filter.ProblemTopicID)
+		conds = append(conds, fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM rtu.work_order_problem_topics wopt
+    WHERE wopt.work_order_id = wo.id AND wopt.problem_topic_id = %s
+)`, topic))
 	}
 	if filter.AssignedTo != nil {
 		conds = append(conds, "cr.assigned_to = "+a.add(*filter.AssignedTo))
@@ -168,6 +182,9 @@ func (r *WorkOrderRepository) List(ctx context.Context, page httpx.Page, filter 
 	if len(items) > 0 {
 		total = items[0].TotalCount
 	}
+	if err := r.attachProblemTopics(ctx, items); err != nil {
+		return nil, 0, err
+	}
 	return items, total, nil
 }
 
@@ -184,7 +201,27 @@ func (r *WorkOrderRepository) GetView(ctx context.Context, id uuid.UUID) (WorkOr
 	if err != nil {
 		return WorkOrderView{}, db.Translate(err, db.WithNotFound(httpx.ErrWorkOrderNotFnd))
 	}
-	return view, nil
+	views := []WorkOrderView{view}
+	if err := r.attachProblemTopics(ctx, views); err != nil {
+		return WorkOrderView{}, err
+	}
+	return views[0], nil
+}
+
+func (r *WorkOrderRepository) attachProblemTopics(ctx context.Context, views []WorkOrderView) error {
+	if r.topics == nil || len(views) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(views))
+	for i := range views {
+		ids[i] = views[i].ID
+	}
+	topics, err := r.topics.MapByWorkOrders(ctx, ids)
+	if err != nil {
+		return err
+	}
+	applyProblemTopicsToViews(views, topics)
+	return nil
 }
 
 // Get returns the raw row of a work order.
@@ -251,7 +288,8 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 	assignedAt time.Time,
 	actorID uuid.UUID,
 	initialCmReport *sqlc.CreateCmReportParams,
-	openCmDuplicate *OpenCmWorkOrderFilter,
+	openCmDuplicate *OpenCmDuplicateCheck,
+	problemTopicIDs []uuid.UUID,
 ) (sqlc.WorkOrder, sqlc.WorkOrderRound, error) {
 	createdBy, updatedBy := createAudit(ctx)
 	woArg.CreatedBy, woArg.UpdatedBy = createdBy, updatedBy
@@ -262,11 +300,11 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 	)
 
 	err := db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
-		if openCmDuplicate != nil {
+		if openCmDuplicate != nil && len(openCmDuplicate.TopicIDs) > 0 {
 			if err := LockPanelCmWrites(ctx, tx, woArg.PanelID); err != nil {
 				return err
 			}
-			if err := EnsureNoOpenCmConflict(ctx, tx, woArg.PanelID, *openCmDuplicate); err != nil {
+			if err := EnsureNoOpenCmConflictForTopics(ctx, tx, woArg.PanelID, *openCmDuplicate); err != nil {
 				return err
 			}
 		}
@@ -330,6 +368,11 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 			initialCmReport.UpdatedBy = updatedBy
 			if _, err := q.CreateCmReport(ctx, *initialCmReport); err != nil {
 				return db.Translate(err, db.Options{Constraints: cmReportConstraints})
+			}
+		}
+		if len(problemTopicIDs) > 0 && r.topics != nil {
+			if err := r.topics.InsertAll(ctx, tx, created.ID, problemTopicIDs); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -423,10 +466,34 @@ func (r *WorkOrderRepository) OpenNewRound(
 	return wo, round, nil
 }
 
+// SyncProblemTopicFromReport aligns work_order_problem_topics when a CM report
+// topic changes. Pass tx when already inside a panel CM transaction.
+func (r *WorkOrderRepository) SyncProblemTopicFromReport(
+	ctx context.Context,
+	tx pgx.Tx,
+	workOrderID uuid.UUID,
+	newTopicID *uuid.UUID,
+) error {
+	sync := func(qtx pgx.Tx) error {
+		return r.topics.SyncFromReport(ctx, qtx, workOrderID, newTopicID)
+	}
+	if tx != nil {
+		return sync(tx)
+	}
+	return db.InTxConn(ctx, r.pool, func(qtx pgx.Tx, _ *sqlc.Queries) error {
+		return sync(qtx)
+	})
+}
+
 // Update applies a partial update to a work order.
 func (r *WorkOrderRepository) Update(ctx context.Context, arg sqlc.UpdateWorkOrderParams) (sqlc.WorkOrder, error) {
+	return r.UpdateQ(ctx, r.q, arg)
+}
+
+// UpdateQ applies a partial update using the given Queries handle.
+func (r *WorkOrderRepository) UpdateQ(ctx context.Context, q *sqlc.Queries, arg sqlc.UpdateWorkOrderParams) (sqlc.WorkOrder, error) {
 	arg.UpdatedBy = updateAudit(ctx)
-	wo, err := r.q.UpdateWorkOrder(ctx, arg)
+	wo, err := q.UpdateWorkOrder(ctx, arg)
 	if err != nil {
 		return sqlc.WorkOrder{}, db.Translate(err, db.Options{
 			NotFound:    &httpx.ErrWorkOrderNotFnd,
@@ -434,6 +501,63 @@ func (r *WorkOrderRepository) Update(ctx context.Context, arg sqlc.UpdateWorkOrd
 		})
 	}
 	return wo, nil
+}
+
+// ReplaceCmProblemTopics atomically replaces junction topics for an open CM work
+// order, optionally applying a work-order field update in the same transaction.
+func (r *WorkOrderRepository) ReplaceCmProblemTopics(
+	ctx context.Context,
+	panelID, workOrderID uuid.UUID,
+	newTopicIDs []uuid.UUID,
+	woUpdate *sqlc.UpdateWorkOrderParams,
+) error {
+	return db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if err := LockPanelCmWrites(ctx, tx, panelID); err != nil {
+			return err
+		}
+
+		currentRows, err := q.ListProblemTopicsByWorkOrder(ctx, workOrderID)
+		if err != nil {
+			return db.Translate(err)
+		}
+		currentSet := make(map[uuid.UUID]struct{}, len(currentRows))
+		for _, row := range currentRows {
+			currentSet[row.ID] = struct{}{}
+		}
+		var added []uuid.UUID
+		for _, id := range newTopicIDs {
+			if _, ok := currentSet[id]; !ok {
+				added = append(added, id)
+			}
+		}
+		if len(added) > 0 {
+			exclude := workOrderID
+			if err := EnsureNoOpenCmConflictForTopics(ctx, tx, panelID, OpenCmDuplicateCheck{
+				TopicIDs:           added,
+				ExcludeWorkOrderID: &exclude,
+			}); err != nil {
+				return err
+			}
+		}
+
+		if r.topics == nil {
+			return nil
+		}
+		if err := r.topics.ReplaceAll(ctx, tx, workOrderID, newTopicIDs); err != nil {
+			return err
+		}
+		if woUpdate != nil && workOrderUpdateParamsHasChanges(*woUpdate) {
+			if _, err := r.UpdateQ(ctx, q, *woUpdate); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func workOrderUpdateParamsHasChanges(p sqlc.UpdateWorkOrderParams) bool {
+	return p.PmScheduleTypeDoUpdate || p.PanelDeviceIDDoUpdate || p.TitleDoUpdate || p.DescriptionDoUpdate ||
+		p.PriorityDoUpdate || p.PlannedDateDoUpdate || p.DueDateDoUpdate
 }
 
 // UpdateStatus transitions a work order's status, optionally stamping closed_at.
@@ -467,18 +591,19 @@ type OpenCmWorkOrderFilter struct {
 }
 
 // OpenCmWorkOrderSummary is one in-progress CM work order on a panel, enriched
-// with the device and problem topic shown on the UI warning card.
+// with the device and problem topics shown on the UI warning card.
 type OpenCmWorkOrderSummary struct {
-	WorkOrderID        uuid.UUID  `db:"work_order_id" json:"work_order_id"`
-	WorkOrderNo        string     `db:"work_order_no" json:"work_order_no"`
-	Status             string     `db:"status" json:"status"`
-	PanelDeviceID      *uuid.UUID `db:"panel_device_id" json:"panel_device_id"`
-	PanelDeviceName    *string    `db:"panel_device_name" json:"panel_device_name"`
-	PanelDeviceTagName *string    `db:"panel_device_tag_name" json:"panel_device_tag_name"`
-	ProblemTopicID     *uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
-	ProblemTopicCode   *string    `db:"problem_topic_code" json:"problem_topic_code"`
-	ProblemTopicName   *string    `db:"problem_topic_name" json:"problem_topic_name"`
-	TagCode            *string    `db:"tag_code" json:"tag_code"`
+	WorkOrderID        uuid.UUID           `db:"work_order_id" json:"work_order_id"`
+	WorkOrderNo        string              `db:"work_order_no" json:"work_order_no"`
+	Status             string              `db:"status" json:"status"`
+	PanelDeviceID      *uuid.UUID          `db:"panel_device_id" json:"panel_device_id"`
+	PanelDeviceName    *string             `db:"panel_device_name" json:"panel_device_name"`
+	PanelDeviceTagName *string             `db:"panel_device_tag_name" json:"panel_device_tag_name"`
+	ProblemTopicID     *uuid.UUID          `db:"problem_topic_id" json:"problem_topic_id,omitempty"`
+	ProblemTopicCode   *string             `db:"problem_topic_code" json:"problem_topic_code,omitempty"`
+	ProblemTopicName   *string             `db:"problem_topic_name" json:"problem_topic_name,omitempty"`
+	ProblemTopics      []ProblemTopicBrief `json:"problem_topics"`
+	TagCode            *string             `db:"tag_code" json:"tag_code"`
 }
 
 const openCmEffectiveDevice = "COALESCE(cr.panel_device_id, wo.panel_device_id)"
@@ -491,14 +616,10 @@ SELECT
     ` + openCmEffectiveDevice + ` AS panel_device_id,
     pd.name AS panel_device_name,
     pd.tag_name AS panel_device_tag_name,
-    cr.problem_topic_id,
-    pt.code AS problem_topic_code,
-    pt.name AS problem_topic_name,
     cr.tag_code
 FROM rtu.work_orders wo
 LEFT JOIN rtu.cm_reports cr ON cr.work_order_round_id = wo.current_round_id
 LEFT JOIN rtu.panel_devices pd ON pd.id = ` + openCmEffectiveDevice + `
-LEFT JOIN rtu.problem_topics pt ON pt.id = cr.problem_topic_id
 WHERE %s
 ORDER BY wo.created_at DESC, wo.id DESC`
 
@@ -513,12 +634,11 @@ func buildOpenCmWorkOrderConditions(a *args, panelID uuid.UUID, filter OpenCmWor
 		conds = append(conds, openCmEffectiveDevice+" = "+a.add(*filter.PanelDeviceID))
 	}
 	if filter.ProblemTopicID != nil {
-		if filter.PanelDeviceID != nil {
-			topic := a.add(*filter.ProblemTopicID)
-			conds = append(conds, fmt.Sprintf("(cr.problem_topic_id = %s OR cr.id IS NULL)", topic))
-		} else {
-			conds = append(conds, "cr.problem_topic_id = "+a.add(*filter.ProblemTopicID))
-		}
+		topic := a.add(*filter.ProblemTopicID)
+		conds = append(conds, fmt.Sprintf(`EXISTS (
+    SELECT 1 FROM rtu.work_order_problem_topics wopt
+    WHERE wopt.work_order_id = wo.id AND wopt.problem_topic_id = %s
+)`, topic))
 	}
 	if filter.ExcludeWorkOrderID != nil {
 		conds = append(conds, "wo.id <> "+a.add(*filter.ExcludeWorkOrderID))
@@ -529,5 +649,26 @@ func buildOpenCmWorkOrderConditions(a *args, panelID uuid.UUID, filter OpenCmWor
 // ListOpenCmForPanel returns active CM work orders on a panel whose status
 // is ASSIGNED, IN_PROGRESS, PENDING, or PENDING_APPROVAL.
 func (r *WorkOrderRepository) ListOpenCmForPanel(ctx context.Context, panelID uuid.UUID, filter OpenCmWorkOrderFilter) ([]OpenCmWorkOrderSummary, error) {
-	return queryOpenCmForPanel(ctx, r.pool, panelID, filter)
+	items, err := queryOpenCmForPanel(ctx, r.pool, panelID, filter)
+	if err != nil {
+		return nil, err
+	}
+	if r.topics == nil || len(items) == 0 {
+		for i := range items {
+			if items[i].ProblemTopics == nil {
+				items[i].ProblemTopics = []ProblemTopicBrief{}
+			}
+		}
+		return items, nil
+	}
+	ids := make([]uuid.UUID, len(items))
+	for i := range items {
+		ids[i] = items[i].WorkOrderID
+	}
+	topics, err := r.topics.MapByWorkOrders(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	applyProblemTopicsToOpenCm(items, topics)
+	return items, nil
 }

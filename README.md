@@ -527,7 +527,7 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 * Panel `last_pm_date` / `next_pm_date` sync เมื่อ PM ถึง COMPLETED หรือ CONDITIONAL
 * CM report: `problem_topic_id` ต้องชี้ topic ที่ `active=true` (`E300_244`); inactive / ไม่พบ → `E300_242` / `E300_244`
 * CM duplicate: ห้ามเปิด CM ใหม่ (หรือบันทึกรายงาน CM) ซ้ำบนตู้เดียวกัน + หัวข้อปัญหาเดียวกัน ขณะมีใบเปิดอยู่ (`ASSIGNED`, `IN_PROGRESS`, `PENDING`, `PENDING_APPROVAL`) → `E300_246` (panel-wide — ไม่แยก device)
-* CM create: `problem_topic_id` **บังคับ** เมื่อ `work_order_type=CM` (`E300_247`) — duplicate check รัน **ใน transaction** (advisory lock ต่อ panel) ก่อน insert; seed `cm_reports` ใน tx เดียวกัน
+* CM create: `problem_topic_id` และ/หรือ `problem_topic_ids[]` **บังคับอย่างน้อย 1 หัวข้อ** เมื่อ `work_order_type=CM` (`E300_247`) — เก็บใน `work_order_problem_topics` + seed `cm_reports` (หัวข้อแรก); duplicate check ใช้ panel + **แต่ละ topic** ขณะ status เปิด → `409 E300_246`
 * CM escalate (PM reject): `problem_topic_id` บังคับเมื่อ `escalate=true` — reuse CM เปิดอยู่ที่ topic ตรงกัน (`FindMatchingOpenCm`, approval path เท่านั้น)
 * PM escalate (`POST .../escalate`): สร้าง CM ใหม่ผ่าน create path — ถ้ามี CM เปิด topic เดียวกันแล้ว → `E300_246`; อัปเดต seeded report ด้วย `pm_report_id`
 * `PUT .../cm-report`: `problem_topic_id` **บังคับ** (`validate:"required"`) — ห้ามลบ topic ผ่าน PATCH (`E300_247`)
@@ -535,6 +535,8 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 ---
 
 ## 6. รูปแบบ request / response
+
+**Contract ละเอียดต่อ endpoint (สำหรับทีม Web):** [`doc/api/README.md`](doc/api/README.md) — แผนที่เส้น API, field ครบ, เงื่อนไข PATCH/CM duplicate ฯลฯ
 
 ### Pagination
 

@@ -36,6 +36,7 @@ func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Servi
 		panels:        store.Panels,
 		devices:       store.PanelDevices,
 		problemTopics: store.ProblemTopics,
+		cmReports:     store.CmReports,
 	}
 	notifications := &NotificationService{
 		repo:       store.Notifications,

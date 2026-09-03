@@ -26,30 +26,27 @@ func TestBuildOpenCmWorkOrderConditions(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicate check uses effective device and pending report topic", func(t *testing.T) {
+	t.Run("device and topic filters use junction table", func(t *testing.T) {
 		a := &args{}
 		where := buildOpenCmWorkOrderConditions(a, panelID, OpenCmWorkOrderFilter{
-			PanelDeviceID: &deviceID,
+			PanelDeviceID:  &deviceID,
 			ProblemTopicID: &topicID,
 		}).where()
 		if !strings.Contains(where, openCmEffectiveDevice) {
 			t.Fatalf("where=%q missing effective device expression", where)
 		}
-		if !strings.Contains(where, "(cr.problem_topic_id = $3 OR cr.id IS NULL)") {
-			t.Fatalf("where=%q missing duplicate topic predicate", where)
+		if !strings.Contains(where, "work_order_problem_topics wopt") {
+			t.Fatalf("where=%q missing junction topic predicate", where)
 		}
 	})
 
-	t.Run("topic only is strict", func(t *testing.T) {
+	t.Run("topic only uses junction table", func(t *testing.T) {
 		a := &args{}
 		where := buildOpenCmWorkOrderConditions(a, panelID, OpenCmWorkOrderFilter{
 			ProblemTopicID: &topicID,
 		}).where()
-		if strings.Contains(where, "cr.id IS NULL") {
-			t.Fatalf("where=%q should not allow null report when device filter omitted", where)
-		}
-		if !strings.Contains(where, "cr.problem_topic_id = $2") {
-			t.Fatalf("where=%q missing strict topic predicate", where)
+		if !strings.Contains(where, "work_order_problem_topics wopt") {
+			t.Fatalf("where=%q missing junction topic predicate", where)
 		}
 	})
 

@@ -326,6 +326,13 @@ type RtuProblemTopic struct {
 	UpdatedBy *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
+type RtuWorkOrderProblemTopic struct {
+	WorkOrderID    uuid.UUID `db:"work_order_id" json:"work_order_id"`
+	ProblemTopicID uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
+	SortOrder      int16     `db:"sort_order" json:"sort_order"`
+	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+}
+
 type WoApproval struct {
 	ID               uuid.UUID   `db:"id" json:"id"`
 	WorkOrderID      uuid.UUID   `db:"work_order_id" json:"work_order_id"`

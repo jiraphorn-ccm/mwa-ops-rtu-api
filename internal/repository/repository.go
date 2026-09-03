@@ -42,6 +42,7 @@ type Store struct {
 // New wires the repositories onto a connection pool.
 func New(pool *pgxpool.Pool) *Store {
 	q := sqlc.New(pool)
+	topics := NewWorkOrderProblemTopicRepository(pool, q)
 	return &Store{
 		Pool:                   pool,
 		Panels:                 &PanelRepository{pool: pool, q: q},
@@ -51,7 +52,7 @@ func New(pool *pgxpool.Pool) *Store {
 		Calibrations:           &CalibrationRepository{pool: pool, q: q},
 		CalibrationReadings:    &CalibrationReadingRepository{pool: pool, q: q},
 		PanelImages:            &PanelImageRepository{pool: pool, q: q},
-		WorkOrders:             &WorkOrderRepository{pool: pool, q: q},
+		WorkOrders:             &WorkOrderRepository{pool: pool, q: q, topics: topics},
 		WorkOrderRounds:        &WorkOrderRoundRepository{pool: pool, q: q},
 		WorkOrderActivityLogs:  &WorkOrderActivityLogRepository{pool: pool, q: q},
 		WoApprovals:            &WoApprovalRepository{pool: pool, q: q},
