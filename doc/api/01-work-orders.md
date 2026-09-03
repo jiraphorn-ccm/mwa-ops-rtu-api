@@ -63,7 +63,7 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 }
 ```
 
-### ตัวอย่าง CM
+### ตัวอย่าง CM (topic เดียว)
 
 ```json
 {
@@ -75,6 +75,24 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
   "assigned_by": "..."
 }
 ```
+
+### ตัวอย่าง CM (หลาย topic)
+
+```json
+{
+  "work_order_type": "CM",
+  "panel_id": "9fb86a82-e73f-41e7-88cf-a83afe8e578d",
+  "problem_topic_ids": [
+    "<uuid topic 1>",
+    "<uuid topic 2>"
+  ],
+  "requested_by": "...",
+  "assigned_to": "...",
+  "assigned_by": "..."
+}
+```
+
+**ห้าม** ส่ง array ใน `problem_topic_id` — ใช้ `problem_topic_ids` แทน
 
 ---
 

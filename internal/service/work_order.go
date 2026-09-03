@@ -529,27 +529,6 @@ func (s *WorkOrderService) FindMatchingOpenCm(ctx context.Context, panelID uuid.
 	return &id, nil
 }
 
-// EnsureNoOpenCmDuplicate rejects creating or saving a CM when another open
-// work order on the same panel already covers the same problem topic.
-// excludeWorkOrderID skips the caller's own work order during upsert/update.
-func (s *WorkOrderService) EnsureNoOpenCmDuplicate(ctx context.Context, panelID uuid.UUID, problemTopicID *uuid.UUID, excludeWorkOrderID *uuid.UUID) error {
-	if problemTopicID == nil {
-		return nil
-	}
-	filter := repository.OpenCmWorkOrderFilter{
-		ProblemTopicID:     problemTopicID,
-		ExcludeWorkOrderID: excludeWorkOrderID,
-	}
-	items, err := s.ListOpenCmForPanel(ctx, panelID, filter)
-	if err != nil {
-		return err
-	}
-	if len(items) == 0 {
-		return nil
-	}
-	return appErrFromOpenCmConflict(items[0])
-}
-
 func appErrFromOpenCmConflict(conflict repository.OpenCmWorkOrderSummary) error {
 	msg := fmt.Sprintf("Open CM work order %s already covers this problem topic.", conflict.WorkOrderNo)
 	if conflict.ProblemTopicName != nil && *conflict.ProblemTopicName != "" {

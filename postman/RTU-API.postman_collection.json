@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "rtu-api-mwa-collection",
     "name": "RTU API",
-    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** to populate collection variables\n\nAlternate URLs for the same handler are saved as **Examples** on the primary request.\nHealth routes return raw JSON. API routes use the MWA envelope.",
+    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** to populate collection variables\n\nAlternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.\nHealth routes return raw JSON. API routes use the MWA envelope.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -1189,7 +1189,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"THREE_MONTH\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"PM demo\"\n}",
+              "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"THREE_MONTH\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"PM demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1197,7 +1197,85 @@
               }
             }
           },
-          "description": "",
+          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n(`panel_id` มาจาก URL — **ไม่ต้องส่ง** ใน body)\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.\n**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+          "response": [
+            {
+              "name": "Example: CM — single topic (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "panels",
+                    "{{panel_id}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"CM\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"CM demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"related_work_order_id\": null,\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null,\n  \"problem_topic_id\": \"{{problem_topic_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: CM — multi topic (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "panels",
+                    "{{panel_id}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"CM\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"CM multi-topic demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"related_work_order_id\": null,\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null,\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -1650,7 +1728,7 @@
           "description": "Full metadata replace (JSON). Use example for multipart file replace.",
           "response": [
             {
-              "name": "Replace file (multipart)",
+              "name": "Example: Replace file (multipart)",
               "originalRequest": {
                 "method": "PUT",
                 "header": [],
@@ -3651,7 +3729,7 @@
           "description": "Nested route. Flat `/calibration-readings/{id}` is in Examples.",
           "response": [
             {
-              "name": "Flat route",
+              "name": "Example: Flat route",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -3727,7 +3805,7 @@
           "description": "",
           "response": [
             {
-              "name": "Flat route",
+              "name": "Example: Flat route",
               "originalRequest": {
                 "method": "PATCH",
                 "header": [],
@@ -3812,7 +3890,7 @@
           "description": "",
           "response": [
             {
-              "name": "Flat route",
+              "name": "Example: Flat route",
               "originalRequest": {
                 "method": "PUT",
                 "header": [],
@@ -3888,7 +3966,7 @@
           "description": "",
           "response": [
             {
-              "name": "Flat route",
+              "name": "Example: Flat route",
               "originalRequest": {
                 "method": "DELETE",
                 "header": [],
@@ -5069,31 +5147,311 @@
                 },
                 {
                   "key": "status",
-                  "value": "ASSIGNED"
-                },
-                {
-                  "key": "status",
-                  "value": "IN_PROGRESS",
-                  "disabled": true
-                },
-                {
-                  "key": "statuses",
-                  "value": "",
-                  "disabled": true
+                  "value": ""
                 },
                 {
                   "key": "pm_schedule_type",
                   "value": ""
-                },
-                {
-                  "key": "problem_topic_id",
-                  "value": "{{problem_topic_id}}",
-                  "disabled": true
                 }
               ]
             }
           },
-          "description": "Use repeated `status` or comma-separated values; optional `statuses` param also works.",
+          "description": "Query filters — เปิด **Examples** สำหรับแต่ละ filter.\n\n| Param | Values |\n|-------|--------|\n| `work_order_type` | `PM` / `CM` |\n| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |\n| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |\n| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
+          "response": [
+            {
+              "name": "Example: filter work_order_type CM",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "CM"
+                    },
+                    {
+                      "key": "status",
+                      "value": ""
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: filter status (repeat param)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "CM"
+                    },
+                    {
+                      "key": "status",
+                      "value": "ASSIGNED"
+                    },
+                    {
+                      "key": "status",
+                      "value": "IN_PROGRESS"
+                    },
+                    {
+                      "key": "status",
+                      "value": "PENDING"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: filter status (comma-separated)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "CM"
+                    },
+                    {
+                      "key": "status",
+                      "value": "ASSIGNED,IN_PROGRESS,PENDING"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: filter statuses param",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "CM"
+                    },
+                    {
+                      "key": "statuses",
+                      "value": "ASSIGNED,PENDING"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: filter problem_topic_id",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sort",
+                      "value": ""
+                    },
+                    {
+                      "key": "order",
+                      "value": "DESC"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "work_order_type",
+                      "value": "CM"
+                    },
+                    {
+                      "key": "problem_topic_id",
+                      "value": "{{problem_topic_id}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -5112,71 +5470,7 @@
           ]
         },
         {
-          "name": "List (multi status)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/work-orders",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "work-orders"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "20"
-                },
-                {
-                  "key": "sort",
-                  "value": ""
-                },
-                {
-                  "key": "order",
-                  "value": "DESC"
-                },
-                {
-                  "key": "search",
-                  "value": ""
-                },
-                {
-                  "key": "work_order_type",
-                  "value": "CM"
-                },
-                {
-                  "key": "status",
-                  "value": "ASSIGNED,IN_PROGRESS,PENDING"
-                }
-              ]
-            }
-          },
-          "description": "",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create PM",
+          "name": "Create",
           "request": {
             "method": "POST",
             "header": [],
@@ -5192,7 +5486,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"THREE_MONTH\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"PM demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
+              "raw": "{\n  \"work_order_type\": \"PM\",\n  \"pm_schedule_type\": \"THREE_MONTH\",\n  \"panel_id\": \"{{panel_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"PM demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5200,99 +5494,81 @@
               }
             }
           },
-          "description": "",
-          "event": [
+          "description": "### POST /work-orders — body ครบทุก field ที่รับ\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.\n**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});",
-                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
-                  "    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create CM",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/work-orders",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "work-orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"work_order_type\": \"CM\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"CM demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Example: CM — single topic (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"CM\",\n  \"panel_id\": \"{{panel_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"CM demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"related_work_order_id\": null,\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null,\n  \"problem_topic_id\": \"{{problem_topic_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
-            }
-          },
-          "description": "",
-          "event": [
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});",
-                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
-                  "    pm.collectionVariables.set('work_order_id', pm.response.json().data.id);",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create CM (multi-topic)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/work-orders",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "work-orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"work_order_type\": \"CM\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"title\": \"CM multi-topic demo\",\n  \"panel_id\": \"{{panel_id}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Example: CM — multi topic (full body)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"work_order_type\": \"CM\",\n  \"panel_id\": \"{{panel_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"title\": \"CM multi-topic demo\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"source\": \"WORKFLOW\",\n  \"requested_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"related_work_order_id\": null,\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null,\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
             }
-          },
-          "description": "Requires problem_topic_id + problem_topic_id_2 (run Problem Topics → List first).",
+          ],
           "event": [
             {
               "listen": "test",
@@ -5366,7 +5642,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"priority\": \"HIGH\"\n}",
+              "raw": "{\n  \"title\": \"Updated title\",\n  \"description\": \"รายละเอียด\",\n  \"priority\": \"HIGH\",\n  \"planned_date\": \"2026-09-03\",\n  \"due_date\": null,\n  \"panel_device_id\": \"{{panel_device_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5374,51 +5650,83 @@
               }
             }
           },
-          "description": "",
-          "event": [
+          "description": "Partial update — ส่งเฉพาะ field ที่จะเปลี่ยน.\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n\n`problem_topic_ids` บน CM = **replace ชุด topic ทั้งใบ** (ต้องคง topic ของ cm-report ปัจจุบันไว้ใน list).",
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update PATCH (problem topics)",
-          "request": {
-            "method": "PATCH",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "work-orders",
-                "{{work_order_id}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Example: CM — replace problem topics",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: PM — change schedule",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pm_schedule_type\": \"SIX_MONTH\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
             }
-          },
-          "description": "CM only; replaces junction topics. Must keep current cm-report topic in the list.",
+          ],
           "event": [
             {
               "listen": "test",
@@ -6101,7 +6409,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Pump fault\",\n  \"corrective_action\": \"Replace seal\"\n}",
+              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"error_logs\": null,\n  \"problem_detail\": \"Single topic report\",\n  \"root_cause\": null,\n  \"reference_info\": null,\n  \"corrective_action\": \"Inspect seal\",\n  \"recommendation\": null,\n  \"pending_reason\": null,\n  \"repaired_by\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6109,55 +6417,47 @@
               }
             }
           },
-          "description": "problem_topic_id (single) or problem_topic_ids[] (array). First topic = report primary + tag_code.",
-          "event": [
+          "description": "### PUT cm-report — replace รายงานรอบปัจจุบัน (ส่ง body ครบทุกครั้ง)\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n\nTopic แรกใน list = หลักบน `cm_reports` + sync add-only เข้า junction.",
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});",
-                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
-                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Save CM Report (single topic)",
-          "request": {
-            "method": "PUT",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/cm-report",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "work-orders",
-                "{{work_order_id}}",
-                "cm-report"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Single topic report\",\n  \"corrective_action\": \"Inspect seal\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Example: multi topic (full body)",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/cm-report",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "cm-report"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"error_logs\": null,\n  \"problem_detail\": \"Pump fault\",\n  \"root_cause\": \"Seal worn\",\n  \"reference_info\": \"Manual section 4.2\",\n  \"corrective_action\": \"Replace seal\",\n  \"recommendation\": \"Monitor pressure for 7 days\",\n  \"pending_reason\": null,\n  \"repaired_by\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
             }
-          },
-          "description": "",
+          ],
           "event": [
             {
               "listen": "test",
@@ -6357,7 +6657,7 @@
           ]
         }
       ],
-      "description": "Run Check In → Save PM Report → Submit → Approval in order for PM flow."
+      "description": "Run Check In → Save PM Report → Submit → Approval in order for PM flow.\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี."
     },
     {
       "name": "PM Reports",
@@ -6491,7 +6791,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
+              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6499,7 +6799,47 @@
               }
             }
           },
-          "description": "",
+          "description": "### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
+          "response": [
+            {
+              "name": "Example: multi topic",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/pm-reports/{{pm_report_id}}/onsite-fixes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "pm-reports",
+                    "{{pm_report_id}}",
+                    "onsite-fixes"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Fixed on spot (multi-topic)\",\n  \"corrective_action\": \"Tightened connector\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -6539,7 +6879,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+              "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6547,7 +6887,47 @@
               }
             }
           },
-          "description": "",
+          "description": "### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
+          "response": [
+            {
+              "name": "Example: multi topic",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/pm-reports/{{pm_report_id}}/escalate",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "pm-reports",
+                    "{{pm_report_id}}",
+                    "escalate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pending_reason\": \"Needs spare part\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -6914,7 +7294,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"recommendation\": \"Monitor for 7 days\"\n}",
+              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Updated detail\",\n  \"corrective_action\": \"Replaced part\",\n  \"recommendation\": \"Monitor for 7 days\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6922,51 +7302,46 @@
               }
             }
           },
-          "description": "problem_topic_id or problem_topic_ids[] — sync add-only to work order junction.",
-          "event": [
+          "description": "Partial update — ส่งเฉพาะ field ที่จะเปลี่ยน.\n\n### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.\n\nSync add-only ทุก topic เข้า work-order junction.",
+          "response": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                  "pm.test('MWA envelope', () => {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json.status).to.eql('success');",
-                  "    pm.expect(json.code).to.match(/^S\\d/);",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update PATCH (single topic)",
-          "request": {
-            "method": "PATCH",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}{{api_prefix}}/cm-reports/{{cm_report_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "{{api_prefix}}",
-                "cm-reports",
-                "{{cm_report_id}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"recommendation\": \"Monitor for 7 days\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Example: multi topic",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/cm-reports/{{cm_report_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "cm-reports",
+                    "{{cm_report_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Updated detail\",\n  \"corrective_action\": \"Replaced part\",\n  \"recommendation\": \"Monitor for 7 days\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
             }
-          },
-          "description": "",
+          ],
           "event": [
             {
               "listen": "test",

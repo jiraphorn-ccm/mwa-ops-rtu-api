@@ -155,10 +155,11 @@ function buildRequest(method, segments, { body, formdata, query } = {}) {
 }
 
 function example(name, method, segments, opts = {}) {
-  const { body, formdata, code = 200, responseBody = "" } = opts;
+  const { body, formdata, query, code = 200, responseBody = "" } = opts;
+  const label = name.startsWith("Example:") ? name : `Example: ${name}`;
   return {
-    name,
-    originalRequest: buildRequest(method, segments, { body, formdata }),
+    name: label,
+    originalRequest: buildRequest(method, segments, { body, formdata, query }),
     status: code === 201 ? "Created" : "OK",
     code,
     _postman_previewlanguage: "json",
@@ -265,35 +266,204 @@ const ATTACHMENT_FORM = [
 const WO_PM_CREATE = {
   work_order_type: "PM",
   pm_schedule_type: "THREE_MONTH",
-  requested_by: "{{actor_id}}",
-  assigned_to: "{{actor_id}}",
-  assigned_by: "{{actor_id}}",
+  panel_id: "{{panel_id}}",
+  panel_device_id: "{{panel_device_id}}",
   title: "PM demo",
-};
-
-const WO_CM_CREATE = {
-  work_order_type: "CM",
-  problem_topic_id: "{{problem_topic_id}}",
+  description: "รายละเอียด",
+  priority: "HIGH",
+  source: "WORKFLOW",
   requested_by: "{{actor_id}}",
   assigned_to: "{{actor_id}}",
   assigned_by: "{{actor_id}}",
+  planned_date: "2026-09-03",
+  due_date: null,
+};
+
+const WO_PM_CREATE_NESTED = {
+  work_order_type: "PM",
+  pm_schedule_type: "THREE_MONTH",
+  panel_device_id: "{{panel_device_id}}",
+  title: "PM demo",
+  description: "รายละเอียด",
+  priority: "HIGH",
+  source: "WORKFLOW",
+  requested_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  planned_date: "2026-09-03",
+  due_date: null,
+};
+
+const WO_CM_CREATE_FULL = {
+  work_order_type: "CM",
+  panel_id: "{{panel_id}}",
+  panel_device_id: "{{panel_device_id}}",
   title: "CM demo",
-};
-
-const WO_CM_CREATE_MULTI = {
-  work_order_type: "CM",
-  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  description: "รายละเอียด",
+  priority: "HIGH",
+  source: "WORKFLOW",
   requested_by: "{{actor_id}}",
   assigned_to: "{{actor_id}}",
   assigned_by: "{{actor_id}}",
-  title: "CM multi-topic demo",
+  related_work_order_id: null,
+  planned_date: "2026-09-03",
+  due_date: null,
+  problem_topic_id: "{{problem_topic_id}}",
 };
 
-const CM_REPORT_SAVE = {
+const WO_CM_CREATE_MULTI_FULL = {
+  work_order_type: "CM",
+  panel_id: "{{panel_id}}",
+  panel_device_id: "{{panel_device_id}}",
+  title: "CM multi-topic demo",
+  description: "รายละเอียด",
+  priority: "HIGH",
+  source: "WORKFLOW",
+  requested_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  related_work_order_id: null,
+  planned_date: "2026-09-03",
+  due_date: null,
   problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
-  problem_detail: "Pump fault",
-  corrective_action: "Replace seal",
 };
+
+const CM_REPORT_SAVE_FULL = {
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  reported_by: "{{actor_id}}",
+  panel_device_id: "{{panel_device_id}}",
+  error_logs: null,
+  problem_detail: "Pump fault",
+  root_cause: "Seal worn",
+  reference_info: "Manual section 4.2",
+  corrective_action: "Replace seal",
+  recommendation: "Monitor pressure for 7 days",
+  pending_reason: null,
+  repaired_by: null,
+};
+
+const CM_REPORT_SAVE_SINGLE = {
+  problem_topic_id: "{{problem_topic_id}}",
+  reported_by: "{{actor_id}}",
+  panel_device_id: "{{panel_device_id}}",
+  error_logs: null,
+  problem_detail: "Single topic report",
+  root_cause: null,
+  reference_info: null,
+  corrective_action: "Inspect seal",
+  recommendation: null,
+  pending_reason: null,
+  repaired_by: null,
+};
+
+const WO_TOPIC_DOC = [
+  "### Problem topics (CM only)",
+  "",
+  "| Field | Type | When |",
+  "|-------|------|------|",
+  "| `problem_topic_id` | **UUID string** | topic เดียว |",
+  "| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |",
+  "",
+  "ส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).",
+  "Prerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.",
+  "",
+  "เปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
+].join("\n");
+
+const WO_LIST_DOC = [
+  "Query filters — เปิด **Examples** สำหรับแต่ละ filter.",
+  "",
+  "| Param | Values |",
+  "|-------|--------|",
+  "| `work_order_type` | `PM` / `CM` |",
+  "| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |",
+  "| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |",
+  "| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
+].join("\n");
+
+const ONSITE_FIX_SINGLE = {
+  reported_by: "{{actor_id}}",
+  panel_device_id: "{{panel_device_id}}",
+  problem_topic_id: "{{problem_topic_id}}",
+  problem_detail: "Fixed on spot",
+  corrective_action: "Tightened connector",
+};
+
+const ONSITE_FIX_MULTI = {
+  reported_by: "{{actor_id}}",
+  panel_device_id: "{{panel_device_id}}",
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  problem_detail: "Fixed on spot (multi-topic)",
+  corrective_action: "Tightened connector",
+};
+
+const ESCALATE_SINGLE = {
+  pending_reason: "Needs spare part",
+  reported_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  problem_topic_id: "{{problem_topic_id}}",
+};
+
+const ESCALATE_MULTI = {
+  pending_reason: "Needs spare part",
+  reported_by: "{{actor_id}}",
+  assigned_to: "{{actor_id}}",
+  assigned_by: "{{actor_id}}",
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+};
+
+const CM_REPORT_PATCH_SINGLE = {
+  problem_topic_id: "{{problem_topic_id}}",
+  problem_detail: "Updated detail",
+  corrective_action: "Replaced part",
+  recommendation: "Monitor for 7 days",
+};
+
+const CM_REPORT_PATCH_MULTI = {
+  problem_topic_ids: ["{{problem_topic_id}}", "{{problem_topic_id_2}}"],
+  problem_detail: "Updated detail",
+  corrective_action: "Replaced part",
+  recommendation: "Monitor for 7 days",
+};
+
+function withoutPanelId(body) {
+  const { panel_id: _panelID, ...rest } = body;
+  return rest;
+}
+
+function woCreateDesc(nested = false) {
+  return [
+    "### POST /work-orders — body ครบทุก field ที่รับ",
+    nested ? "(`panel_id` มาจาก URL — **ไม่ต้องส่ง** ใน body)" : "",
+    "",
+    WO_TOPIC_DOC,
+    "",
+    "**PM:** ต้องมี `pm_schedule_type` — ห้ามส่ง problem topic.",
+    "**CM:** ต้องมี topic อย่างน้อย 1 — ใช้ `problem_topic_id` (string) หรือ `problem_topic_ids` (array).",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function woCreateExamples(segments, { nested = false } = {}) {
+  const cmSingle = nested
+    ? withoutPanelId(WO_CM_CREATE_FULL)
+    : WO_CM_CREATE_FULL;
+  const cmMulti = nested
+    ? withoutPanelId(WO_CM_CREATE_MULTI_FULL)
+    : WO_CM_CREATE_MULTI_FULL;
+  return [
+    example("CM — single topic (full body)", "POST", segments, {
+      body: cmSingle,
+      code: 201,
+    }),
+    example("CM — multi topic (full body)", "POST", segments, {
+      body: cmMulti,
+      code: 201,
+    }),
+  ];
+}
 
 function build() {
   return {
@@ -308,7 +478,7 @@ function build() {
         "2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)",
         "3. Run **01 — Smoke Flow** to populate collection variables",
         "",
-        "Alternate URLs for the same handler are saved as **Examples** on the primary request.",
+        "Alternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.",
         "Health routes return raw JSON. API routes use the MWA envelope.",
       ].join("\n"),
       schema:
@@ -490,7 +660,15 @@ function build() {
           "Create Work Order",
           "POST",
           [...api, "panels", "{{panel_id}}", "work-orders"],
-          { body: WO_PM_CREATE, saveVar: "work_order_id" },
+          {
+            body: WO_PM_CREATE_NESTED,
+            saveVar: "work_order_id",
+            desc: woCreateDesc(true),
+            examples: woCreateExamples(
+              [...api, "panels", "{{panel_id}}", "work-orders"],
+              { nested: true },
+            ),
+          },
         ),
         req(
           "List Open CM Work Orders",
@@ -1017,52 +1195,93 @@ function build() {
           req("List", "GET", [...api, "work-orders"], {
             query: q([
               { key: "work_order_type", value: "" },
-              { key: "status", value: "ASSIGNED" },
-              { key: "status", value: "IN_PROGRESS", disabled: true },
-              { key: "statuses", value: "", disabled: true },
+              { key: "status", value: "" },
               { key: "pm_schedule_type", value: "" },
-              { key: "problem_topic_id", value: "{{problem_topic_id}}", disabled: true },
             ]),
-            desc: "Use repeated `status` or comma-separated values; optional `statuses` param also works.",
+            desc: WO_LIST_DOC,
+            examples: [
+              example("filter work_order_type CM", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "CM" },
+                  { key: "status", value: "" },
+                ]),
+              }),
+              example("filter status (repeat param)", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "CM" },
+                  { key: "status", value: "ASSIGNED" },
+                  { key: "status", value: "IN_PROGRESS" },
+                  { key: "status", value: "PENDING" },
+                ]),
+              }),
+              example("filter status (comma-separated)", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "CM" },
+                  { key: "status", value: "ASSIGNED,IN_PROGRESS,PENDING" },
+                ]),
+              }),
+              example("filter statuses param", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "CM" },
+                  { key: "statuses", value: "ASSIGNED,PENDING" },
+                ]),
+              }),
+              example("filter problem_topic_id", "GET", [...api, "work-orders"], {
+                query: q([
+                  { key: "work_order_type", value: "CM" },
+                  { key: "problem_topic_id", value: "{{problem_topic_id}}" },
+                ]),
+              }),
+            ],
           }),
-          req("List (multi status)", "GET", [...api, "work-orders"], {
-            query: q([
-              { key: "work_order_type", value: "CM" },
-              { key: "status", value: "ASSIGNED,IN_PROGRESS,PENDING" },
-            ]),
-          }),
-          req("Create PM", "POST", [...api, "work-orders"], {
-            body: { ...WO_PM_CREATE, panel_id: "{{panel_id}}" },
+          req("Create", "POST", [...api, "work-orders"], {
+            body: WO_PM_CREATE,
             saveVar: "work_order_id",
-          }),
-          req("Create CM", "POST", [...api, "work-orders"], {
-            body: { ...WO_CM_CREATE, panel_id: "{{panel_id}}" },
-            saveVar: "work_order_id",
-          }),
-          req("Create CM (multi-topic)", "POST", [...api, "work-orders"], {
-            body: { ...WO_CM_CREATE_MULTI, panel_id: "{{panel_id}}" },
-            saveVar: "work_order_id",
-            desc: "Requires problem_topic_id + problem_topic_id_2 (run Problem Topics → List first).",
+            desc: woCreateDesc(false),
+            examples: woCreateExamples([...api, "work-orders"]),
           }),
           req("Get by ID", "GET", [...api, "work-orders", "{{work_order_id}}"]),
           req(
             "Update PATCH",
             "PATCH",
             [...api, "work-orders", "{{work_order_id}}"],
-            { body: { priority: "HIGH" } },
-          ),
-          req(
-            "Update PATCH (problem topics)",
-            "PATCH",
-            [...api, "work-orders", "{{work_order_id}}"],
             {
               body: {
-                problem_topic_ids: [
-                  "{{problem_topic_id}}",
-                  "{{problem_topic_id_2}}",
-                ],
+                title: "Updated title",
+                description: "รายละเอียด",
+                priority: "HIGH",
+                planned_date: "2026-09-03",
+                due_date: null,
+                panel_device_id: "{{panel_device_id}}",
               },
-              desc: "CM only; replaces junction topics. Must keep current cm-report topic in the list.",
+              desc: [
+                "Partial update — ส่งเฉพาะ field ที่จะเปลี่ยน.",
+                "",
+                WO_TOPIC_DOC,
+                "",
+                "`problem_topic_ids` บน CM = **replace ชุด topic ทั้งใบ** (ต้องคง topic ของ cm-report ปัจจุบันไว้ใน list).",
+              ].join("\n"),
+              examples: [
+                example("CM — replace problem topics", "PATCH", [
+                  ...api,
+                  "work-orders",
+                  "{{work_order_id}}",
+                ], {
+                  body: {
+                    problem_topic_ids: [
+                      "{{problem_topic_id}}",
+                      "{{problem_topic_id_2}}",
+                    ],
+                  },
+                }),
+                example("PM — change schedule", "PATCH", [
+                  ...api,
+                  "work-orders",
+                  "{{work_order_id}}",
+                ], {
+                  body: { pm_schedule_type: "SIX_MONTH" },
+                }),
+              ],
             },
           ),
           req(
@@ -1203,22 +1422,25 @@ function build() {
             "{{work_order_id}}",
             "cm-report",
           ], {
-            body: CM_REPORT_SAVE,
+            body: CM_REPORT_SAVE_SINGLE,
             saveVar: "cm_report_id",
-            desc: "problem_topic_id (single) or problem_topic_ids[] (array). First topic = report primary + tag_code.",
-          }),
-          req("Save CM Report (single topic)", "PUT", [
-            ...api,
-            "work-orders",
-            "{{work_order_id}}",
-            "cm-report",
-          ], {
-            body: {
-              problem_topic_id: "{{problem_topic_id}}",
-              problem_detail: "Single topic report",
-              corrective_action: "Inspect seal",
-            },
-            saveVar: "cm_report_id",
+            desc: [
+              "### PUT cm-report — replace รายงานรอบปัจจุบัน (ส่ง body ครบทุกครั้ง)",
+              "",
+              WO_TOPIC_DOC,
+              "",
+              "Topic แรกใน list = หลักบน `cm_reports` + sync add-only เข้า junction.",
+            ].join("\n"),
+            examples: [
+              example("multi topic (full body)", "PUT", [
+                ...api,
+                "work-orders",
+                "{{work_order_id}}",
+                "cm-report",
+              ], {
+                body: CM_REPORT_SAVE_FULL,
+              }),
+            ],
           }),
           req("Submit CM Report", "POST", [
             ...api,
@@ -1247,7 +1469,8 @@ function build() {
             { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
           ),
         ],
-        "Run Check In → Save PM Report → Submit → Approval in order for PM flow.",
+        "Run Check In → Save PM Report → Submit → Approval in order for PM flow.\n\n" +
+          WO_TOPIC_DOC,
       ),
       folder("PM Reports", [
         req("Get by ID", "GET", [...api, "pm-reports", "{{pm_report_id}}"], {
@@ -1268,13 +1491,20 @@ function build() {
           "POST",
           [...api, "pm-reports", "{{pm_report_id}}", "onsite-fixes"],
           {
-            body: {
-              reported_by: "{{actor_id}}",
-              problem_topic_id: "{{problem_topic_id}}",
-              problem_detail: "Fixed on spot",
-              corrective_action: "Tightened connector",
-            },
+            body: ONSITE_FIX_SINGLE,
             saveVar: "cm_report_id",
+            desc: WO_TOPIC_DOC,
+            examples: [
+              example("multi topic", "POST", [
+                ...api,
+                "pm-reports",
+                "{{pm_report_id}}",
+                "onsite-fixes",
+              ], {
+                body: ONSITE_FIX_MULTI,
+                code: 201,
+              }),
+            ],
           },
         ),
         req(
@@ -1282,17 +1512,20 @@ function build() {
           "POST",
           [...api, "pm-reports", "{{pm_report_id}}", "escalate"],
           {
-            body: {
-              pending_reason: "Needs spare part",
-              reported_by: "{{actor_id}}",
-              assigned_to: "{{actor_id}}",
-              assigned_by: "{{actor_id}}",
-              problem_topic_ids: [
-                "{{problem_topic_id}}",
-                "{{problem_topic_id_2}}",
-              ],
-            },
+            body: ESCALATE_SINGLE,
             saveVar: "cm_report_id",
+            desc: WO_TOPIC_DOC,
+            examples: [
+              example("multi topic", "POST", [
+                ...api,
+                "pm-reports",
+                "{{pm_report_id}}",
+                "escalate",
+              ], {
+                body: ESCALATE_MULTI,
+                code: 201,
+              }),
+            ],
           },
         ),
         req(
@@ -1357,24 +1590,23 @@ function build() {
           "cm-reports",
           "{{cm_report_id}}",
         ], {
-          body: {
-            problem_topic_ids: [
-              "{{problem_topic_id}}",
-              "{{problem_topic_id_2}}",
-            ],
-            recommendation: "Monitor for 7 days",
-          },
-          desc: "problem_topic_id or problem_topic_ids[] — sync add-only to work order junction.",
-        }),
-        req("Update PATCH (single topic)", "PATCH", [
-          ...api,
-          "cm-reports",
-          "{{cm_report_id}}",
-        ], {
-          body: {
-            problem_topic_id: "{{problem_topic_id}}",
-            recommendation: "Monitor for 7 days",
-          },
+          body: CM_REPORT_PATCH_SINGLE,
+          desc: [
+            "Partial update — ส่งเฉพาะ field ที่จะเปลี่ยน.",
+            "",
+            WO_TOPIC_DOC,
+            "",
+            "Sync add-only ทุก topic เข้า work-order junction.",
+          ].join("\n"),
+          examples: [
+            example("multi topic", "PATCH", [
+              ...api,
+              "cm-reports",
+              "{{cm_report_id}}",
+            ], {
+              body: CM_REPORT_PATCH_MULTI,
+            }),
+          ],
         }),
         req("Update PUT", "PUT", [...api, "cm-reports", "{{cm_report_id}}"], {
           body: { problem_detail: "Updated detail" },

@@ -96,6 +96,9 @@ func decodeError(err error) error {
 		if typeErr.Type == dateGoType {
 			message = "Must be a date in YYYY-MM-DD format."
 		}
+		if field == "problem_topic_id" && typeErr.Value == "array" {
+			message = "Must be a single UUID string. For multiple topics use problem_topic_ids (UUID array)."
+		}
 		return Err(ErrValidationFailed).WithField(field, IssueInvalid, message)
 	}
 

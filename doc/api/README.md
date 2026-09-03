@@ -55,7 +55,7 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 
 | อยากทำ | Method | Path |
 |--------|--------|------|
-| สร้าง CM ใหม่ | `POST` | `/work-orders` + `work_order_type=CM` + **`problem_topic_id` บังคับ** |
+| สร้าง CM ใหม่ | `POST` | `/work-orders` + `work_order_type=CM` + **topic อย่างน้อย 1** — `problem_topic_id` (UUID เดียว) หรือ `problem_topic_ids` (array) |
 | แก้รายงาน CM โดยตรง | `PATCH` | `/cm-reports/{id}` |
 | ดูหัวข้อปัญหา (pill UI) | `GET` | `/problem-topics?active=true` |
 

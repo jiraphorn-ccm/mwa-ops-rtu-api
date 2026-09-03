@@ -4,6 +4,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 type patchShape struct {
@@ -45,5 +47,30 @@ func TestBindRejectsUnknownFields(t *testing.T) {
 	appErr, ok := err.(*AppError)
 	if !ok || appErr.Code.Code != ErrUnknownFields.Code {
 		t.Fatalf("got %#v", err)
+	}
+}
+
+type cmTopicShape struct {
+	ProblemTopicID *uuid.UUID `json:"problem_topic_id"`
+}
+
+func TestBindProblemTopicIDArrayHint(t *testing.T) {
+	body := `{"problem_topic_id": ["0666dc70-dc11-4b4c-9264-1032486a0d48"]}`
+	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
+
+	var in cmTopicShape
+	_, err := Bind(req, &in)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	appErr, ok := err.(*AppError)
+	if !ok {
+		t.Fatalf("got %#v", err)
+	}
+	if len(appErr.Fields) == 0 || appErr.Fields[0].Field != "problem_topic_id" {
+		t.Fatalf("fields=%v", appErr.Fields)
+	}
+	if !strings.Contains(appErr.Fields[0].Message, "problem_topic_ids") {
+		t.Fatalf("message=%q", appErr.Fields[0].Message)
 	}
 }
