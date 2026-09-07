@@ -676,8 +676,9 @@ func TestIntegrationWorkOrderListMultiStatus(t *testing.T) {
 	prefix := "/api/rtu/v1"
 	actorID := uuid.New()
 
+	panelCode := "STFL-" + uuid.NewString()[:8]
 	panelBody, _ := json.Marshal(map[string]any{
-		"code": "STFL-" + uuid.NewString()[:8],
+		"code": panelCode,
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, prefix+"/panels", bytes.NewReader(panelBody))
@@ -688,7 +689,8 @@ func TestIntegrationWorkOrderListMultiStatus(t *testing.T) {
 	}
 	var panelResp struct {
 		Data struct {
-			ID uuid.UUID `json:"id"`
+			ID   uuid.UUID `json:"id"`
+			Code string    `json:"code"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &panelResp); err != nil {
@@ -738,7 +740,8 @@ func TestIntegrationWorkOrderListMultiStatus(t *testing.T) {
 	var listResp struct {
 		Data struct {
 			Items []struct {
-				Status string `json:"status"`
+				Status    string `json:"status"`
+				PanelCode string `json:"panel_code"`
 			} `json:"items"`
 		} `json:"data"`
 	}
@@ -747,5 +750,12 @@ func TestIntegrationWorkOrderListMultiStatus(t *testing.T) {
 	}
 	if len(listResp.Data.Items) == 0 {
 		t.Fatalf("expected at least one ASSIGNED CM")
+	}
+	wantCode := panelCode
+	if panelResp.Data.Code != "" {
+		wantCode = panelResp.Data.Code
+	}
+	if listResp.Data.Items[0].PanelCode != wantCode {
+		t.Fatalf("panel_code = %q, want %q", listResp.Data.Items[0].PanelCode, wantCode)
 	}
 }

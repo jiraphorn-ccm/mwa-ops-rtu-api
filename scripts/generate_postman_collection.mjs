@@ -479,6 +479,8 @@ const WO_TOPIC_DOC = [
 const WO_LIST_DOC = [
   "Query filters — เปิด **Examples** สำหรับแต่ละ filter.",
   "",
+  "**Response items:** `WorkOrderView` — มี `panel_code` (รหัสตู้) คู่กับ `panel_id` ทุกแถว",
+  "",
   "| Param | Values |",
   "|-------|--------|",
   "| `work_order_type` | `PM` / `CM` |",

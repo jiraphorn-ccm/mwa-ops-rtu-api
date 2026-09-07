@@ -108,6 +108,8 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 
 ### `GET /panel-devices/{device_id}/work-orders`
 
+**Response:** `WorkOrderView[]` ใน `data.items` — แต่ละแถวมี **`panel_code`** (รหัสตู้จาก `panels.code`) คู่กับ `panel_id` พร้อม `current_assigned_to`, `problem_topics` (CM) ฯลฯ
+
 **Query filters:**
 
 | Param | ค่า |

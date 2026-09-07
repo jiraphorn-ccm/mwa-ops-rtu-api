@@ -5523,7 +5523,7 @@
               ]
             }
           },
-          "description": "Query filters — เปิด **Examples** สำหรับแต่ละ filter.\n\n| Param | Values |\n|-------|--------|\n| `work_order_type` | `PM` / `CM` |\n| `pm_schedule_type` | `THREE_MONTH` / `SIX_MONTH` (PM) |\n| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |\n| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |\n| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
+          "description": "Query filters — เปิด **Examples** สำหรับแต่ละ filter.\n\n**Response items:** `WorkOrderView` — มี `panel_code` (รหัสตู้) คู่กับ `panel_id` ทุกแถว\n\n| Param | Values |\n|-------|--------|\n| `work_order_type` | `PM` / `CM` |\n| `pm_schedule_type` | `THREE_MONTH` / `SIX_MONTH` (PM) |\n| `status` | ซ้ำ param หรือ comma-separated เช่น `ASSIGNED,IN_PROGRESS` |\n| `statuses` | ทางเลือก — comma-separated เช่น `ASSIGNED,PENDING` |\n| `problem_topic_id` | UUID — filter CM ที่มี topic นี้ |",
           "response": [
             {
               "name": "Example: filter work_order_type PM",
