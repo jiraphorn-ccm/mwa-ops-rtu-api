@@ -203,7 +203,7 @@ Client แปลงเป็นเวลาไทย (`Asia/Bangkok`) ตอน�
 | `panel_id` | ✓ (flat route) | จาก body หรือ URL nested; URL ชนะ — mismatch → validation error |
 | `device_model_id` | ✓ | FK ต้องมีอยู่ |
 | `tag_name` | | max 100; **unique ภายใน panel** (ถ้าไม่ null) → `E300_110` |
-| `serial_number` | | max 100; **unique ทั้งระบบ** → `E300_109` |
+| `serial_number` | | max 100; ไม่ unique (ซ้ำได้) |
 | `communication_status` | | `ONLINE` \| `OFFLINE` \| `DEGRADED` \| `UNKNOWN` (default `UNKNOWN`) |
 | `health_status` | | `NORMAL` \| `WARNING` \| `CRITICAL` \| `UNKNOWN` (default `UNKNOWN`) |
 | `installed_at` | | `YYYY-MM-DD` |

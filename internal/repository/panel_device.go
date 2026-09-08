@@ -22,7 +22,6 @@ type PanelDeviceRepository struct {
 }
 
 var panelDeviceConstraints = db.Constraints{
-	"uk_device_serial":       httpx.ErrDeviceSerialDup,
 	"uk_panel_device_tag":    httpx.ErrDeviceTagDup,
 	"fk_panel_devices_panel": httpx.ErrPanelNotFound,
 }

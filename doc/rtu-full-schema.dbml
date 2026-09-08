@@ -239,7 +239,7 @@ Table rtu.panel_devices {
   manufacturer varchar(100) [note: 'ผู้ผลิต']
   brand varchar(100) [note: 'ยี่ห้อ']
   model varchar(100) [note: 'รุ่น']
-  serial_number varchar(100) [note: 'unique ทั้งระบบ']
+  serial_number varchar(100) [note: 'หมายเลขซีเรียล (ไม่ unique — อนุญาตซ้ำได้)']
   calibration_date date [note: 'วันที่สอบเทียบล่าสุด']
   expire_date date [note: 'วันที่หมดประกัน']
   tag_name varchar(100) [note: 'unique ต่อ panel']
@@ -260,7 +260,6 @@ Table rtu.panel_devices {
     panel_id [name: 'idx_panel_devices_panel_id']
     equipment_type [name: 'idx_panel_devices_equipment_type']
     name [name: 'idx_panel_devices_name']
-    serial_number [unique, name: 'uk_device_serial']
     (panel_id, tag_name) [unique, name: 'uk_panel_device_tag']
     active [name: 'idx_panel_devices_active']
   }
