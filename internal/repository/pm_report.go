@@ -179,12 +179,18 @@ func (r *PmReportRepository) loadDetail(ctx context.Context, report sqlc.PmRepor
 // whole child set atomically. Once SUBMITTED the report is immutable here —
 // callers get ErrPmReportNotDraft and must reopen a new round to edit again.
 func (r *PmReportRepository) Save(
-	ctx context.Context, workOrderID, roundID, panelID uuid.UUID, in SaveInput,
+	ctx context.Context, workOrderID, roundID, panelID uuid.UUID, in SaveInput, beginWork *BeginWorkFromReportInput,
 ) (PmReportDetail, error) {
 	createdBy, updatedBy := createAudit(ctx)
 
 	var report sqlc.PmReport
 	err := db.InTx(ctx, r.pool, func(q *sqlc.Queries) error {
+		if beginWork != nil {
+			if err := BeginWorkFromReportQ(ctx, q, *beginWork); err != nil {
+				return err
+			}
+		}
+
 		existing, getErr := q.GetPmReportByRound(ctx, roundID)
 		switch {
 		case getErr == nil:

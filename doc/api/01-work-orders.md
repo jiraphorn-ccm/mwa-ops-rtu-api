@@ -285,6 +285,26 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 | `GET` | `/work-orders/{id}/pm-reports` | ประวัติ PM report ทุกรอบ |
 | `GET` | `/work-orders/{id}/cm-reports` | ประวัติ CM report ทุกรอบ |
 
+### Activity log (`GET .../activity`)
+
+แถวเรียง `created_at` ASC — ใช้สร้าง timeline “ทำอะไรมาแล้ว”
+
+| `action` | เมื่อไหร่ | หมายเหตุ |
+|----------|-----------|----------|
+| `ASSIGNED` | สร้างใบ / เปิดรอบ rework ใหม่ | หลัง reject: `from_status`=`to_status`=`PENDING` (transition อยู่ที่ `REJECTED`) |
+| `REASSIGNED` | เปลี่ยนผู้รับก่อน check-in | |
+| `CHECKED_IN` | เริ่มงานหน้างาน | |
+| `CHECKED_OUT` | ออกจากหน้างาน | ไม่เปลี่ยน `work_orders.status` |
+| `SUBMITTED` | ส่ง PM/CM report | → `PENDING_APPROVAL` |
+| `APPROVED` | อนุมัติครบ | → `COMPLETED` |
+| `APPROVED_COND` | อนุมัติแบบมีเงื่อนไข | → `CONDITIONAL` |
+| `REJECTED` | ปฏิเสธรายงาน (rework หรือ escalate) | **ไม่มี** `status=REJECTED` บนใบงาน — ดู `from_status`/`to_status` |
+| `STATUS_CHANGED` | เริ่มงานจากบันทึก report (แทน check-in) | → `IN_PROGRESS`; `note`: `Work started from report` |
+| `CM_SPAWNED` | เปิด/reuse CM จาก PM | `note` มีเลขใบ เช่น `Escalated to CM work order CM-RTU-...` |
+
+**Rework หลัง reject:** `REJECTED` (`PENDING_APPROVAL`→`PENDING`) แล้วตามด้วย `ASSIGNED` รอบใหม่  
+**Escalate จาก PM:** `REJECTED` (`PENDING_APPROVAL`→`CONDITIONAL`) + `CM_SPAWNED` — รหัส CM อยู่ใน `note` และ `GET .../approvals` → `new_work_order_id`
+
 ---
 
 ## อนุมัติ

@@ -378,6 +378,17 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 				return err
 			}
 		}
+		if woArg.WorkOrderType == "CM" {
+			deviceID := woArg.PanelDeviceID
+			if initialCmReport != nil && initialCmReport.PanelDeviceID != nil {
+				deviceID = initialCmReport.PanelDeviceID
+			}
+			if deviceID != nil {
+				if err := SyncPanelDeviceCmOpenQ(ctx, q, *deviceID, updatedBy); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -591,13 +602,36 @@ func (r *WorkOrderRepository) UpdateStatus(ctx context.Context, arg sqlc.UpdateW
 	return wo, nil
 }
 
-// SetActive soft-cancels or reactivates a work order.
+// SetActive soft-cancels or reactivates a work order and recalculates linked
+// panel device health for CM work orders in the same transaction.
 func (r *WorkOrderRepository) SetActive(ctx context.Context, id uuid.UUID, active bool) (sqlc.WorkOrder, error) {
-	wo, err := r.q.SetWorkOrderActive(ctx, sqlc.SetWorkOrderActiveParams{
-		ID: id, Active: active, UpdatedBy: updateAudit(ctx),
+	updatedBy := updateAudit(ctx)
+	var wo sqlc.WorkOrder
+	err := db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
+		var err error
+		wo, err = q.SetWorkOrderActive(ctx, sqlc.SetWorkOrderActiveParams{
+			ID: id, Active: active, UpdatedBy: updatedBy,
+		})
+		if err != nil {
+			return db.Translate(err, db.WithNotFound(httpx.ErrWorkOrderNotFnd))
+		}
+		if wo.WorkOrderType != "CM" {
+			return nil
+		}
+		if !active {
+			return RecalcPanelDeviceCmStatusForWorkOrderQ(ctx, tx, q, id, updatedBy)
+		}
+		if wo.Status == "ASSIGNED" || wo.Status == "IN_PROGRESS" || wo.Status == "PENDING" || wo.Status == "PENDING_APPROVAL" {
+			deviceID, err := effectivePanelDeviceIDTx(ctx, tx, id)
+			if err != nil || deviceID == nil {
+				return err
+			}
+			return SyncPanelDeviceCmOpenQ(ctx, q, *deviceID, updatedBy)
+		}
+		return nil
 	})
 	if err != nil {
-		return sqlc.WorkOrder{}, db.Translate(err, db.WithNotFound(httpx.ErrWorkOrderNotFnd))
+		return sqlc.WorkOrder{}, err
 	}
 	return wo, nil
 }
@@ -692,4 +726,41 @@ func (r *WorkOrderRepository) ListOpenCmForPanel(ctx context.Context, panelID uu
 	}
 	applyProblemTopicsToOpenCm(items, topics)
 	return items, nil
+}
+
+const hasOpenCmForDeviceSQL = `
+SELECT EXISTS (
+    SELECT 1
+    FROM rtu.work_orders wo
+    LEFT JOIN rtu.cm_reports cr ON cr.work_order_round_id = wo.current_round_id
+    WHERE wo.work_order_type = 'CM'
+      AND wo.active = true
+      AND wo.status IN ('ASSIGNED', 'IN_PROGRESS', 'PENDING', 'PENDING_APPROVAL')
+      AND ` + openCmEffectiveDevice + ` = $1::uuid
+) AS found`
+
+// HasOpenCmForDevice reports whether any in-flight CM work order covers the
+// device (work order or current-round cm_report panel_device_id).
+func (r *WorkOrderRepository) HasOpenCmForDevice(ctx context.Context, deviceID uuid.UUID) (bool, error) {
+	var found bool
+	if err := r.pool.QueryRow(ctx, hasOpenCmForDeviceSQL, deviceID).Scan(&found); err != nil {
+		return false, db.Translate(err)
+	}
+	return found, nil
+}
+
+const effectivePanelDeviceForWorkOrderSQL = `
+SELECT ` + openCmEffectiveDevice + `
+FROM rtu.work_orders wo
+LEFT JOIN rtu.cm_reports cr ON cr.work_order_round_id = wo.current_round_id
+WHERE wo.id = $1::uuid`
+
+// EffectivePanelDeviceID returns COALESCE(cm_report.panel_device_id,
+// work_order.panel_device_id) for the work order's current round.
+func (r *WorkOrderRepository) EffectivePanelDeviceID(ctx context.Context, workOrderID uuid.UUID) (*uuid.UUID, error) {
+	var deviceID *uuid.UUID
+	if err := r.pool.QueryRow(ctx, effectivePanelDeviceForWorkOrderSQL, workOrderID).Scan(&deviceID); err != nil {
+		return nil, db.Translate(err, db.WithNotFound(httpx.ErrWorkOrderNotFnd))
+	}
+	return deviceID, nil
 }

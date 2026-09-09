@@ -21,6 +21,11 @@
 - ต้องมี `current_round_id`
 - รายงานต้องอยู่ในสถานะ **`DRAFT`** — หลัง submit แล้วแก้ไม่ได้ → **`409 E300_217`** (ต้องรอ reject เปิด round ใหม่)
 
+**เริ่มงาน (แทน check-in):** ถ้า `work_orders.status` เป็น `ASSIGNED` หรือ `PENDING` การ `PUT` ครั้งแรก (หรือครั้งใดก็ตามที่ยังไม่เริ่ม) จะ:
+- เปลี่ยน status → **`IN_PROGRESS`**
+- ตั้ง `work_order_rounds.check_in_at` = `report_date` (หรือ now ถ้าไม่ส่ง)
+- เขียน activity `STATUS_CHANGED` (`ASSIGNED`/`PENDING` → `IN_PROGRESS`)
+
 ### Request — `PmReportSaveInput`
 
 | Field | ชนิด | หมายเหตุ |

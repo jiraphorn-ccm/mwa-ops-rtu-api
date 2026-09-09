@@ -160,6 +160,7 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
 | `serial_number` | ไม่ unique — เก็บเป็นข้อมูลอ้างอิงเท่านั้น |
 | `(panel_id, tag_name)` | unique ต่อตู้ (partial index เมื่อ tag ไม่ null) |
 | `communication_status` + `health_status` | คำนวณ `operational_status` ต่อ device: CRITICAL/OFFLINE → ABNORMAL; WARNING/DEGRADED/UNKNOWN → MONITORING; else NORMAL |
+| CM sync | เปิด CM + เลือก `panel_device_id` → `health_status=WARNING` (MONITORING); CM ปิด `COMPLETED` → NORMAL/ONLINE; ปิด `CONDITIONAL` → WARNING (MONITORING) — ถ้ายังมี CM เปิดค้างบนอุปกรณ์เดียวกัน คง MONITORING |
 | การใช้งาน | CM (อุปกรณ์ที่มีปัญหา), checklist item 11 (Transmitters), calibration |
 
 ---

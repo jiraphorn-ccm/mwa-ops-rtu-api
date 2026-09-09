@@ -126,7 +126,23 @@ func (s *PmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 		Power:      toPowerTestInput(in.Power),
 	}
 
-	detail, err := s.repo.Save(ctx, workOrderID, *wo.CurrentRoundID, wo.PanelID, save)
+	var beginWork *repository.BeginWorkFromReportInput
+	if wo.Status == "ASSIGNED" || wo.Status == "PENDING" {
+		startedAt := time.Now()
+		if in.ReportDate != nil {
+			startedAt = *in.ReportDate
+		}
+		actorID := resolveReportActor(in.EngineerID, wo.CurrentAssignedTo, wo.RequestedBy)
+		beginWork = &repository.BeginWorkFromReportInput{
+			WorkOrderID: workOrderID,
+			RoundID:     *wo.CurrentRoundID,
+			StartedAt:   startedAt,
+			ActorID:     actorID,
+			FromStatus:  wo.Status,
+		}
+	}
+
+	detail, err := s.repo.Save(ctx, workOrderID, *wo.CurrentRoundID, wo.PanelID, save, beginWork)
 	if err != nil {
 		return PmReportDetailView{}, err
 	}
@@ -329,4 +345,14 @@ func toPowerTestInput(in *PowerTestInput) *repository.PowerTestInput {
 		TestedAt:     in.TestedAt,
 		Points:       points,
 	}
+}
+
+func resolveReportActor(primary, assignedTo *uuid.UUID, fallback uuid.UUID) uuid.UUID {
+	if primary != nil && *primary != uuid.Nil {
+		return *primary
+	}
+	if assignedTo != nil {
+		return *assignedTo
+	}
+	return fallback
 }

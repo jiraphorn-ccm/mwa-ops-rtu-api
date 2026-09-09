@@ -92,6 +92,15 @@ func (s *ApprovalService) Decide(ctx context.Context, workOrderID uuid.UUID, in 
 		newWorkOrderID = &cmID
 	}
 
+	var cmWorkOrderNo *string
+	if newWorkOrderID != nil {
+		cmWO, err := s.workOrders.Get(ctx, *newWorkOrderID)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		cmWorkOrderNo = &cmWO.WorkOrderNo
+	}
+
 	var reassignTo *uuid.UUID
 	if in.Decision == "REJECTED" && !escalate {
 		reassignTo = wo.CurrentAssignedTo
@@ -104,7 +113,12 @@ func (s *ApprovalService) Decide(ctx context.Context, workOrderID uuid.UUID, in 
 		}
 	}
 
-	outcome, notifyRework := s.buildOutcome(wo, in, escalate, newWorkOrderID, reassignTo)
+	outcome, notifyRework := buildApprovalOutcome(wo, in, escalate, cmWorkOrderNo, roundID, reassignTo)
+	if wo.WorkOrderType == "CM" {
+		if err := s.attachCmDeviceCloseSync(ctx, workOrderID, in.Decision, &outcome); err != nil {
+			return repository.WorkOrderView{}, err
+		}
+	}
 
 	if _, err := s.repo.DecideAndApply(ctx, sqlc.CreateWoApprovalParams{
 		WorkOrderID:      workOrderID,
@@ -151,42 +165,118 @@ func (s *ApprovalService) Decide(ctx context.Context, workOrderID uuid.UUID, in 
 	return s.workOrders.Get(ctx, workOrderID)
 }
 
-func (s *ApprovalService) buildOutcome(
+func (s *ApprovalService) attachCmDeviceCloseSync(
+	ctx context.Context,
+	workOrderID uuid.UUID,
+	decision string,
+	outcome *repository.ApprovalOutcome,
+) error {
+	var finalStatus string
+	switch decision {
+	case "APPROVED":
+		finalStatus = "COMPLETED"
+	case "APPROVED_CONDITION":
+		finalStatus = "CONDITIONAL"
+	default:
+		return nil
+	}
+	deviceID, err := s.workOrders.repo.EffectivePanelDeviceID(ctx, workOrderID)
+	if err != nil {
+		return err
+	}
+	if deviceID == nil {
+		return nil
+	}
+	outcome.PanelDeviceCmClose = &repository.PanelDeviceCmCloseOutcome{
+		DeviceID:    *deviceID,
+		FinalStatus: finalStatus,
+	}
+	return nil
+}
+
+// buildApprovalOutcome maps a review decision to work-order mutations and the
+// activity-log rows written atomically with wo_approvals (see doc § activity).
+func buildApprovalOutcome(
 	wo repository.WorkOrderView,
 	in ApprovalDecisionInput,
 	escalate bool,
-	newWorkOrderID *uuid.UUID,
+	cmWorkOrderNo *string,
+	reviewedRoundID uuid.UUID,
 	reassignTo *uuid.UUID,
 ) (repository.ApprovalOutcome, *uuid.UUID) {
+	from := wo.Status
 	switch {
 	case in.Decision == "APPROVED":
-		return repository.ApprovalOutcome{NewStatus: "COMPLETED", CloseWO: true}, nil
+		to := "COMPLETED"
+		return repository.ApprovalOutcome{
+			NewStatus: "COMPLETED",
+			CloseWO:   true,
+			ActivityLogs: []sqlc.CreateWorkOrderActivityLogParams{
+				approvalReviewActivity(wo.ID, reviewedRoundID, in.ReviewerID, "APPROVED", from, to, in.Note),
+			},
+		}, nil
 	case in.Decision == "APPROVED_CONDITION":
-		return repository.ApprovalOutcome{NewStatus: "CONDITIONAL", CloseWO: true}, nil
-	case in.Decision == "REJECTED" && escalate:
-		note := "Escalated to CM work order " + newWorkOrderID.String()
+		to := "CONDITIONAL"
 		return repository.ApprovalOutcome{
 			NewStatus: "CONDITIONAL",
 			CloseWO:   true,
-			ActivityLog: &sqlc.CreateWorkOrderActivityLogParams{
-				WorkOrderID: wo.ID,
-				Action:      "CM_SPAWNED",
-				ActorID:     in.ReviewerID,
-				Note:        &note,
+			ActivityLogs: []sqlc.CreateWorkOrderActivityLogParams{
+				approvalReviewActivity(wo.ID, reviewedRoundID, in.ReviewerID, "APPROVED_COND", from, to, in.Note),
 			},
 		}, nil
+	case in.Decision == "REJECTED" && escalate:
+		to := "CONDITIONAL"
+		logs := []sqlc.CreateWorkOrderActivityLogParams{
+			approvalReviewActivity(wo.ID, reviewedRoundID, in.ReviewerID, "REJECTED", from, to, in.Note),
+		}
+		if cmWorkOrderNo != nil {
+			spawnNote := "Escalated to CM work order " + *cmWorkOrderNo
+			logs = append(logs, sqlc.CreateWorkOrderActivityLogParams{
+				WorkOrderID:      wo.ID,
+				WorkOrderRoundID: &reviewedRoundID,
+				Action:           "CM_SPAWNED",
+				ActorID:          in.ReviewerID,
+				Note:             &spawnNote,
+			})
+		}
+		return repository.ApprovalOutcome{
+			NewStatus:    "CONDITIONAL",
+			CloseWO:      true,
+			ActivityLogs: logs,
+		}, nil
 	default:
+		to := "PENDING"
 		now := time.Now()
 		return repository.ApprovalOutcome{
 			NewStatus: "PENDING",
+			ActivityLogs: []sqlc.CreateWorkOrderActivityLogParams{
+				approvalReviewActivity(wo.ID, reviewedRoundID, in.ReviewerID, "REJECTED", from, to, in.Note),
+			},
 			Rework: &repository.ApprovalReworkOutcome{
 				AssignedTo: *reassignTo,
 				AssignedBy: in.ReviewerID,
 				AssignedAt: now,
 				ActorID:    in.ReviewerID,
-				FromStatus: wo.Status,
 			},
 		}, reassignTo
+	}
+}
+
+func approvalReviewActivity(
+	workOrderID, roundID, actorID uuid.UUID,
+	action, fromStatus, toStatus string,
+	note *string,
+) sqlc.CreateWorkOrderActivityLogParams {
+	from := fromStatus
+	to := toStatus
+	return sqlc.CreateWorkOrderActivityLogParams{
+		WorkOrderID:      workOrderID,
+		WorkOrderRoundID: &roundID,
+		Action:           action,
+		FromStatus:       &from,
+		ToStatus:         &to,
+		ActorID:          actorID,
+		Note:             note,
 	}
 }
 

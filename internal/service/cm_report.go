@@ -138,6 +138,16 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 	if err := s.checkDeviceInPanel(ctx, wo.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
 	}
+
+	var previousDeviceID *uuid.UUID
+	if wo.CurrentRoundID != nil {
+		if existing, err := s.repo.FindByRound(ctx, *wo.CurrentRoundID); err != nil {
+			return sqlc.CmReport{}, err
+		} else if existing != nil {
+			previousDeviceID = existing.PanelDeviceID
+		}
+	}
+
 	topicIDs, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, true)
 	if err != nil {
 		return sqlc.CmReport{}, err
@@ -145,6 +155,24 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 
 	var report sqlc.CmReport
 	err = s.repo.WithPanelCmLock(ctx, wo.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if wo.Status == "ASSIGNED" || wo.Status == "PENDING" {
+			startedAt := time.Now()
+			if in.StartedAt != nil {
+				startedAt = *in.StartedAt
+			} else if in.ReportedAt != nil {
+				startedAt = *in.ReportedAt
+			}
+			if err := repository.BeginWorkFromReportQ(ctx, q, repository.BeginWorkFromReportInput{
+				WorkOrderID: workOrderID,
+				RoundID:     *wo.CurrentRoundID,
+				StartedAt:   startedAt,
+				ActorID:     resolveReportActor(in.RepairedBy, wo.CurrentAssignedTo, wo.RequestedBy),
+				FromStatus:  wo.Status,
+			}); err != nil {
+				return err
+			}
+		}
+
 		if err := repository.EnsureNoOpenCmConflictForTopics(ctx, tx, wo.PanelID, repository.OpenCmDuplicateCheck{
 			TopicIDs:           topicIDs,
 			ExcludeWorkOrderID: &workOrderID,
@@ -193,7 +221,10 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 				EndedAt:                  in.EndedAt,
 				EndedAtDoUpdate:          true,
 			})
-			return err
+			if err != nil {
+				return err
+			}
+			return repository.SyncPanelDeviceCmReportSaveQ(ctx, tx, q, isOpenCmWorkOrder(wo.WorkOrderType, wo.Status), previousDeviceID, in.PanelDeviceID)
 		}
 
 		reportedBy := wo.RequestedBy
@@ -221,7 +252,10 @@ func (s *CmReportService) SaveForWorkOrder(ctx context.Context, workOrderID uuid
 			StartedAt:        in.StartedAt,
 			EndedAt:          in.EndedAt,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		return repository.SyncPanelDeviceCmReportSaveQ(ctx, tx, q, isOpenCmWorkOrder(wo.WorkOrderType, wo.Status), previousDeviceID, in.PanelDeviceID)
 	})
 	if err != nil {
 		if conflict := openCmConflictError(err); conflict != nil {
@@ -388,7 +422,11 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 			ReportedAt:               &now,
 			ReportedAtDoUpdate:       true,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		prev := existing.PanelDeviceID
+		return repository.SyncPanelDeviceCmReportSaveQ(ctx, tx, q, true, prev, in.PanelDeviceID)
 	})
 	if err != nil {
 		return sqlc.CmReport{}, err

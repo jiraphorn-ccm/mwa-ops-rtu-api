@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/rtu-api/internal/db"
@@ -73,7 +74,9 @@ type ApprovalOutcome struct {
 	NewStatus   string
 	CloseWO     bool
 	Rework      *ApprovalReworkOutcome
-	ActivityLog *sqlc.CreateWorkOrderActivityLogParams
+	ActivityLogs []sqlc.CreateWorkOrderActivityLogParams
+	// PanelDeviceCmClose syncs device health atomically when a CM work order closes.
+	PanelDeviceCmClose *PanelDeviceCmCloseOutcome
 }
 
 // ApprovalReworkOutcome opens round_no+1 and reassigns the work order.
@@ -81,8 +84,7 @@ type ApprovalReworkOutcome struct {
 	AssignedTo uuid.UUID
 	AssignedBy uuid.UUID
 	AssignedAt time.Time
-	ActorID    uuid.UUID
-	FromStatus string
+	ActorID uuid.UUID
 }
 
 // DecideAndApply records the approval and applies outcome in one transaction.
@@ -95,7 +97,7 @@ func (r *WoApprovalRepository) DecideAndApply(
 	approval.CreatedBy, approval.UpdatedBy = createdBy, updatedBy
 
 	var result sqlc.WoApproval
-	err := db.InTx(ctx, r.pool, func(q *sqlc.Queries) error {
+	err := db.InTxConn(ctx, r.pool, func(tx pgx.Tx, q *sqlc.Queries) error {
 		var err error
 		result, err = q.CreateWoApproval(ctx, approval)
 		if err != nil {
@@ -105,6 +107,11 @@ func (r *WoApprovalRepository) DecideAndApply(
 		woID := approval.WorkOrderID
 		if outcome.Rework != nil {
 			rw := outcome.Rework
+			for _, log := range outcome.ActivityLogs {
+				if _, err := q.CreateWorkOrderActivityLog(ctx, log); err != nil {
+					return db.Translate(err)
+				}
+			}
 			nextNo, err := q.NextWorkOrderRoundNo(ctx, woID)
 			if err != nil {
 				return db.Translate(err)
@@ -132,14 +139,15 @@ func (r *WoApprovalRepository) DecideAndApply(
 			if err != nil {
 				return db.Translate(err)
 			}
-			from := rw.FromStatus
-			to := wo.Status
+			// Status transition is recorded by the preceding REJECTED log; this
+			// row marks the new round and assignee only.
+			st := wo.Status
 			if _, err := q.CreateWorkOrderActivityLog(ctx, sqlc.CreateWorkOrderActivityLogParams{
 				WorkOrderID:      woID,
 				WorkOrderRoundID: &round.ID,
 				Action:           "ASSIGNED",
-				FromStatus:       &from,
-				ToStatus:         &to,
+				FromStatus:       &st,
+				ToStatus:         &st,
 				ToAssignee:       &rw.AssignedTo,
 				ActorID:          rw.ActorID,
 			}); err != nil {
@@ -158,9 +166,15 @@ func (r *WoApprovalRepository) DecideAndApply(
 		if _, err := q.UpdateWorkOrderStatus(ctx, params); err != nil {
 			return db.Translate(err)
 		}
-		if outcome.ActivityLog != nil {
-			if _, err := q.CreateWorkOrderActivityLog(ctx, *outcome.ActivityLog); err != nil {
+		for _, log := range outcome.ActivityLogs {
+			if _, err := q.CreateWorkOrderActivityLog(ctx, log); err != nil {
 				return db.Translate(err)
+			}
+		}
+		if outcome.PanelDeviceCmClose != nil {
+			closeSync := outcome.PanelDeviceCmClose
+			if err := SyncPanelDeviceAfterCmClosedQ(ctx, tx, q, closeSync.DeviceID, closeSync.FinalStatus, updatedBy); err != nil {
+				return err
 			}
 		}
 		return nil

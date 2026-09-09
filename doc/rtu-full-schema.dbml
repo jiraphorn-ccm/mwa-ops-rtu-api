@@ -275,6 +275,7 @@ Table rtu.panel_devices {
   Note: '''
  API field (computed): operational_status = map(communication_status, health_status)
       CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL
+  CM sync (service): เปิด CM + effective panel_device_id → health WARNING; CM ปิด COMPLETED → health NORMAL; CONDITIONAL → health WARNING; ไม่ overwrite communication_status
   ไม่มี device_model_id — แก้ master ไม่กระทบ record ที่ติดตั้งแล้ว
   '''
 }

@@ -299,13 +299,42 @@ func (s *WorkOrderService) Update(ctx context.Context, id uuid.UUID, fields http
 			}
 			return repository.WorkOrderView{}, err
 		}
-		return s.repo.GetView(ctx, id)
+		view, err := s.repo.GetView(ctx, id)
+		if err != nil {
+			return repository.WorkOrderView{}, err
+		}
+		if woUpdate != nil && woUpdate.PanelDeviceIDDoUpdate {
+			s.syncPanelDeviceOnCmDeviceChange(ctx, current, view, true)
+		}
+		return view, nil
 	}
 
 	if _, err := s.repo.Update(ctx, params); err != nil {
 		return repository.WorkOrderView{}, err
 	}
-	return s.repo.GetView(ctx, id)
+	view, err := s.repo.GetView(ctx, id)
+	if err != nil {
+		return repository.WorkOrderView{}, err
+	}
+	s.syncPanelDeviceOnCmDeviceChange(ctx, current, view, params.PanelDeviceIDDoUpdate)
+	return view, nil
+}
+
+func (s *WorkOrderService) syncPanelDeviceOnCmDeviceChange(
+	ctx context.Context,
+	before sqlc.WorkOrder,
+	after repository.WorkOrderView,
+	deviceFieldUpdated bool,
+) {
+	if !deviceFieldUpdated || !isOpenCmWorkOrder(after.WorkOrderType, after.Status) {
+		return
+	}
+	if before.PanelDeviceID != nil && (after.PanelDeviceID == nil || *before.PanelDeviceID != *after.PanelDeviceID) {
+		RunRecalcPanelDeviceCmStatus(ctx, s.devices, s.repo, *before.PanelDeviceID)
+	}
+	if after.PanelDeviceID != nil {
+		RunSyncPanelDeviceForCmOpen(ctx, s.devices, *after.PanelDeviceID)
+	}
 }
 
 func workOrderUpdateHasChanges(p sqlc.UpdateWorkOrderParams) bool {

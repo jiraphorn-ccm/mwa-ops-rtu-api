@@ -60,3 +60,15 @@ func TestBuildOpenCmWorkOrderConditions(t *testing.T) {
 		}
 	})
 }
+
+func TestEffectivePanelDeviceSQLUsesCoalesce(t *testing.T) {
+	for _, query := range []string{
+		hasOpenCmForDeviceSQL,
+		effectivePanelDeviceForWorkOrderSQL,
+		openCmWorkOrderSelect,
+	} {
+		if !strings.Contains(query, openCmEffectiveDevice) {
+			t.Fatalf("query missing effective device expression: %q", query)
+		}
+	}
+}
