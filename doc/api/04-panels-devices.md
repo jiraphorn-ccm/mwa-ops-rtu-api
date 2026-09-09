@@ -57,8 +57,8 @@ Prefix: `{api_prefix}/panel-devices` และ `/panels/{panel_id}/devices`
 | `equipment_type`, `manufacturer`, `brand`, `model` | ไม่ | |
 | `serial_number`, `tag_name`, `asset_code` | ไม่ | |
 | `calibration_date`, `expire_date`, `installed_at` | date | |
-| `communication_status` | ไม่ | `ONLINE`,`OFFLINE`,`DEGRADED`,`UNKNOWN` |
-| `health_status` | ไม่ | `NORMAL`,`WARNING`,`CRITICAL`,`UNKNOWN` |
+| `communication_status` | ไม่ | `ONLINE`,`OFFLINE`,`DEGRADED`,`UNKNOWN` — **default `ONLINE`** |
+| `health_status` | ไม่ | `NORMAL`,`WARNING`,`CRITICAL`,`UNKNOWN` — **default `NORMAL`** |
 | `firmware_version`, `note` | ไม่ | |
 | `active` | bool | |
 

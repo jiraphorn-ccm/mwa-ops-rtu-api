@@ -253,8 +253,8 @@ Table rtu.panel_devices {
   tag_name varchar(100) [note: 'unique ต่อ panel']
   asset_code varchar(100)
   firmware_version varchar(50)
-  communication_status communication_status [not null, default: 'UNKNOWN']
-  health_status health_status [not null, default: 'UNKNOWN']
+  communication_status communication_status [not null, default: 'ONLINE']
+  health_status health_status [not null, default: 'NORMAL']
   installed_at date
   last_seen_at timestamptz
   note text
