@@ -54,7 +54,8 @@ type deviceModelListRow struct {
 const deviceModelListSelect = `
 SELECT
     dm.id, dm.code, dm.name, dm.equipment_type, dm.manufacturer, dm.brand, dm.model,
-    dm.serial_number, dm.expire_date, dm.description, dm.active,
+    dm.serial_number, dm.expire_date, dm.input_range, dm.accuracy_class, dm.power_supply, dm.output_range,
+    dm.description, dm.active,
     dm.created_at, dm.updated_at, dm.created_by, dm.updated_by,
     count(*) OVER ()::bigint AS total_count
 FROM rtu.device_models dm

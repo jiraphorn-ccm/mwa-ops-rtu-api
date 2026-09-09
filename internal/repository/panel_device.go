@@ -92,6 +92,7 @@ func withOperationalStatus(v PanelDeviceView) PanelDeviceView {
 const panelDeviceColumns = `
     pd.id, pd.panel_id, pd.name, pd.equipment_type, pd.manufacturer, pd.brand, pd.model,
     pd.serial_number, pd.calibration_date, pd.expire_date,
+    pd.input_range, pd.accuracy_class, pd.power_supply, pd.output_range,
     pd.tag_name, pd.asset_code, pd.firmware_version, pd.communication_status, pd.health_status,
     pd.installed_at, pd.last_seen_at, pd.note, pd.active,
     pd.created_at, pd.updated_at, pd.created_by, pd.updated_by,

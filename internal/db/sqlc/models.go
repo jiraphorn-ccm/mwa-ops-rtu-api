@@ -159,6 +159,10 @@ type DeviceModel struct {
 	Brand         *string     `db:"brand" json:"brand"`
 	SerialNumber  *string     `db:"serial_number" json:"serial_number"`
 	ExpireDate    *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRange    *string     `db:"input_range" json:"input_range"`
+	AccuracyClass *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupply   *string     `db:"power_supply" json:"power_supply"`
+	OutputRange   *string     `db:"output_range" json:"output_range"`
 }
 
 type Engineer struct {
@@ -228,6 +232,10 @@ type PanelDevice struct {
 	Model               *string     `db:"model" json:"model"`
 	CalibrationDate     *httpx.Date `db:"calibration_date" json:"calibration_date"`
 	ExpireDate          *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRange          *string     `db:"input_range" json:"input_range"`
+	AccuracyClass       *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupply         *string     `db:"power_supply" json:"power_supply"`
+	OutputRange         *string     `db:"output_range" json:"output_range"`
 }
 
 type PanelImage struct {

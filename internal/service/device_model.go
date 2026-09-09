@@ -25,6 +25,10 @@ type DeviceModelCreateInput struct {
 	Model         *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber  *string     `json:"serial_number" validate:"omitempty,max=100"`
 	ExpireDate    *httpx.Date `json:"expire_date"`
+	InputRange    *string     `json:"input_range" validate:"omitempty,max=100"`
+	AccuracyClass *string     `json:"accuracy_class" validate:"omitempty,max=100"`
+	PowerSupply   *string     `json:"power_supply" validate:"omitempty,max=100"`
+	OutputRange   *string     `json:"output_range" validate:"omitempty,max=100"`
 	Description   *string     `json:"description" validate:"omitempty,max=4000"`
 	Active        *bool       `json:"active"`
 }
@@ -39,6 +43,10 @@ type DeviceModelUpdateInput struct {
 	Model         *string     `json:"model" validate:"omitempty,max=100"`
 	SerialNumber  *string     `json:"serial_number" validate:"omitempty,max=100"`
 	ExpireDate    *httpx.Date `json:"expire_date"`
+	InputRange    *string     `json:"input_range" validate:"omitempty,max=100"`
+	AccuracyClass *string     `json:"accuracy_class" validate:"omitempty,max=100"`
+	PowerSupply   *string     `json:"power_supply" validate:"omitempty,max=100"`
+	OutputRange   *string     `json:"output_range" validate:"omitempty,max=100"`
 	Description   *string     `json:"description" validate:"omitempty,max=4000"`
 	Active        *bool       `json:"active"`
 }
@@ -69,6 +77,10 @@ func (s *DeviceModelService) Create(ctx context.Context, in DeviceModelCreateInp
 		Model:         in.Model,
 		SerialNumber:  in.SerialNumber,
 		ExpireDate:    in.ExpireDate,
+		InputRange:    in.InputRange,
+		AccuracyClass: in.AccuracyClass,
+		PowerSupply:   in.PowerSupply,
+		OutputRange:   in.OutputRange,
 		Description:   in.Description,
 		Active:        in.Active,
 	})
@@ -101,6 +113,10 @@ func (s *DeviceModelService) Update(ctx context.Context, id uuid.UUID, fields ht
 	params.Brand, params.BrandDoUpdate = patchNullable(fields, "brand", in.Brand)
 	params.Model, params.ModelDoUpdate = patchNullable(fields, "model", in.Model)
 	params.SerialNumber, params.SerialNumberDoUpdate = patchNullable(fields, "serial_number", in.SerialNumber)
+	params.InputRange, params.InputRangeDoUpdate = patchNullable(fields, "input_range", in.InputRange)
+	params.AccuracyClass, params.AccuracyClassDoUpdate = patchNullable(fields, "accuracy_class", in.AccuracyClass)
+	params.PowerSupply, params.PowerSupplyDoUpdate = patchNullable(fields, "power_supply", in.PowerSupply)
+	params.OutputRange, params.OutputRangeDoUpdate = patchNullable(fields, "output_range", in.OutputRange)
 	params.Description, params.DescriptionDoUpdate = patchNullable(fields, "description", in.Description)
 
 	expireDate, setExpire := patchNullable(fields, "expire_date", in.ExpireDate)

@@ -15,7 +15,8 @@ import (
 const createDeviceModel = `-- name: CreateDeviceModel :one
 INSERT INTO rtu.device_models (
     code, name, equipment_type, manufacturer, brand, model,
-    serial_number, expire_date, description, active, created_by, updated_by
+    serial_number, expire_date, input_range, accuracy_class, power_supply, output_range,
+    description, active, created_by, updated_by
 )
 VALUES (
     $1::varchar,
@@ -26,12 +27,16 @@ VALUES (
     $6::varchar,
     $7::varchar,
     $8::date,
-    $9::text,
-    COALESCE($10::boolean, true),
-    $11::uuid,
-    $12::uuid
+    $9::varchar,
+    $10::varchar,
+    $11::varchar,
+    $12::varchar,
+    $13::text,
+    COALESCE($14::boolean, true),
+    $15::uuid,
+    $16::uuid
 )
-RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date
+RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type CreateDeviceModelParams struct {
@@ -43,6 +48,10 @@ type CreateDeviceModelParams struct {
 	Model         *string     `db:"model" json:"model"`
 	SerialNumber  *string     `db:"serial_number" json:"serial_number"`
 	ExpireDate    *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRange    *string     `db:"input_range" json:"input_range"`
+	AccuracyClass *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupply   *string     `db:"power_supply" json:"power_supply"`
+	OutputRange   *string     `db:"output_range" json:"output_range"`
 	Description   *string     `db:"description" json:"description"`
 	Active        *bool       `db:"active" json:"active"`
 	CreatedBy     *uuid.UUID  `db:"created_by" json:"created_by"`
@@ -59,6 +68,10 @@ func (q *Queries) CreateDeviceModel(ctx context.Context, arg CreateDeviceModelPa
 		arg.Model,
 		arg.SerialNumber,
 		arg.ExpireDate,
+		arg.InputRange,
+		arg.AccuracyClass,
+		arg.PowerSupply,
+		arg.OutputRange,
 		arg.Description,
 		arg.Active,
 		arg.CreatedBy,
@@ -81,6 +94,10 @@ func (q *Queries) CreateDeviceModel(ctx context.Context, arg CreateDeviceModelPa
 		&i.Brand,
 		&i.SerialNumber,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -120,7 +137,7 @@ func (q *Queries) DeviceModelIsActive(ctx context.Context, id uuid.UUID) (bool, 
 }
 
 const getDeviceModel = `-- name: GetDeviceModel :one
-SELECT id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date FROM rtu.device_models WHERE id = $1::uuid
+SELECT id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date, input_range, accuracy_class, power_supply, output_range FROM rtu.device_models WHERE id = $1::uuid
 `
 
 func (q *Queries) GetDeviceModel(ctx context.Context, id uuid.UUID) (DeviceModel, error) {
@@ -142,12 +159,16 @@ func (q *Queries) GetDeviceModel(ctx context.Context, id uuid.UUID) (DeviceModel
 		&i.Brand,
 		&i.SerialNumber,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
 
 const getDeviceModelByCode = `-- name: GetDeviceModelByCode :one
-SELECT id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date FROM rtu.device_models WHERE code = $1::varchar
+SELECT id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date, input_range, accuracy_class, power_supply, output_range FROM rtu.device_models WHERE code = $1::varchar
 `
 
 func (q *Queries) GetDeviceModelByCode(ctx context.Context, code string) (DeviceModel, error) {
@@ -169,6 +190,10 @@ func (q *Queries) GetDeviceModelByCode(ctx context.Context, code string) (Device
 		&i.Brand,
 		&i.SerialNumber,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -178,7 +203,7 @@ UPDATE rtu.device_models SET
     active     = $1::boolean,
     updated_by = $2::uuid
 WHERE id = $3::uuid
-RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date
+RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type SetDeviceModelActiveParams struct {
@@ -206,6 +231,10 @@ func (q *Queries) SetDeviceModelActive(ctx context.Context, arg SetDeviceModelAc
 		&i.Brand,
 		&i.SerialNumber,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -220,11 +249,15 @@ UPDATE rtu.device_models SET
     model           = CASE WHEN $11::boolean THEN $12::varchar ELSE model END,
     serial_number   = CASE WHEN $13::boolean THEN $14::varchar ELSE serial_number END,
     expire_date     = CASE WHEN $15::boolean THEN $16::date ELSE expire_date END,
-    description     = CASE WHEN $17::boolean THEN $18::text ELSE description END,
-    active          = CASE WHEN $19::boolean THEN $20::boolean ELSE active END,
-    updated_by      = $21::uuid
-WHERE id = $22::uuid
-RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date
+    input_range     = CASE WHEN $17::boolean THEN $18::varchar ELSE input_range END,
+    accuracy_class  = CASE WHEN $19::boolean THEN $20::varchar ELSE accuracy_class END,
+    power_supply    = CASE WHEN $21::boolean THEN $22::varchar ELSE power_supply END,
+    output_range    = CASE WHEN $23::boolean THEN $24::varchar ELSE output_range END,
+    description     = CASE WHEN $25::boolean THEN $26::text ELSE description END,
+    active          = CASE WHEN $27::boolean THEN $28::boolean ELSE active END,
+    updated_by      = $29::uuid
+WHERE id = $30::uuid
+RETURNING id, code, name, manufacturer, model, description, active, created_at, updated_at, created_by, updated_by, equipment_type, brand, serial_number, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type UpdateDeviceModelParams struct {
@@ -244,6 +277,14 @@ type UpdateDeviceModelParams struct {
 	SerialNumber          *string     `db:"serial_number" json:"serial_number"`
 	ExpireDateDoUpdate    bool        `db:"expire_date_do_update" json:"expire_date_do_update"`
 	ExpireDate            *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRangeDoUpdate    bool        `db:"input_range_do_update" json:"input_range_do_update"`
+	InputRange            *string     `db:"input_range" json:"input_range"`
+	AccuracyClassDoUpdate bool        `db:"accuracy_class_do_update" json:"accuracy_class_do_update"`
+	AccuracyClass         *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupplyDoUpdate   bool        `db:"power_supply_do_update" json:"power_supply_do_update"`
+	PowerSupply           *string     `db:"power_supply" json:"power_supply"`
+	OutputRangeDoUpdate   bool        `db:"output_range_do_update" json:"output_range_do_update"`
+	OutputRange           *string     `db:"output_range" json:"output_range"`
 	DescriptionDoUpdate   bool        `db:"description_do_update" json:"description_do_update"`
 	Description           *string     `db:"description" json:"description"`
 	ActiveDoUpdate        bool        `db:"active_do_update" json:"active_do_update"`
@@ -270,6 +311,14 @@ func (q *Queries) UpdateDeviceModel(ctx context.Context, arg UpdateDeviceModelPa
 		arg.SerialNumber,
 		arg.ExpireDateDoUpdate,
 		arg.ExpireDate,
+		arg.InputRangeDoUpdate,
+		arg.InputRange,
+		arg.AccuracyClassDoUpdate,
+		arg.AccuracyClass,
+		arg.PowerSupplyDoUpdate,
+		arg.PowerSupply,
+		arg.OutputRangeDoUpdate,
+		arg.OutputRange,
 		arg.DescriptionDoUpdate,
 		arg.Description,
 		arg.ActiveDoUpdate,
@@ -294,6 +343,10 @@ func (q *Queries) UpdateDeviceModel(ctx context.Context, arg UpdateDeviceModelPa
 		&i.Brand,
 		&i.SerialNumber,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }

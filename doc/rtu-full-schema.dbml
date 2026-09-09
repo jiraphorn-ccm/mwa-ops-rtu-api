@@ -215,6 +215,10 @@ Table rtu.device_models {
   model varchar(100) [note: 'รุ่น']
   serial_number varchar(100) [note: 'หมายเลขซีเรียล (ตัวอย่างใน master)']
   expire_date date [note: 'วันที่หมดประกัน']
+  input_range varchar(100) [note: 'ช่วง input — เช่น 0-25,000 mmH2O']
+  accuracy_class varchar(100) [note: 'Acc/Class']
+  power_supply varchar(100) [note: 'Power supply']
+  output_range varchar(100) [note: 'ช่วง output — เช่น 4-20 mA']
   description text [note: 'master-only — ไม่ copy ไป panel_devices อัตโนมัติ']
   active boolean [not null, default: true]
   created_at timestamptz [not null, default: `now()`]
@@ -242,6 +246,10 @@ Table rtu.panel_devices {
   serial_number varchar(100) [note: 'หมายเลขซีเรียล (ไม่ unique — อนุญาตซ้ำได้)']
   calibration_date date [note: 'วันที่สอบเทียบล่าสุด']
   expire_date date [note: 'วันที่หมดประกัน']
+  input_range varchar(100) [note: 'ช่วง input — snapshot บน panel']
+  accuracy_class varchar(100) [note: 'Acc/Class — snapshot บน panel']
+  power_supply varchar(100) [note: 'Power supply — snapshot บน panel']
+  output_range varchar(100) [note: 'ช่วง output — snapshot บน panel']
   tag_name varchar(100) [note: 'unique ต่อ panel']
   asset_code varchar(100)
   firmware_version varchar(50)

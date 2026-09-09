@@ -29,6 +29,10 @@ type PanelDeviceCreateInput struct {
 	SerialNumber        *string     `json:"serial_number" validate:"omitempty,max=100"`
 	CalibrationDate     *httpx.Date `json:"calibration_date"`
 	ExpireDate          *httpx.Date `json:"expire_date"`
+	InputRange          *string     `json:"input_range" validate:"omitempty,max=100"`
+	AccuracyClass       *string     `json:"accuracy_class" validate:"omitempty,max=100"`
+	PowerSupply         *string     `json:"power_supply" validate:"omitempty,max=100"`
+	OutputRange         *string     `json:"output_range" validate:"omitempty,max=100"`
 	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
 	AssetCode           *string     `json:"asset_code" validate:"omitempty,max=100"`
 	FirmwareVersion     *string     `json:"firmware_version" validate:"omitempty,max=50"`
@@ -51,6 +55,10 @@ type PanelDeviceUpdateInput struct {
 	SerialNumber        *string     `json:"serial_number" validate:"omitempty,max=100"`
 	CalibrationDate     *httpx.Date `json:"calibration_date"`
 	ExpireDate          *httpx.Date `json:"expire_date"`
+	InputRange          *string     `json:"input_range" validate:"omitempty,max=100"`
+	AccuracyClass       *string     `json:"accuracy_class" validate:"omitempty,max=100"`
+	PowerSupply         *string     `json:"power_supply" validate:"omitempty,max=100"`
+	OutputRange         *string     `json:"output_range" validate:"omitempty,max=100"`
 	TagName             *string     `json:"tag_name" validate:"omitempty,max=100"`
 	AssetCode           *string     `json:"asset_code" validate:"omitempty,max=100"`
 	FirmwareVersion     *string     `json:"firmware_version" validate:"omitempty,max=50"`
@@ -92,6 +100,10 @@ func (s *PanelDeviceService) Create(ctx context.Context, in PanelDeviceCreateInp
 		SerialNumber:        in.SerialNumber,
 		CalibrationDate:     in.CalibrationDate,
 		ExpireDate:          in.ExpireDate,
+		InputRange:          in.InputRange,
+		AccuracyClass:       in.AccuracyClass,
+		PowerSupply:         in.PowerSupply,
+		OutputRange:         in.OutputRange,
 		TagName:             in.TagName,
 		AssetCode:           in.AssetCode,
 		FirmwareVersion:     in.FirmwareVersion,
@@ -158,6 +170,11 @@ func (s *PanelDeviceService) Update(ctx context.Context, id uuid.UUID, fields ht
 
 	expireDate, setExpire := patchNullable(fields, "expire_date", in.ExpireDate)
 	params.ExpireDate, params.ExpireDateDoUpdate = expireDate, setExpire
+
+	params.InputRange, params.InputRangeDoUpdate = patchNullable(fields, "input_range", in.InputRange)
+	params.AccuracyClass, params.AccuracyClassDoUpdate = patchNullable(fields, "accuracy_class", in.AccuracyClass)
+	params.PowerSupply, params.PowerSupplyDoUpdate = patchNullable(fields, "power_supply", in.PowerSupply)
+	params.OutputRange, params.OutputRangeDoUpdate = patchNullable(fields, "output_range", in.OutputRange)
 
 	installedAt, setInstalled := patchNullable(fields, "installed_at", in.InstalledAt)
 	params.InstalledAt, params.InstalledAtDoUpdate = installedAt, setInstalled

@@ -91,7 +91,24 @@ Prefix: `{api_prefix}/device-models`
 |-------|--------|
 | `code` | ✅ |
 | `name` | ✅ |
-| `manufacturer`, `equipment_type`, `brand` | ไม่ |
+| `manufacturer`, `equipment_type`, `brand`, `model`, `serial_number`, `expire_date` | ไม่ |
+| `input_range`, `accuracy_class`, `power_supply`, `output_range` | ไม่ — spec อุปกรณ์ (varchar 100, สอดคล้อง `calibrations.eut_*`) |
 | `active` | bool |
 
 **List filters:** `active`, `manufacturer`, `equipment_type`, `brand`
+
+---
+
+## Panel Devices
+
+Prefix: `{api_prefix}/panel-devices` และ nested `POST /panels/{id}/devices`
+
+Equipment snapshot บนแถว `panel_devices` — รองรับ field spec เดียวกับ device model:
+
+| Field | บังคับ |
+|-------|--------|
+| `panel_id`, `name` | ✅ (POST `/panel-devices`) |
+| `input_range`, `accuracy_class`, `power_supply`, `output_range` | ไม่ |
+| `manufacturer`, `equipment_type`, `brand`, `model`, `serial_number`, `calibration_date`, `expire_date` | ไม่ |
+
+PATCH/PUT รองรับ partial update field spec เหมือน field อื่น (`null` = ล้างค่า)

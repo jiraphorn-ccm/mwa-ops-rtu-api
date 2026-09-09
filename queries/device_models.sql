@@ -1,7 +1,8 @@
 -- name: CreateDeviceModel :one
 INSERT INTO rtu.device_models (
     code, name, equipment_type, manufacturer, brand, model,
-    serial_number, expire_date, description, active, created_by, updated_by
+    serial_number, expire_date, input_range, accuracy_class, power_supply, output_range,
+    description, active, created_by, updated_by
 )
 VALUES (
     @code::varchar,
@@ -12,6 +13,10 @@ VALUES (
     sqlc.narg('model')::varchar,
     sqlc.narg('serial_number')::varchar,
     sqlc.narg('expire_date')::date,
+    sqlc.narg('input_range')::varchar,
+    sqlc.narg('accuracy_class')::varchar,
+    sqlc.narg('power_supply')::varchar,
+    sqlc.narg('output_range')::varchar,
     sqlc.narg('description')::text,
     COALESCE(sqlc.narg('active')::boolean, true),
     sqlc.narg('created_by')::uuid,
@@ -35,6 +40,10 @@ UPDATE rtu.device_models SET
     model           = CASE WHEN @model_do_update::boolean THEN sqlc.narg('model')::varchar ELSE model END,
     serial_number   = CASE WHEN @serial_number_do_update::boolean THEN sqlc.narg('serial_number')::varchar ELSE serial_number END,
     expire_date     = CASE WHEN @expire_date_do_update::boolean THEN sqlc.narg('expire_date')::date ELSE expire_date END,
+    input_range     = CASE WHEN @input_range_do_update::boolean THEN sqlc.narg('input_range')::varchar ELSE input_range END,
+    accuracy_class  = CASE WHEN @accuracy_class_do_update::boolean THEN sqlc.narg('accuracy_class')::varchar ELSE accuracy_class END,
+    power_supply    = CASE WHEN @power_supply_do_update::boolean THEN sqlc.narg('power_supply')::varchar ELSE power_supply END,
+    output_range    = CASE WHEN @output_range_do_update::boolean THEN sqlc.narg('output_range')::varchar ELSE output_range END,
     description     = CASE WHEN @description_do_update::boolean THEN sqlc.narg('description')::text ELSE description END,
     active          = CASE WHEN @active_do_update::boolean THEN @active::boolean ELSE active END,
     updated_by      = sqlc.narg('updated_by')::uuid

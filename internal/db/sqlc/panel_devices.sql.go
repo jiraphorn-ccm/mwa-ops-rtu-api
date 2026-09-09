@@ -17,6 +17,7 @@ const createPanelDevice = `-- name: CreatePanelDevice :one
 INSERT INTO rtu.panel_devices (
     panel_id, name, equipment_type, manufacturer, brand, model,
     serial_number, calibration_date, expire_date,
+    input_range, accuracy_class, power_supply, output_range,
     tag_name, asset_code, firmware_version,
     communication_status, health_status,
     installed_at, last_seen_at, note, active, created_by, updated_by
@@ -34,16 +35,20 @@ VALUES (
     $10::varchar,
     $11::varchar,
     $12::varchar,
-    COALESCE($13::varchar, 'UNKNOWN'),
-    COALESCE($14::varchar, 'UNKNOWN'),
-    $15::date,
-    $16::timestamptz,
-    $17::text,
-    COALESCE($18::boolean, true),
-    $19::uuid,
-    $20::uuid
+    $13::varchar,
+    $14::varchar,
+    $15::varchar,
+    $16::varchar,
+    COALESCE($17::varchar, 'UNKNOWN'),
+    COALESCE($18::varchar, 'UNKNOWN'),
+    $19::date,
+    $20::timestamptz,
+    $21::text,
+    COALESCE($22::boolean, true),
+    $23::uuid,
+    $24::uuid
 )
-RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type CreatePanelDeviceParams struct {
@@ -56,6 +61,10 @@ type CreatePanelDeviceParams struct {
 	SerialNumber        *string     `db:"serial_number" json:"serial_number"`
 	CalibrationDate     *httpx.Date `db:"calibration_date" json:"calibration_date"`
 	ExpireDate          *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRange          *string     `db:"input_range" json:"input_range"`
+	AccuracyClass       *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupply         *string     `db:"power_supply" json:"power_supply"`
+	OutputRange         *string     `db:"output_range" json:"output_range"`
 	TagName             *string     `db:"tag_name" json:"tag_name"`
 	AssetCode           *string     `db:"asset_code" json:"asset_code"`
 	FirmwareVersion     *string     `db:"firmware_version" json:"firmware_version"`
@@ -80,6 +89,10 @@ func (q *Queries) CreatePanelDevice(ctx context.Context, arg CreatePanelDevicePa
 		arg.SerialNumber,
 		arg.CalibrationDate,
 		arg.ExpireDate,
+		arg.InputRange,
+		arg.AccuracyClass,
+		arg.PowerSupply,
+		arg.OutputRange,
 		arg.TagName,
 		arg.AssetCode,
 		arg.FirmwareVersion,
@@ -117,6 +130,10 @@ func (q *Queries) CreatePanelDevice(ctx context.Context, arg CreatePanelDevicePa
 		&i.Model,
 		&i.CalibrationDate,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -134,7 +151,7 @@ func (q *Queries) DeletePanelDevice(ctx context.Context, id uuid.UUID) (int64, e
 }
 
 const getPanelDevice = `-- name: GetPanelDevice :one
-SELECT id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date FROM rtu.panel_devices WHERE id = $1::uuid
+SELECT id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date, input_range, accuracy_class, power_supply, output_range FROM rtu.panel_devices WHERE id = $1::uuid
 `
 
 func (q *Queries) GetPanelDevice(ctx context.Context, id uuid.UUID) (PanelDevice, error) {
@@ -164,6 +181,10 @@ func (q *Queries) GetPanelDevice(ctx context.Context, id uuid.UUID) (PanelDevice
 		&i.Model,
 		&i.CalibrationDate,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -195,7 +216,7 @@ UPDATE rtu.panel_devices SET
     active     = $1::boolean,
     updated_by = $2::uuid
 WHERE id = $3::uuid
-RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type SetPanelDeviceActiveParams struct {
@@ -231,6 +252,10 @@ func (q *Queries) SetPanelDeviceActive(ctx context.Context, arg SetPanelDeviceAc
 		&i.Model,
 		&i.CalibrationDate,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -246,18 +271,22 @@ UPDATE rtu.panel_devices SET
     serial_number        = CASE WHEN $13::boolean THEN $14::varchar ELSE serial_number END,
     calibration_date     = CASE WHEN $15::boolean THEN $16::date ELSE calibration_date END,
     expire_date          = CASE WHEN $17::boolean THEN $18::date ELSE expire_date END,
-    tag_name             = CASE WHEN $19::boolean THEN $20::varchar ELSE tag_name END,
-    asset_code           = CASE WHEN $21::boolean THEN $22::varchar ELSE asset_code END,
-    firmware_version     = CASE WHEN $23::boolean THEN $24::varchar ELSE firmware_version END,
-    communication_status = CASE WHEN $25::boolean THEN $26::varchar ELSE communication_status END,
-    health_status        = CASE WHEN $27::boolean THEN $28::varchar ELSE health_status END,
-    installed_at         = CASE WHEN $29::boolean THEN $30::date ELSE installed_at END,
-    last_seen_at         = CASE WHEN $31::boolean THEN $32::timestamptz ELSE last_seen_at END,
-    note                 = CASE WHEN $33::boolean THEN $34::text ELSE note END,
-    active               = CASE WHEN $35::boolean THEN $36::boolean ELSE active END,
-    updated_by           = $37::uuid
-WHERE id = $38::uuid
-RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
+    input_range          = CASE WHEN $19::boolean THEN $20::varchar ELSE input_range END,
+    accuracy_class       = CASE WHEN $21::boolean THEN $22::varchar ELSE accuracy_class END,
+    power_supply         = CASE WHEN $23::boolean THEN $24::varchar ELSE power_supply END,
+    output_range         = CASE WHEN $25::boolean THEN $26::varchar ELSE output_range END,
+    tag_name             = CASE WHEN $27::boolean THEN $28::varchar ELSE tag_name END,
+    asset_code           = CASE WHEN $29::boolean THEN $30::varchar ELSE asset_code END,
+    firmware_version     = CASE WHEN $31::boolean THEN $32::varchar ELSE firmware_version END,
+    communication_status = CASE WHEN $33::boolean THEN $34::varchar ELSE communication_status END,
+    health_status        = CASE WHEN $35::boolean THEN $36::varchar ELSE health_status END,
+    installed_at         = CASE WHEN $37::boolean THEN $38::date ELSE installed_at END,
+    last_seen_at         = CASE WHEN $39::boolean THEN $40::timestamptz ELSE last_seen_at END,
+    note                 = CASE WHEN $41::boolean THEN $42::text ELSE note END,
+    active               = CASE WHEN $43::boolean THEN $44::boolean ELSE active END,
+    updated_by           = $45::uuid
+WHERE id = $46::uuid
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type UpdatePanelDeviceParams struct {
@@ -279,6 +308,14 @@ type UpdatePanelDeviceParams struct {
 	CalibrationDate             *httpx.Date `db:"calibration_date" json:"calibration_date"`
 	ExpireDateDoUpdate          bool        `db:"expire_date_do_update" json:"expire_date_do_update"`
 	ExpireDate                  *httpx.Date `db:"expire_date" json:"expire_date"`
+	InputRangeDoUpdate          bool        `db:"input_range_do_update" json:"input_range_do_update"`
+	InputRange                  *string     `db:"input_range" json:"input_range"`
+	AccuracyClassDoUpdate       bool        `db:"accuracy_class_do_update" json:"accuracy_class_do_update"`
+	AccuracyClass               *string     `db:"accuracy_class" json:"accuracy_class"`
+	PowerSupplyDoUpdate         bool        `db:"power_supply_do_update" json:"power_supply_do_update"`
+	PowerSupply                 *string     `db:"power_supply" json:"power_supply"`
+	OutputRangeDoUpdate         bool        `db:"output_range_do_update" json:"output_range_do_update"`
+	OutputRange                 *string     `db:"output_range" json:"output_range"`
 	TagNameDoUpdate             bool        `db:"tag_name_do_update" json:"tag_name_do_update"`
 	TagName                     *string     `db:"tag_name" json:"tag_name"`
 	AssetCodeDoUpdate           bool        `db:"asset_code_do_update" json:"asset_code_do_update"`
@@ -321,6 +358,14 @@ func (q *Queries) UpdatePanelDevice(ctx context.Context, arg UpdatePanelDevicePa
 		arg.CalibrationDate,
 		arg.ExpireDateDoUpdate,
 		arg.ExpireDate,
+		arg.InputRangeDoUpdate,
+		arg.InputRange,
+		arg.AccuracyClassDoUpdate,
+		arg.AccuracyClass,
+		arg.PowerSupplyDoUpdate,
+		arg.PowerSupply,
+		arg.OutputRangeDoUpdate,
+		arg.OutputRange,
 		arg.TagNameDoUpdate,
 		arg.TagName,
 		arg.AssetCodeDoUpdate,
@@ -367,6 +412,10 @@ func (q *Queries) UpdatePanelDevice(ctx context.Context, arg UpdatePanelDevicePa
 		&i.Model,
 		&i.CalibrationDate,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
@@ -378,7 +427,7 @@ UPDATE rtu.panel_devices SET
     last_seen_at         = COALESCE($5::timestamptz, now()),
     updated_by           = $6::uuid
 WHERE id = $7::uuid
-RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date
+RETURNING id, panel_id, tag_name, serial_number, asset_code, firmware_version, communication_status, health_status, installed_at, last_seen_at, note, active, created_at, updated_at, created_by, updated_by, name, equipment_type, manufacturer, brand, model, calibration_date, expire_date, input_range, accuracy_class, power_supply, output_range
 `
 
 type UpdatePanelDeviceStatusParams struct {
@@ -426,6 +475,10 @@ func (q *Queries) UpdatePanelDeviceStatus(ctx context.Context, arg UpdatePanelDe
 		&i.Model,
 		&i.CalibrationDate,
 		&i.ExpireDate,
+		&i.InputRange,
+		&i.AccuracyClass,
+		&i.PowerSupply,
+		&i.OutputRange,
 	)
 	return i, err
 }
