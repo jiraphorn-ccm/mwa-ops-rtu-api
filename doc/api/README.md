@@ -17,6 +17,7 @@ Base path เริ่มต้น: `{base_url}{api_prefix}` เช่น `https
 | [05-calibrations.md](./05-calibrations.md) | สอบเทียบ, เครื่องมือ, readings |
 | [06-masters.md](./06-masters.md) | Engineers, checklist, problem-topics, device-models |
 | [07-attachments-notifications.md](./07-attachments-notifications.md) | ไฟล์แนบ, แจ้งเตือน |
+| [08-pm-excel-appendix-mapping.md](./08-pm-excel-appendix-mapping.md) | Map Excel ผนวก 5.1 / 5.2 / 7 → API |
 
 Postman: `postman/RTU-API.postman_collection.json`  
 Error codes เต็ม: `api-response-reference.md` (repo root)

@@ -56,6 +56,8 @@
 | `result` | `PASS` / `FAIL` |
 | `note`, `measured_by`, `measured_at` | |
 
+Map Excel **ผนวก 7** → [08-pm-excel-appendix-mapping.md § ผนวก 7](./08-pm-excel-appendix-mapping.md#ผนวก-7--ground-test-วัดกราวด์)
+
 #### `power_test` — `PowerTestInput`
 
 | Field | หมายเหตุ |
