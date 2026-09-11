@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/rtu-api/internal/db"
 	"github.com/rtu-api/internal/db/sqlc"
+	"github.com/rtu-api/internal/httpx"
 )
 
 // WorkOrderActivityLogRepository reads rtu.work_order_activity_logs. Rows are
@@ -39,4 +42,46 @@ func (r *WorkOrderActivityLogRepository) ListByWorkOrder(ctx context.Context, wo
 		return nil, db.Translate(err)
 	}
 	return logs, nil
+}
+
+// PanelRepairActivityItem is one audit row for panel repair timeline UIs.
+type PanelRepairActivityItem struct {
+	sqlc.WorkOrderActivityLog
+	WorkOrderNo   string `db:"work_order_no" json:"work_order_no"`
+	WorkOrderType string `db:"work_order_type" json:"work_order_type"`
+	TotalCount    int64  `db:"total_count" json:"-"`
+}
+
+const panelRepairActivitySelect = `
+SELECT
+    wal.id, wal.work_order_id, wal.work_order_round_id, wal.action,
+    wal.from_status, wal.to_status, wal.from_assignee, wal.to_assignee,
+    wal.note, wal.actor_id, wal.created_at,
+    wo.work_order_no, wo.work_order_type,
+    count(*) OVER ()::bigint AS total_count
+FROM rtu.work_order_activity_logs wal
+INNER JOIN rtu.work_orders wo ON wo.id = wal.work_order_id
+WHERE wo.panel_id = $1
+  AND (
+    wo.work_order_type = 'CM'
+    OR wal.action IN ('CM_SPAWNED', 'ONSITE_CM_OPENED')
+  )
+ORDER BY wal.created_at DESC, wal.id DESC
+LIMIT $2 OFFSET $3`
+
+// ListRepairActivityByPanel returns repair-related activity on a panel, newest first.
+func (r *WorkOrderActivityLogRepository) ListRepairActivityByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page) ([]PanelRepairActivityItem, int64, error) {
+	rows, err := r.pool.Query(ctx, panelRepairActivitySelect, panelID, page.RowLimit(), page.Offset())
+	if err != nil {
+		return nil, 0, db.Translate(err)
+	}
+	items, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[PanelRepairActivityItem])
+	if err != nil {
+		return nil, 0, fmt.Errorf("collect panel repair activity: %w", err)
+	}
+	var total int64
+	if len(items) > 0 {
+		total = items[0].TotalCount
+	}
+	return items, total, nil
 }

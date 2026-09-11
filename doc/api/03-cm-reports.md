@@ -109,13 +109,17 @@
 | Method | Path | Pagination |
 |--------|------|------------|
 | `GET` | `/work-orders/{id}/cm-reports` | ไม่ — คืนทั้งชุดของใบงานนั้น |
-| `GET` | `/panels/{panel_id}/cm-reports` | **มี** — default `sort=created_at` DESC |
+| `GET` | `/panels/{panel_id}/cm-reports` | **มี** — alias ของ repair-history |
+| `GET` | `/panels/{panel_id}/repair-history` | **มี** — **แนะนำ App** — enrich `origin`, `is_completed` |
+| `GET` | `/panels/{panel_id}/repair-activity` | **มี** — timeline audit |
 | `GET` | `/panel-devices/{device_id}/cm-reports` | **มี** — default `sort=created_at` DESC |
-| `GET` | `/pm-reports/{pm_report_id}/onsite-fixes` | ไม่ — คืนทั้งชุด |
+| `GET` | `/pm-reports/{pm_report_id}/onsite-fixes` | ไม่ — CM จาก PM visit (มี `work_order_id`) |
 
 **Sort whitelist** (panel / device history): `reported_at`, `started_at`, `ended_at`, `created_at`, `round_no`
 
-Query: `page`, `limit`, `sort`, `order`
+Query: `page`, `limit`, `sort`, `order`, `completed`, `origin`, `panel_device_id`
+
+ดู [09-panel-repairs.md](./09-panel-repairs.md) สำหรับ App flow ครบ
 
 ---
 

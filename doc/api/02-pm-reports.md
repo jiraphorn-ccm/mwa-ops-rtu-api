@@ -108,21 +108,30 @@ Detail เต็ม + `open_cm_work_orders[]`
 
 ---
 
-## Onsite fix (แก้ในวัน PM)
+## Onsite repair (แก้ในวัน PM → CM + อนุมัติ)
+
+**แนะนำ App:** [09-panel-repairs.md § onsite](./09-panel-repairs.md#post-panelspanel_idrepairsonsite)
 
 ### `POST /pm-reports/{pm_report_id}/onsite-fixes`
 
-**เมื่อ:** แก้ปัญหาเสร็จในวัน PM — **ไม่ spawn CM work order**
+**เมื่อ:** แก้ปัญหาเสร็จในวัน PM — **เปิด CM work order** และบันทึกงานที่ทำแล้ว (รอ **CM approval** แยกจาก PM)
 
 | Field | บังคับ |
 |-------|--------|
 | `reported_by` | ✅ |
+| `assigned_to` | ✅ |
+| `assigned_by` | ✅ |
+| `problem_topic_id` หรือ `problem_topic_ids` | ✅ |
 | `panel_device_id` | ไม่ |
-| `problem_topic_id` | ไม่ (แนะนำส่ง) |
-| `problem_detail`, `corrective_action`, … | ไม่ |
-| `ended_at` | ไม่ (default now) |
+| `corrective_action`, `problem_detail`, … | ไม่ |
+| `submit_for_approval` | ไม่ — `true` = submit CM ทันที |
+| `actor_id` | ไม่ — ใช้ตอน auto-submit |
 
-Origin: `PM_ONSITE_FIX` — ไม่มี work order ของตัวเอง
+**Response:** `PmRepairOpenOutcome` — `cm_work_order_id`, `cm_work_order_no`, `origin` = `PM_ONSITE_CM`
+
+**หลังบันทึก (ถ้าไม่ auto-submit):** `POST /work-orders/{cm_id}/cm-report/submit` → `POST .../approvals`
+
+Activity บน PM WO: `ONSITE_CM_OPENED`
 
 ---
 

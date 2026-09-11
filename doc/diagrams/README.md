@@ -70,8 +70,8 @@ ASSIGNED → IN_PROGRESS → PENDING_APPROVAL → COMPLETED / CONDITIONAL
 
 Decision tree ระหว่างทำ PM:
 
-- **ซ่อมได้** → onsite fix (`PM_ONSITE_FIX`, ไม่มี CM WO)
-- **ซ่อมไม่ได้** → escalate spawn CM (`PM_ESCALATED`)
+- **ซ่อมได้** → `POST /panels/{id}/repairs/onsite` → CM WO + cm_report → submit/approve CM แยก (`PM_ONSITE_CM`)
+- **ซ่อมไม่ได้** → `POST /panels/{id}/repairs/escalate` → CM WO (`PM_ESCALATED`)
 
 Precondition: PM WO + check-in + มี PM report draft
 
@@ -82,7 +82,8 @@ Precondition: PM WO + check-in + มี PM report draft
 | Origin | work_order_id | pm_report_id | CM WO |
 |--------|---------------|--------------|-------|
 | STANDALONE | ✓ | ✗ | ✓ |
-| PM_ONSITE_FIX | ✗ | ✓ | ✗ |
+| PM_ONSITE_CM | ✓ | ✓ | ✓ |
+| PM_ONSITE_FIX (legacy) | ✗ | ✓ | ✗ |
 | PM_ESCALATED | ✓ | ✓ | ✓ |
 
 ### 06 — Approval

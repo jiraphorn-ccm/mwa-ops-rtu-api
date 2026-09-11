@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -207,6 +208,27 @@ func ParseOpenCmWorkOrderFilter(r *http.Request) (OpenCmWorkOrderFilter, error) 
 		PanelDeviceID:      q.UUID("panel_device_id"),
 		ProblemTopicID:     q.UUID("problem_topic_id"),
 		ExcludeWorkOrderID: q.UUID("exclude_work_order_id"),
+	}
+	return filter, q.Err()
+}
+
+// RepairHistoryFilter narrows repair history listings.
+type RepairHistoryFilter = repository.RepairHistoryFilter
+
+// ParseRepairHistoryFilter reads optional query params for repair history.
+func ParseRepairHistoryFilter(r *http.Request) (RepairHistoryFilter, error) {
+	q := httpx.NewQuery(r)
+	filter := RepairHistoryFilter{
+		Completed:     q.Bool("completed"),
+		PanelDeviceID: q.UUID("panel_device_id"),
+	}
+	if raw := q.String("origin"); raw != nil && *raw != "" {
+		for _, part := range strings.Split(*raw, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				filter.Origins = append(filter.Origins, part)
+			}
+		}
 	}
 	return filter, q.Err()
 }

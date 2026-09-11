@@ -18,6 +18,7 @@ Base path เริ่มต้น: `{base_url}{api_prefix}` เช่น `https
 | [06-masters.md](./06-masters.md) | Engineers, checklist, problem-topics, device-models |
 | [07-attachments-notifications.md](./07-attachments-notifications.md) | ไฟล์แนบ, แจ้งเตือน |
 | [08-pm-excel-appendix-mapping.md](./08-pm-excel-appendix-mapping.md) | Map Excel ผนวก 5.1 / 5.2 / 7 → API |
+| [09-panel-repairs.md](./09-panel-repairs.md) | **App — ซ่อมระหว่าง PM + ประวัติซ่อมตู้** |
 
 Postman: `postman/RTU-API.postman_collection.json`  
 Error codes เต็ม: `api-response-reference.md` (repo root)
@@ -44,12 +45,16 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 | ยกเลิกใบ (soft) | `DELETE` | `/work-orders/{id}` |
 | ดู CM เปิดอยู่บนตู้เดียวกัน | `GET` | `/work-orders/{id}/open-cm-work-orders` หรือ `/panels/{id}/open-cm-work-orders` |
 
-### ระหว่างทำ PM
+### ระหว่างทำ PM / ประวัติซ่อม (App)
 
 | อยากทำ | Method | Path |
 |--------|--------|------|
-| แก้ปัญหา onsite (จบในวัน) | `POST` | `/pm-reports/{pm_report_id}/onsite-fixes` |
-| แจ้งปัญหา spawn CM | `POST` | `/pm-reports/{pm_report_id}/escalate` |
+| ซ่อมเสร็จหน้างาน → เปิด CM + อนุมัติแยก | `POST` | `/panels/{panel_id}/repairs/onsite` |
+| ซ่อมไม่ได้ → เปิด CM | `POST` | `/panels/{panel_id}/repairs/escalate` |
+| ประวัติซ่อมตู้ | `GET` | `/panels/{panel_id}/repair-history` |
+| audit timeline ซ่อม | `GET` | `/panels/{panel_id}/repair-activity` |
+| Legacy onsite | `POST` | `/pm-reports/{pm_report_id}/onsite-fixes` |
+| Legacy escalate | `POST` | `/pm-reports/{pm_report_id}/escalate` |
 | ดูรายงาน PM ฉบับเต็ม | `GET` | `/pm-reports/{id}` หรือ `/work-orders/{id}/pm-report` |
 
 ### CM

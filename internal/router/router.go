@@ -106,6 +106,10 @@ func mountPanels(api chi.Router, h *handler.Handlers) {
 
 			r.Get("/pm-reports", h.PmReports.ListHistoryByPanel)
 			r.Get("/cm-reports", h.CmReports.ListHistoryByPanel)
+			r.Get("/repair-history", h.PanelRepairs.ListHistory)
+			r.Get("/repair-activity", h.PanelRepairs.ListActivity)
+			r.Post("/repairs/onsite", h.PanelRepairs.OpenOnsite)
+			r.Post("/repairs/escalate", h.PanelRepairs.Escalate)
 
 			r.Get("/images", h.PanelImages.List)
 			r.Post("/images", h.PanelImages.Create)

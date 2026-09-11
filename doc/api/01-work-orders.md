@@ -300,7 +300,8 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 | `APPROVED_COND` | อนุมัติแบบมีเงื่อนไข | → `CONDITIONAL` |
 | `REJECTED` | ปฏิเสธรายงาน (rework หรือ escalate) | **ไม่มี** `status=REJECTED` บนใบงาน — ดู `from_status`/`to_status` |
 | `STATUS_CHANGED` | เริ่มงานจากบันทึก report (แทน check-in) | → `IN_PROGRESS`; `note`: `Work started from report` |
-| `CM_SPAWNED` | เปิด/reuse CM จาก PM | `note` มีเลขใบ เช่น `Escalated to CM work order CM-RTU-...` |
+| `CM_SPAWNED` | escalate จาก PM → CM | `note` มีเลขใบ CM |
+| `ONSITE_CM_OPENED` | ซ่อมหน้างาน PM → เปิด CM WO | `note` มีเลขใบ CM |
 
 **Rework หลัง reject:** `REJECTED` (`PENDING_APPROVAL`→`PENDING`) แล้วตามด้วย `ASSIGNED` รอบใหม่  
 **Escalate จาก PM:** `REJECTED` (`PENDING_APPROVAL`→`CONDITIONAL`) + `CM_SPAWNED` — รหัส CM อยู่ใน `note` และ `GET .../approvals` → `new_work_order_id`

@@ -107,13 +107,13 @@ func (h *CmReportHandler) CreateOnsiteFix(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	report, err := h.svc.CreateOnsiteFix(r.Context(), pmReportID, in)
+	out, err := h.svc.CreateOnsiteFix(r.Context(), pmReportID, in)
 	if err != nil {
 		httpx.Error(w, r, err)
 		return
 	}
 
-	httpx.Success(w, r, httpx.SuccessCreate, report)
+	httpx.Success(w, r, httpx.SuccessCreate, out)
 }
 
 // Escalate handles POST /pm-reports/{id}/escalate — "Report an issue" during
@@ -168,12 +168,17 @@ func (h *CmReportHandler) ListHistoryByPanel(w http.ResponseWriter, r *http.Requ
 
 	q := httpx.NewQuery(r)
 	page := httpx.ParsePage(q, service.CmReportHistorySortable(), "created_at")
+	filter, err := service.ParseRepairHistoryFilter(r)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
 	if err := q.Err(); err != nil {
 		httpx.Error(w, r, err)
 		return
 	}
 
-	items, total, err := h.svc.ListHistoryByPanel(r.Context(), panelID, page)
+	items, total, err := h.svc.ListHistoryByPanel(r.Context(), panelID, page, filter)
 	if err != nil {
 		httpx.Error(w, r, err)
 		return
@@ -193,12 +198,17 @@ func (h *CmReportHandler) ListHistoryByPanelDevice(w http.ResponseWriter, r *htt
 
 	q := httpx.NewQuery(r)
 	page := httpx.ParsePage(q, service.CmReportHistorySortable(), "created_at")
+	filter, err := service.ParseRepairHistoryFilter(r)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
 	if err := q.Err(); err != nil {
 		httpx.Error(w, r, err)
 		return
 	}
 
-	items, total, err := h.svc.ListHistoryByPanelDevice(r.Context(), deviceID, page)
+	items, total, err := h.svc.ListHistoryByPanelDevice(r.Context(), deviceID, page, filter)
 	if err != nil {
 		httpx.Error(w, r, err)
 		return

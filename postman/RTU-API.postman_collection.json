@@ -1827,11 +1827,25 @@
                 {
                   "key": "search",
                   "value": ""
+                },
+                {
+                  "key": "completed",
+                  "value": "",
+                  "description": "true | false"
+                },
+                {
+                  "key": "origin",
+                  "value": "",
+                  "description": "STANDALONE,PM_ONSITE_CM,PM_ESCALATED"
+                },
+                {
+                  "key": "panel_device_id",
+                  "value": "{{panel_device_id}}"
                 }
               ]
             }
           },
-          "description": "",
+          "description": "Legacy alias of repair-history. Prefer **Panel Repairs (App) → List Repair History**.",
           "event": [
             {
               "listen": "test",
@@ -1845,6 +1859,235 @@
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});"
                 ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Panel Repairs (App)",
+          "description": "App-facing repair API during PM. See doc/api/09-panel-repairs.md",
+          "item": [
+            {
+              "name": "★ App — Onsite Repair (ซ่อมหน้างานเสร็จ)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/onsite",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "onsite"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_detail\": \"พบสาย signal หลวมที่ terminal TB-3\",\n  \"root_cause\": \"ข้อต่อหลวมจาก vibration\",\n  \"error_logs\": null,\n  \"reference_info\": \"ตรวจด้วย multimeter\",\n  \"corrective_action\": \"ขันข้อต่อและทด readback ผ่าน\",\n  \"recommendation\": \"ตรวจซ้ำรอบ PM ถัดไป\",\n  \"repaired_by\": \"{{actor_id}}\",\n  \"started_at\": \"2026-08-30T08:00:00+07:00\",\n  \"ended_at\": \"2026-08-30T09:30:00+07:00\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "description": "**App ใช้เส้นนี้** เมื่อ PM แล้วพบปัญหาและซ่อมเสร็จหน้างาน\n\n`POST /panels/{panel_id}/repairs/onsite`\n\n| Field | บังคับ |\n|-------|--------|\n| pm_report_id | ✅ |\n| reported_by, assigned_to, assigned_by | ✅ |\n| problem_topic_id | ✅ |\n| submit_for_approval + actor_id | แนะนำ true — ส่ง CM เข้าอนุมัติทันที |\n\nResponse: cm_work_order_id, cm_work_order_no, cm_work_order_status, origin=PM_ONSITE_CM\n\nถ้า submit_for_approval=false ต่อด้วย Submit CM + Approvals ในโฟลเดอร์นี้",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "const json = pm.response.json();",
+                      "pm.test('MWA envelope', () => {",
+                      "    pm.expect(json.status).to.eql('success');",
+                      "    pm.expect(json.code).to.match(/^S\\d/);",
+                      "});",
+                      "if (pm.response.code >= 200 && pm.response.code < 300 && json.data) {",
+                      "    if (json.data.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
+                      "    if (json.data.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Onsite Repair (minimal body)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/onsite",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "onsite"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"corrective_action\": \"Tightened connector\",\n  \"submit_for_approval\": false\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "description": "Field ขั้นต่ำ — ต้อง Submit CM + Approve แยกเอง",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "const json = pm.response.json();",
+                      "if (json.data?.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
+                      "if (json.data?.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);",
+                      "pm.test('submitted when requested', () => {",
+                      "    if (json.data) pm.expect(json.data.submitted_for_approval).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Escalate to CM",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/escalate",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "escalate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"pending_reason\": \"Needs spare part — cannot fix on site\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "const json = pm.response.json();",
+                      "if (json.data?.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
+                      "if (json.data?.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List Repair History",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-history?page=1&limit=20&sort=created_at&order=DESC",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-history"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "sort", "value": "created_at" },
+                    { "key": "order", "value": "DESC" },
+                    { "key": "completed", "value": "", "description": "true | false" },
+                    { "key": "origin", "value": "", "description": "PM_ONSITE_CM,PM_ESCALATED,STANDALONE" },
+                    { "key": "panel_device_id", "value": "{{panel_device_id}}" }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "pm.test('MWA envelope', () => {",
+                      "    const json = pm.response.json();",
+                      "    pm.expect(json.status).to.eql('success');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List Repair History (completed only)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-history?completed=true&page=1&limit=20",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-history"],
+                  "query": [
+                    { "key": "completed", "value": "true" },
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "List Repair Activity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-activity?page=1&limit=50",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-activity"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submit CM Report (after onsite)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/cm-report/submit",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "work-orders", "{{work_order_id}}", "cm-report", "submit"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"actor_id\": \"{{actor_id}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "description": "Use when onsite repair was created with submit_for_approval=false. Sets work_order_id from onsite response."
+            },
+            {
+              "name": "Approve CM (after submit)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/approvals",
+                  "host": ["{{base_url}}"],
+                  "path": ["{{api_prefix}}", "work-orders", "{{work_order_id}}", "approvals"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewer_id\": \"{{actor_id}}\",\n  \"decision\": \"APPROVED\",\n  \"note\": \"Onsite repair approved\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
               }
             }
           ]
@@ -7408,10 +7651,12 @@
           ]
         },
         {
-          "name": "Create Onsite Fix",
+          "name": "Create Onsite Fix (legacy)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
             "url": {
               "raw": "{{base_url}}{{api_prefix}}/pm-reports/{{pm_report_id}}/onsite-fixes",
               "host": [
@@ -7426,7 +7671,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
+              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_detail\": \"พบสาย signal หลวมที่ terminal TB-3\",\n  \"root_cause\": \"ข้อต่อหลวมจาก vibration\",\n  \"error_logs\": null,\n  \"reference_info\": \"ตรวจด้วย multimeter\",\n  \"corrective_action\": \"ขันข้อต่อและทด readback ผ่าน\",\n  \"recommendation\": \"ตรวจซ้ำรอบ PM ถัดไป\",\n  \"repaired_by\": \"{{actor_id}}\",\n  \"started_at\": \"2026-08-30T08:00:00+07:00\",\n  \"ended_at\": \"2026-08-30T09:30:00+07:00\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7434,7 +7679,7 @@
               }
             }
           },
-          "description": "### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
+          "description": "**Legacy** — App ควรใช้ `Panels → Panel Repairs (App) → ★ App — Onsite Repair` แทน\n\nPath: `POST /pm-reports/{pm_report_id}/onsite-fixes` (body เหมือนกัน ยกเว้นไม่มี pm_report_id ใน body)",
           "response": [
             {
               "name": "Example: multi topic",
@@ -7455,7 +7700,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Fixed on spot (multi-topic)\",\n  \"corrective_action\": \"Tightened connector\"\n}",
+                  "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Fixed on spot (multi-topic)\",\n  \"corrective_action\": \"Tightened connector\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7487,8 +7732,11 @@
                   "    pm.expect(json.status).to.eql('success');",
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});",
-                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
-                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
+                  "const d = pm.response.json().data;",
+                  "if (pm.response.code >= 200 && pm.response.code < 300 && d) {",
+                  "    if (d.cm_work_order_id) pm.collectionVariables.set('work_order_id', d.cm_work_order_id);",
+                  "    if (d.cm_report?.id) pm.collectionVariables.set('cm_report_id', d.cm_report.id);",
+                  "    else if (d.id) pm.collectionVariables.set('cm_report_id', d.id);",
                   "}"
                 ]
               }
@@ -7575,8 +7823,11 @@
                   "    pm.expect(json.status).to.eql('success');",
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});",
-                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
-                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
+                  "const d = pm.response.json().data;",
+                  "if (pm.response.code >= 200 && pm.response.code < 300 && d) {",
+                  "    if (d.cm_work_order_id) pm.collectionVariables.set('work_order_id', d.cm_work_order_id);",
+                  "    if (d.cm_report?.id) pm.collectionVariables.set('cm_report_id', d.cm_report.id);",
+                  "    else if (d.id) pm.collectionVariables.set('cm_report_id', d.id);",
                   "}"
                 ]
               }

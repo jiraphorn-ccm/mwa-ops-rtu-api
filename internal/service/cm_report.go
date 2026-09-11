@@ -13,15 +13,12 @@ import (
 )
 
 // CmReportService applies the business rules of rtu.cm_reports across its
-// two write paths:
+// write paths:
 //
-//	SaveForWorkOrder / Submit: STANDALONE and PM_ESCALATED origins — a CM
-//	  work order's current round, exactly mirroring PmReportService.
-//	CreateOnsiteFix: PM_ONSITE_FIX origin — a fix made on the spot during a
-//	  PM visit, with no work order of its own.
-//	EscalateFromPm: PM_ESCALATED origin opened mid-PM ("Report an issue") —
-//	  creates/reuses a CM work order and a pending cm_report linked back to
-//	  the PM report.
+//	SaveForWorkOrder / Submit: STANDALONE and PM-derived CM work orders.
+//	CreateOnsiteFix: onsite PM repair — opens a CM work order, fills the
+//	  cm_report as completed work, optional submit for approval.
+//	EscalateFromPm: PM_ESCALATED — CM work order for work not finished on site.
 type CmReportService struct {
 	repo          *repository.CmReportRepository
 	workOrders    *WorkOrderService
@@ -70,27 +67,56 @@ type CmReportEscalateInput struct {
 	RepairDate      *httpx.Date `json:"repair_date"`
 }
 
-// CmReportOnsiteInput is the POST /pm-reports/{id}/onsite-fixes body — a
-// repair made during the PM visit itself, before the PM report is even
-// submitted.
+// CmReportOnsiteInput is the body for an onsite PM repair that opens a CM
+// work order and records completed corrective work pending CM approval.
 type CmReportOnsiteInput struct {
-	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
 	ReportedBy       uuid.UUID   `json:"reported_by" validate:"required"`
+	AssignedTo       uuid.UUID   `json:"assigned_to" validate:"required"`
+	AssignedBy       uuid.UUID   `json:"assigned_by" validate:"required"`
+	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
 	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
 	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
 	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
-	ErrorLogs        *string    `json:"error_logs"`
-	ProblemDetail    *string    `json:"problem_detail"`
-	RootCause        *string    `json:"root_cause"`
-	ReferenceInfo    *string    `json:"reference_info"`
-	CorrectiveAction *string    `json:"corrective_action"`
-	Recommendation   *string    `json:"recommendation"`
-	RepairedBy       *uuid.UUID `json:"repaired_by"`
-	StartedAt        *time.Time `json:"started_at"`
-	// EndedAt defaults to now: an onsite-fix record only ever gets created
-	// once the repair actually succeeded (see rtu.cm_reports note in
-	// doc/rtu-full-schema.dbml), so it is implicitly complete on creation.
-	EndedAt *time.Time `json:"ended_at"`
+	ErrorLogs        *string     `json:"error_logs"`
+	ProblemDetail    *string     `json:"problem_detail"`
+	RootCause        *string     `json:"root_cause"`
+	ReferenceInfo    *string     `json:"reference_info"`
+	CorrectiveAction *string     `json:"corrective_action"`
+	Recommendation   *string     `json:"recommendation"`
+	RepairedBy       *uuid.UUID  `json:"repaired_by"`
+	StartedAt        *time.Time  `json:"started_at"`
+	EndedAt          *time.Time  `json:"ended_at"`
+	SubmitForApproval bool       `json:"submit_for_approval"`
+	ActorID          *uuid.UUID  `json:"actor_id"`
+}
+
+// PanelRepairOnsiteInput is POST /panels/{panel_id}/repairs/onsite.
+type PanelRepairOnsiteInput struct {
+	PmReportID uuid.UUID `json:"pm_report_id" validate:"required"`
+	CmReportOnsiteInput
+}
+
+// PanelRepairEscalateInput is POST /panels/{panel_id}/repairs/escalate.
+type PanelRepairEscalateInput struct {
+	PmReportID uuid.UUID `json:"pm_report_id" validate:"required"`
+	CmReportEscalateInput
+}
+
+// PmRepairOpenOutcome is returned when a PM visit opens a CM work order.
+type PmRepairOpenOutcome struct {
+	CmReport            sqlc.CmReport            `json:"cm_report"`
+	CmWorkOrderID       uuid.UUID                `json:"cm_work_order_id"`
+	CmWorkOrderNo       string                   `json:"cm_work_order_no"`
+	CmWorkOrderStatus   string                   `json:"cm_work_order_status"`
+	Origin              string                   `json:"origin"`
+	SubmittedForApproval bool                    `json:"submitted_for_approval"`
+}
+
+// RepairHistoryView is an enriched cm_report row for panel repair history UIs.
+type RepairHistoryView struct {
+	repository.CmReportHistoryItem
+	Origin        string `json:"origin"`
+	IsCompleted   bool   `json:"is_completed"`
 }
 
 // CmReportUpdateInput is the PATCH /cm-reports/{id} body — used for any
@@ -311,19 +337,38 @@ func (s *CmReportService) Submit(ctx context.Context, workOrderID uuid.UUID, act
 	return report, nil
 }
 
-// CreateOnsiteFix records a repair made on the spot during a PM visit.
-func (s *CmReportService) CreateOnsiteFix(ctx context.Context, pmReportID uuid.UUID, in CmReportOnsiteInput) (sqlc.CmReport, error) {
-	pmReport, err := s.pmReports.GetDetail(ctx, pmReportID)
-	if err != nil {
-		return sqlc.CmReport{}, err
+// OpenOnsiteRepairFromPanel validates panel scope then opens an onsite CM WO.
+func (s *CmReportService) OpenOnsiteRepairFromPanel(ctx context.Context, panelID uuid.UUID, in PanelRepairOnsiteInput) (PmRepairOpenOutcome, error) {
+	if err := s.ensurePmReportOnPanel(ctx, in.PmReportID, panelID); err != nil {
+		return PmRepairOpenOutcome{}, err
 	}
+	return s.CreateOnsiteFix(ctx, in.PmReportID, in.CmReportOnsiteInput)
+}
 
-	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
-		return sqlc.CmReport{}, err
+// EscalateRepairFromPanel validates panel scope then escalates to CM.
+func (s *CmReportService) EscalateRepairFromPanel(ctx context.Context, panelID uuid.UUID, in PanelRepairEscalateInput) (PmRepairOpenOutcome, error) {
+	if err := s.ensurePmReportOnPanel(ctx, in.PmReportID, panelID); err != nil {
+		return PmRepairOpenOutcome{}, err
 	}
-	_, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, false)
+	report, err := s.EscalateFromPm(ctx, in.PmReportID, in.CmReportEscalateInput)
 	if err != nil {
-		return sqlc.CmReport{}, err
+		return PmRepairOpenOutcome{}, err
+	}
+	return s.outcomeFromEscalatedReport(ctx, report)
+}
+
+// CreateOnsiteFix opens a CM work order for a repair completed during a PM visit.
+func (s *CmReportService) CreateOnsiteFix(ctx context.Context, pmReportID uuid.UUID, in CmReportOnsiteInput) (PmRepairOpenOutcome, error) {
+	pmReport, pmWO, err := s.loadPmRepairContext(ctx, pmReportID)
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+	topicIDs, primaryTopicID, tagCode, err := s.resolveCmReportProblemTopics(ctx, in.ProblemTopicID, in.ProblemTopicIDs, in.TagCode, true)
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
 	}
 
 	endedAt := in.EndedAt
@@ -331,40 +376,216 @@ func (s *CmReportService) CreateOnsiteFix(ctx context.Context, pmReportID uuid.U
 		now := time.Now()
 		endedAt = &now
 	}
+	now := time.Now()
+	startedAt := in.StartedAt
+	if startedAt == nil {
+		startedAt = &now
+	}
 
-	return s.repo.Create(ctx, sqlc.CreateCmReportParams{
-		PmReportID:       &pmReportID,
-		PanelID:          pmReport.PanelID,
-		PanelDeviceID:    in.PanelDeviceID,
-		ReportedBy:       in.ReportedBy,
-		ProblemTopicID:   primaryTopicID,
-		TagCode:          tagCode,
-		ErrorLogs:        in.ErrorLogs,
-		ProblemDetail:    in.ProblemDetail,
-		RootCause:        in.RootCause,
-		ReferenceInfo:    in.ReferenceInfo,
-		CorrectiveAction: in.CorrectiveAction,
-		Recommendation:   in.Recommendation,
-		RepairedBy:       in.RepairedBy,
-		StartedAt:        in.StartedAt,
-		EndedAt:          endedAt,
+	desc := "Onsite repair from " + pmWO.WorkOrderNo
+	create := WorkOrderCreateInput{
+		PanelID:            pmReport.PanelID,
+		WorkOrderType:      "CM",
+		PanelDeviceID:      in.PanelDeviceID,
+		Title:              stringPtr("Onsite repair from " + pmWO.WorkOrderNo),
+		Description:        &desc,
+		RequestedBy:        in.ReportedBy,
+		AssignedTo:         in.AssignedTo,
+		AssignedBy:         in.AssignedBy,
+		RelatedWorkOrderID: &pmWO.ID,
+		ProblemTopicIDs:    topicIDs,
+	}
+	if len(topicIDs) == 1 {
+		id := topicIDs[0]
+		create.ProblemTopicID = &id
+	}
+	cmWO, err := s.workOrders.Create(ctx, create)
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+	if cmWO.CurrentRoundID == nil {
+		return PmRepairOpenOutcome{}, httpx.Err(httpx.ErrWorkOrderStatusInvalid).
+			WithField("id", httpx.IssueInvalid, "CM work order has no active round.")
+	}
+
+	existing, err := s.repo.FindByRound(ctx, *cmWO.CurrentRoundID)
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+	if existing == nil {
+		return PmRepairOpenOutcome{}, httpx.Err(httpx.ErrCmReportNotFnd).
+			WithField("work_order_id", httpx.IssueInvalid, "CM work order is missing its seeded report.")
+	}
+
+	var report sqlc.CmReport
+	err = s.repo.WithPanelCmLock(ctx, pmReport.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
+		if err := s.workOrders.SyncProblemTopicsFromReport(ctx, tx, cmWO.ID, topicIDs); err != nil {
+			return err
+		}
+		var err error
+		report, err = s.repo.UpdateQ(ctx, q, sqlc.UpdateCmReportParams{
+			ID:                       existing.ID,
+			PmReportID:               &pmReportID,
+			PmReportIDDoUpdate:       true,
+			PanelDeviceID:            in.PanelDeviceID,
+			PanelDeviceIDDoUpdate:    true,
+			ProblemTopicID:           primaryTopicID,
+			ProblemTopicIDDoUpdate:   true,
+			TagCode:                  tagCode,
+			TagCodeDoUpdate:          true,
+			ErrorLogs:                in.ErrorLogs,
+			ErrorLogsDoUpdate:        true,
+			ProblemDetail:            in.ProblemDetail,
+			ProblemDetailDoUpdate:    true,
+			RootCause:                in.RootCause,
+			RootCauseDoUpdate:        true,
+			ReferenceInfo:            in.ReferenceInfo,
+			ReferenceInfoDoUpdate:    true,
+			CorrectiveAction:         in.CorrectiveAction,
+			CorrectiveActionDoUpdate: true,
+			Recommendation:           in.Recommendation,
+			RecommendationDoUpdate:   true,
+			RepairedBy:               in.RepairedBy,
+			RepairedByDoUpdate:       true,
+			ReportedAt:               &now,
+			ReportedAtDoUpdate:       true,
+			StartedAt:                startedAt,
+			StartedAtDoUpdate:        true,
+			EndedAt:                  endedAt,
+			EndedAtDoUpdate:          true,
+		})
+		if err != nil {
+			return err
+		}
+		prev := existing.PanelDeviceID
+		return repository.SyncPanelDeviceCmReportSaveQ(ctx, tx, q, true, prev, in.PanelDeviceID)
 	})
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+
+	if s.activity != nil {
+		roundID := pmReport.WorkOrderRoundID
+		_, _ = s.activity.Create(ctx, sqlc.CreateWorkOrderActivityLogParams{
+			WorkOrderID:      pmReport.WorkOrderID,
+			WorkOrderRoundID: &roundID,
+			Action:           "ONSITE_CM_OPENED",
+			ActorID:          in.ReportedBy,
+			Note:             stringPtr("Onsite repair opened CM work order " + cmWO.WorkOrderNo),
+		})
+	}
+	if s.notify != nil {
+		_, _ = s.notify.Create(ctx, NotificationCreateInput{
+			WorkOrderID: cmWO.ID,
+			RecipientID: pmWO.RequestedBy,
+			Type:        "CM_PENDING",
+			Title:       stringPtr("CM onsite repair from PM"),
+			Message:     stringPtr("Onsite repair from " + pmWO.WorkOrderNo + " — CM " + cmWO.WorkOrderNo),
+		})
+	}
+
+	outcome := PmRepairOpenOutcome{
+		CmReport:          report,
+		CmWorkOrderID:     cmWO.ID,
+		CmWorkOrderNo:     cmWO.WorkOrderNo,
+		CmWorkOrderStatus: cmWO.Status,
+		Origin:            ComputeCmReportOrigin(report),
+	}
+
+	if in.SubmitForApproval {
+		actor := in.ReportedBy
+		if in.ActorID != nil {
+			actor = *in.ActorID
+		}
+		report, err = s.submitOnsiteCm(ctx, cmWO.ID, actor)
+		if err != nil {
+			return PmRepairOpenOutcome{}, err
+		}
+		cmWO, err = s.workOrders.Get(ctx, cmWO.ID)
+		if err != nil {
+			return PmRepairOpenOutcome{}, err
+		}
+		outcome.CmReport = report
+		outcome.CmWorkOrderStatus = cmWO.Status
+		outcome.SubmittedForApproval = true
+	}
+
+	return outcome, nil
+}
+
+func (s *CmReportService) submitOnsiteCm(ctx context.Context, cmWorkOrderID, actorID uuid.UUID) (sqlc.CmReport, error) {
+	wo, err := s.workOrders.Get(ctx, cmWorkOrderID)
+	if err != nil {
+		return sqlc.CmReport{}, err
+	}
+	if wo.CurrentRoundID != nil && (wo.Status == "ASSIGNED" || wo.Status == "PENDING") {
+		now := time.Now()
+		if err := s.repo.WithPanelCmLock(ctx, wo.PanelID, func(tx pgx.Tx, q *sqlc.Queries) error {
+			return repository.BeginWorkFromReportQ(ctx, q, repository.BeginWorkFromReportInput{
+				WorkOrderID: cmWorkOrderID,
+				RoundID:     *wo.CurrentRoundID,
+				StartedAt:   now,
+				ActorID:     actorID,
+				FromStatus:  wo.Status,
+			})
+		}); err != nil {
+			return sqlc.CmReport{}, err
+		}
+	}
+	return s.Submit(ctx, cmWorkOrderID, actorID)
+}
+
+func (s *CmReportService) loadPmRepairContext(ctx context.Context, pmReportID uuid.UUID) (repository.PmReportDetail, repository.WorkOrderView, error) {
+	pmReport, err := s.pmReports.GetDetail(ctx, pmReportID)
+	if err != nil {
+		return repository.PmReportDetail{}, repository.WorkOrderView{}, err
+	}
+	wo, err := s.workOrders.Get(ctx, pmReport.WorkOrderID)
+	if err != nil {
+		return repository.PmReportDetail{}, repository.WorkOrderView{}, err
+	}
+	if wo.WorkOrderType != "PM" || (wo.Status != "IN_PROGRESS" && wo.Status != "ASSIGNED" && wo.Status != "PENDING") {
+		return repository.PmReportDetail{}, repository.WorkOrderView{}, httpx.Err(httpx.ErrPmEscalateStatusInvalid)
+	}
+	return pmReport, wo, nil
+}
+
+func (s *CmReportService) ensurePmReportOnPanel(ctx context.Context, pmReportID, panelID uuid.UUID) error {
+	pmReport, err := s.pmReports.GetDetail(ctx, pmReportID)
+	if err != nil {
+		return err
+	}
+	if pmReport.PanelID != panelID {
+		return httpx.Err(httpx.ErrValidationFailed).
+			WithField("pm_report_id", httpx.IssueInvalid, "PM report does not belong to this panel.")
+	}
+	return nil
+}
+
+func (s *CmReportService) outcomeFromEscalatedReport(ctx context.Context, report sqlc.CmReport) (PmRepairOpenOutcome, error) {
+	if report.WorkOrderID == nil {
+		return PmRepairOpenOutcome{}, httpx.Err(httpx.ErrCmReportNotFnd)
+	}
+	cmWO, err := s.workOrders.Get(ctx, *report.WorkOrderID)
+	if err != nil {
+		return PmRepairOpenOutcome{}, err
+	}
+	return PmRepairOpenOutcome{
+		CmReport:          report,
+		CmWorkOrderID:     cmWO.ID,
+		CmWorkOrderNo:     cmWO.WorkOrderNo,
+		CmWorkOrderStatus: cmWO.Status,
+		Origin:            ComputeCmReportOrigin(report),
+	}, nil
 }
 
 // EscalateFromPm opens (or reuses) a CM work order for a problem found during
 // PM that cannot be fixed on the spot — PM_ESCALATED origin. The CM work
 // order starts in PENDING; the technician continues the PM checklist.
 func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UUID, in CmReportEscalateInput) (sqlc.CmReport, error) {
-	pmReport, err := s.pmReports.GetDetail(ctx, pmReportID)
+	pmReport, wo, err := s.loadPmRepairContext(ctx, pmReportID)
 	if err != nil {
 		return sqlc.CmReport{}, err
-	}
-	wo, err := s.workOrders.Get(ctx, pmReport.WorkOrderID)
-	if err != nil {
-		return sqlc.CmReport{}, err
-	}
-	if wo.WorkOrderType != "PM" || (wo.Status != "IN_PROGRESS" && wo.Status != "ASSIGNED" && wo.Status != "PENDING") {
-		return sqlc.CmReport{}, httpx.Err(httpx.ErrPmEscalateStatusInvalid)
 	}
 	if err := s.checkDeviceInPanel(ctx, pmReport.PanelID, in.PanelDeviceID); err != nil {
 		return sqlc.CmReport{}, err
@@ -579,13 +800,42 @@ func (s *CmReportService) buildCmReportUpdateParams(
 }
 
 // ListHistoryByPanel returns the repair history of a panel.
-func (s *CmReportService) ListHistoryByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page) ([]repository.CmReportHistoryItem, int64, error) {
-	return s.repo.ListByPanel(ctx, panelID, page)
+func (s *CmReportService) ListHistoryByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page, filter repository.RepairHistoryFilter) ([]RepairHistoryView, int64, error) {
+	items, total, err := s.repo.ListByPanel(ctx, panelID, page, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return enrichRepairHistory(items), total, nil
 }
 
 // ListHistoryByPanelDevice returns the repair history of a single device.
-func (s *CmReportService) ListHistoryByPanelDevice(ctx context.Context, panelDeviceID uuid.UUID, page httpx.Page) ([]repository.CmReportHistoryItem, int64, error) {
-	return s.repo.ListByPanelDevice(ctx, panelDeviceID, page)
+func (s *CmReportService) ListHistoryByPanelDevice(ctx context.Context, panelDeviceID uuid.UUID, page httpx.Page, filter repository.RepairHistoryFilter) ([]RepairHistoryView, int64, error) {
+	items, total, err := s.repo.ListByPanelDevice(ctx, panelDeviceID, page, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return enrichRepairHistory(items), total, nil
+}
+
+// ListRepairActivityByPanel returns repair audit events on a panel.
+func (s *CmReportService) ListRepairActivityByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page) ([]repository.PanelRepairActivityItem, int64, error) {
+	if s.activity == nil {
+		return nil, 0, httpx.Err(httpx.ErrInternal)
+	}
+	return s.activity.ListRepairActivityByPanel(ctx, panelID, page)
+}
+
+func enrichRepairHistory(items []repository.CmReportHistoryItem) []RepairHistoryView {
+	out := make([]RepairHistoryView, len(items))
+	for i, item := range items {
+		origin := ComputeCmReportOrigin(item.CmReport)
+		out[i] = RepairHistoryView{
+			CmReportHistoryItem: item,
+			Origin:              origin,
+			IsCompleted:         IsCmRepairCompleted(item.WorkOrderStatus, origin),
+		}
+	}
+	return out
 }
 
 // ListHistoryByWorkOrder returns every CM report across a work order's

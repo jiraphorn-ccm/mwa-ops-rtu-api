@@ -155,13 +155,25 @@ var cmReportHistorySortable = httpx.Sortable{
 // CmReportHistorySortable lists sort keys accepted by the history endpoints.
 func CmReportHistorySortable() httpx.Sortable { return cmReportHistorySortable }
 
+// RepairHistoryFilter narrows panel/device repair history listings.
+type RepairHistoryFilter struct {
+	Completed     *bool
+	PanelDeviceID *uuid.UUID
+	// Origins matches service-level origin strings (STANDALONE, PM_ONSITE_CM, …).
+	Origins []string
+}
+
 // CmReportHistoryItem is a report row enriched with its work order/round and
 // PM-visit context, used to render repair history for a panel or a device.
 type CmReportHistoryItem struct {
 	sqlc.CmReport
-	WorkOrderNo *string `db:"work_order_no" json:"work_order_no"`
-	RoundNo     *int16  `db:"round_no" json:"round_no"`
-	TotalCount  int64   `db:"total_count" json:"-"`
+	WorkOrderNo      *string `db:"work_order_no" json:"work_order_no"`
+	WorkOrderStatus  *string `db:"work_order_status" json:"work_order_status"`
+	RoundNo          *int16  `db:"round_no" json:"round_no"`
+	ProblemTopicCode *string `db:"problem_topic_code" json:"problem_topic_code"`
+	ProblemTopicName *string `db:"problem_topic_name" json:"problem_topic_name"`
+	PmWorkOrderNo    *string `db:"pm_work_order_no" json:"pm_work_order_no"`
+	TotalCount       int64   `db:"total_count" json:"-"`
 }
 
 const cmReportHistorySelect = `
@@ -170,30 +182,81 @@ SELECT
     cr.reported_by, cr.tag_code, cr.error_logs, cr.problem_detail, cr.root_cause, cr.reference_info,
     cr.corrective_action, cr.recommendation, cr.pending_reason, cr.repaired_by,
     cr.reported_at, cr.started_at, cr.ended_at,
-    cr.created_at, cr.updated_at, cr.created_by, cr.updated_by,
+    cr.created_at, cr.updated_at, cr.created_by, cr.updated_by, cr.problem_topic_id,
     wo.work_order_no AS work_order_no,
+    wo.status AS work_order_status,
     wor.round_no AS round_no,
+    pt.code AS problem_topic_code,
+    pt.name AS problem_topic_name,
+    pm_wo.work_order_no AS pm_work_order_no,
     count(*) OVER ()::bigint AS total_count
 FROM rtu.cm_reports cr
 LEFT JOIN rtu.work_orders wo ON wo.id = cr.work_order_id
 LEFT JOIN rtu.work_order_rounds wor ON wor.id = cr.work_order_round_id
+LEFT JOIN rtu.problem_topics pt ON pt.id = cr.problem_topic_id
+LEFT JOIN rtu.pm_reports pr ON pr.id = cr.pm_report_id
+LEFT JOIN rtu.work_orders pm_wo ON pm_wo.id = pr.work_order_id
 WHERE %s
 ORDER BY %s %s NULLS LAST, cr.id %s
 LIMIT %s OFFSET %s`
 
 // ListByPanel returns the CM (repair) history of a panel.
-func (r *CmReportRepository) ListByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page) ([]CmReportHistoryItem, int64, error) {
+func (r *CmReportRepository) ListByPanel(ctx context.Context, panelID uuid.UUID, page httpx.Page, filter RepairHistoryFilter) ([]CmReportHistoryItem, int64, error) {
 	a := &args{}
 	conds := conditions{"cr.panel_id = " + a.add(panelID)}
+	applyRepairHistoryFilter(a, &conds, filter)
 	return r.listHistory(ctx, a, conds, page)
 }
 
 // ListByPanelDevice returns the repair history of a single device — when it
 // was fixed, by whom and what was done.
-func (r *CmReportRepository) ListByPanelDevice(ctx context.Context, panelDeviceID uuid.UUID, page httpx.Page) ([]CmReportHistoryItem, int64, error) {
+func (r *CmReportRepository) ListByPanelDevice(ctx context.Context, panelDeviceID uuid.UUID, page httpx.Page, filter RepairHistoryFilter) ([]CmReportHistoryItem, int64, error) {
 	a := &args{}
 	conds := conditions{"cr.panel_device_id = " + a.add(panelDeviceID)}
+	applyRepairHistoryFilter(a, &conds, filter)
 	return r.listHistory(ctx, a, conds, page)
+}
+
+func applyRepairHistoryFilter(a *args, conds *conditions, filter RepairHistoryFilter) {
+	if filter.PanelDeviceID != nil {
+		*conds = append(*conds, "cr.panel_device_id = "+a.add(*filter.PanelDeviceID))
+	}
+	if filter.Completed != nil {
+		if *filter.Completed {
+			*conds = append(*conds, `(cr.work_order_id IS NULL OR wo.status IN ('COMPLETED', 'CONDITIONAL'))`)
+		} else {
+			*conds = append(*conds, `(cr.work_order_id IS NOT NULL AND (wo.status IS NULL OR wo.status NOT IN ('COMPLETED', 'CONDITIONAL', 'CANCELLED')))`)
+		}
+	}
+	if len(filter.Origins) > 0 {
+		var parts []string
+		for _, origin := range filter.Origins {
+			switch origin {
+			case "STANDALONE":
+				parts = append(parts, `(cr.work_order_id IS NOT NULL AND cr.pm_report_id IS NULL)`)
+			case "PM_ONSITE_CM":
+				parts = append(parts, `(cr.work_order_id IS NOT NULL AND cr.pm_report_id IS NOT NULL AND (cr.pending_reason IS NULL OR btrim(cr.pending_reason) = ''))`)
+			case "PM_ESCALATED":
+				parts = append(parts, `(cr.work_order_id IS NOT NULL AND cr.pm_report_id IS NOT NULL AND cr.pending_reason IS NOT NULL AND btrim(cr.pending_reason) <> '')`)
+			case "PM_ONSITE_FIX_LEGACY":
+				parts = append(parts, `(cr.work_order_id IS NULL AND cr.pm_report_id IS NOT NULL)`)
+			}
+		}
+		if len(parts) > 0 {
+			*conds = append(*conds, "("+joinOr(parts)+")")
+		}
+	}
+}
+
+func joinOr(parts []string) string {
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	out := parts[0]
+	for _, p := range parts[1:] {
+		out += " OR " + p
+	}
+	return out
 }
 
 func (r *CmReportRepository) listHistory(ctx context.Context, a *args, conds conditions, page httpx.Page) ([]CmReportHistoryItem, int64, error) {

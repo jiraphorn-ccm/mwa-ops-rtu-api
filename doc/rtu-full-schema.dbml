@@ -101,6 +101,7 @@ Enum work_order_activity_action {
   REJECTED
   CANCELLED
   CM_SPAWNED
+  ONSITE_CM_OPENED [note: 'PM onsite repair opened a CM work order']
 }
 
 Enum wo_approval_decision {
@@ -272,7 +273,7 @@ Table rtu.panel_devices {
     active [name: 'idx_panel_devices_active']
   }
 
-  Note: '''
+  Note: ''' 
  API field (computed): operational_status = map(communication_status, health_status)
       CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL
   CM sync (service): เปิด CM + effective panel_device_id → health WARNING; CM ปิด COMPLETED → health NORMAL; CONDITIONAL → health WARNING; ไม่ overwrite communication_status
@@ -845,8 +846,8 @@ Table rtu.cm_reports {
 
     3 ต้นทางของ CM report (แก้ตาม System Design "แจ้งซ่อม" flow, ไม่ใช่ 1 CM = 1 work_order เสมอ):
       1. STANDALONE      — work_order_id NOT NULL, pm_report_id NULL — Operator แจ้งปัญหาตรง (ไม่ผ่าน PM)
-      2. PM_ONSITE_FIX   — work_order_id NULL, pm_report_id NOT NULL — กด "Report a Repair" ระหว่าง PM แล้วซ่อมจบในตัว
-         "แนบเป็นส่วนหนึ่งของใบงาน PM (สร้าง CM Sub-record, Status = Completed ทันที)" — ไม่ต้องเปิด work_orders แถวใหม่
+      2. PM_ONSITE_CM    — work_order_id NOT NULL, pm_report_id NOT NULL, pending_reason ว่าง — ซ่อมหน้างาน PM แล้วเปิด CM WO + cm_report (รอ CM approval แยกจาก PM)
+         (legacy: PM_ONSITE_FIX = work_order_id NULL — ไม่สร้างใหม่)
       3. PM_ESCALATED    — work_order_id NOT NULL, pm_report_id NOT NULL — กด "Report an issue" ระหว่าง PM (ซ่อมไม่ได้)
          "Submit เป็น CM Work Order เต็มรูปแบบ (Status = Pending แยกเป็นใบงานของตัวเอง รอ CM Approval ทีหลัง)"
     origin คำนวณจาก (work_order_id, pm_report_id) ไม่ต้องเก็บเป็น column แยก

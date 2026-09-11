@@ -23,6 +23,7 @@ type Handlers struct {
 	ProblemTopics          *ProblemTopicHandler
 	PmReports              *PmReportHandler
 	CmReports              *CmReportHandler
+	PanelRepairs           *PanelRepairHandler
 	Attachments            *AttachmentHandler
 	Notifications          *NotificationHandler
 }
@@ -44,6 +45,7 @@ func New(cfg *config.Config, svc *service.Services, health *HealthHandler) *Hand
 		ProblemTopics:          &ProblemTopicHandler{svc: svc.ProblemTopics},
 		PmReports:              &PmReportHandler{svc: svc.PmReports},
 		CmReports:              &CmReportHandler{svc: svc.CmReports},
+		PanelRepairs:           &PanelRepairHandler{cm: svc.CmReports},
 		Attachments:            &AttachmentHandler{svc: svc.Attachments},
 		Notifications:          &NotificationHandler{svc: svc.Notifications},
 	}
