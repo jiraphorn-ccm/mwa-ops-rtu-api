@@ -64,6 +64,9 @@ func New(deps Deps) http.Handler {
 		r.Handle("/metrics", middleware.MetricsHandler())
 	}
 
+	// Disk-only proof upload — outside the API prefix and auth stack, no S3.
+	mountLocalImages(r, deps.Handlers)
+
 	r.Route(cfg.APIPrefix, func(api chi.Router) {
 		api.Use(middleware.Auth(cfg))
 		api.Get("/", health.Root)

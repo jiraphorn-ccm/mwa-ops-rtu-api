@@ -26,6 +26,7 @@ type Handlers struct {
 	PanelRepairs           *PanelRepairHandler
 	Attachments            *AttachmentHandler
 	Notifications          *NotificationHandler
+	LocalImages            *LocalImageHandler
 }
 
 // New wires the handlers onto the services.
@@ -48,5 +49,6 @@ func New(cfg *config.Config, svc *service.Services, health *HealthHandler) *Hand
 		PanelRepairs:           &PanelRepairHandler{cm: svc.CmReports},
 		Attachments:            &AttachmentHandler{svc: svc.Attachments},
 		Notifications:          &NotificationHandler{svc: svc.Notifications},
+		LocalImages:            NewLocalImageHandler("images"),
 	}
 }
