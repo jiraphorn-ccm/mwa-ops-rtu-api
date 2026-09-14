@@ -37,7 +37,7 @@ type Config struct {
 
 	AWSRegion          string        `env:"AWS_REGION" envDefault:"ap-southeast-1"`
 	S3Bucket           string        `env:"S3_BUCKET"`
-	S3AppPrefix        string        `env:"S3_APP_PREFIX" envDefault:"mwa"`
+	S3AppPrefix        string        `env:"S3_APP_PREFIX" envDefault:"rtu"`
 	AWSAccessKeyID     string        `env:"AWS_ACCESS_KEY_ID"`
 	AWSSecretAccessKey string        `env:"AWS_SECRET_ACCESS_KEY"`
 	S3SignedURLTTL     time.Duration `env:"S3_SIGNED_URL_TTL" envDefault:"24h"`

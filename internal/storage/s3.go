@@ -154,10 +154,21 @@ func (c *S3Client) PresignGet(ctx context.Context, key string) (string, error) {
 	return out.URL, nil
 }
 
+// Image keys live under {S3_APP_PREFIX}/images/{kind}/… so the app prefix
+// is not repeated (e.g. rtu/images/panels/…, rtu/images/users/…).
+func imageObjectKey(appPrefix, kind, folder, objectID, ext string) string {
+	prefix := strings.Trim(appPrefix, "/")
+	return fmt.Sprintf("%s/images/%s/%s/%s%s", prefix, kind, folder, objectID, ext)
+}
+
 // PanelImageKey builds the S3 object key for a panel photo.
 func PanelImageKey(appPrefix, panelCode, objectID, ext string) string {
-	prefix := strings.Trim(appPrefix, "/")
-	return fmt.Sprintf("%s/images/rtu/panels/%s/%s%s", prefix, panelCode, objectID, ext)
+	return imageObjectKey(appPrefix, "panels", panelCode, objectID, ext)
+}
+
+// UserImageKey builds the S3 object key for a user photo (profile, signature, …).
+func UserImageKey(appPrefix, kind, objectID, ext string) string {
+	return imageObjectKey(appPrefix, "users", strings.ToLower(kind), objectID, ext)
 }
 
 // AttachmentKey builds the S3 object key for a polymorphic attachment

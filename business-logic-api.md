@@ -472,7 +472,7 @@ flowchart TD
 ### S3 key
 
 ```
-{S3_APP_PREFIX}/images/rtu/panels/{panel_code}/{uuid}.{ext}
+{S3_APP_PREFIX}/images/panels/{panel_code}/{uuid}.{ext}
 ```
 
 ---
