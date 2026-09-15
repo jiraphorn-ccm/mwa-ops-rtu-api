@@ -108,6 +108,9 @@ func (h *HealthHandler) Root(w http.ResponseWriter, r *http.Request) {
 			"calibration-instruments",
 			"calibrations",
 			"calibration-readings",
+			"users",
+			"auth",
+			"audit-logs",
 		},
 	})
 }

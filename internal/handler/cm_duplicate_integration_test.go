@@ -39,7 +39,7 @@ func integrationRouter(t *testing.T) http.Handler {
 	t.Cleanup(pool.Close)
 
 	store := repository.New(pool)
-	services := service.New(store, nil, cfg.S3AppPrefix)
+	services := service.New(store, nil, cfg)
 	handlers := handler.New(cfg, services, handler.NewHealthHandler(cfg, pool, "test"))
 	return router.New(router.Deps{Config: cfg, Logger: logger, Handlers: handlers})
 }

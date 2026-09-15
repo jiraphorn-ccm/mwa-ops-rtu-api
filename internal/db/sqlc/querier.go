@@ -24,9 +24,11 @@ type Querier interface {
 	// (status <> COMPLETED/CANCELLED) one already exists for the panel to reuse.
 	CountOpenWorkOrdersForPanel(ctx context.Context, arg CountOpenWorkOrdersForPanelParams) (uuid.UUID, error)
 	CountUnreadNotifications(ctx context.Context, recipientID uuid.UUID) (int64, error)
+	CountUsers(ctx context.Context) (int64, error)
 	// Next sequence for work_order_no on a panel (TYPE-PANEL_CODE-0001).
 	CountWorkOrdersByPanelAndType(ctx context.Context, arg CountWorkOrdersByPanelAndTypeParams) (int64, error)
 	CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (Attachment, error)
+	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateCalibration(ctx context.Context, arg CreateCalibrationParams) (Calibration, error)
 	CreateCalibrationInstrument(ctx context.Context, arg CreateCalibrationInstrumentParams) (CalibrationInstrument, error)
 	CreateCalibrationReading(ctx context.Context, arg CreateCalibrationReadingParams) (CalibrationReading, error)
@@ -40,6 +42,8 @@ type Querier interface {
 	CreatePanelImage(ctx context.Context, arg CreatePanelImageParams) (PanelImage, error)
 	CreatePmReport(ctx context.Context, arg CreatePmReportParams) (PmReport, error)
 	CreateProblemTopic(ctx context.Context, arg CreateProblemTopicParams) (RtuProblemTopic, error)
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWoApproval(ctx context.Context, arg CreateWoApprovalParams) (WoApproval, error)
 	CreateWorkOrder(ctx context.Context, arg CreateWorkOrderParams) (WorkOrder, error)
 	CreateWorkOrderActivityLog(ctx context.Context, arg CreateWorkOrderActivityLogParams) (WorkOrderActivityLog, error)
@@ -63,6 +67,7 @@ type Querier interface {
 	DeletePmPowerTestPointsByTest(ctx context.Context, pmPowerTestID uuid.UUID) (int64, error)
 	DeletePmReport(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteProblemTopic(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteWorkOrderProblemTopic(ctx context.Context, arg DeleteWorkOrderProblemTopicParams) error
 	DeleteWorkOrderProblemTopicsByWorkOrder(ctx context.Context, workOrderID uuid.UUID) error
 	DeviceModelExists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -98,6 +103,9 @@ type Querier interface {
 	GetProblemTopic(ctx context.Context, id uuid.UUID) (RtuProblemTopic, error)
 	GetProblemTopicByCode(ctx context.Context, code string) (RtuProblemTopic, error)
 	GetProblemTopicUsability(ctx context.Context, id uuid.UUID) (bool, error)
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (GetRefreshTokenByHashRow, error)
+	GetUser(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByLogin(ctx context.Context, login string) (User, error)
 	GetWoApproval(ctx context.Context, id uuid.UUID) (WoApproval, error)
 	GetWoApprovalByRound(ctx context.Context, workOrderRoundID uuid.UUID) (WoApproval, error)
 	GetWorkOrder(ctx context.Context, id uuid.UUID) (WorkOrder, error)
@@ -134,6 +142,8 @@ type Querier interface {
 	PmReportExists(ctx context.Context, id uuid.UUID) (bool, error)
 	ProblemTopicExists(ctx context.Context, id uuid.UUID) (bool, error)
 	ReplacePanelImageFile(ctx context.Context, arg ReplacePanelImageFileParams) (PanelImage, error)
+	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	RevokeRefreshTokensForUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	SetCalibrationInstrumentActive(ctx context.Context, arg SetCalibrationInstrumentActiveParams) (CalibrationInstrument, error)
 	SetChecklistItemActive(ctx context.Context, arg SetChecklistItemActiveParams) (ChecklistItem, error)
 	SetDeviceModelActive(ctx context.Context, arg SetDeviceModelActiveParams) (DeviceModel, error)
@@ -142,9 +152,13 @@ type Querier interface {
 	SetPanelDeviceActive(ctx context.Context, arg SetPanelDeviceActiveParams) (PanelDevice, error)
 	SetPmReportSubmitted(ctx context.Context, arg SetPmReportSubmittedParams) (PmReport, error)
 	SetProblemTopicActive(ctx context.Context, arg SetProblemTopicActiveParams) (RtuProblemTopic, error)
+	SetUserActive(ctx context.Context, arg SetUserActiveParams) (User, error)
+	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (User, error)
 	SetWorkOrderActive(ctx context.Context, arg SetWorkOrderActiveParams) (WorkOrder, error)
 	SetWorkOrderCurrentRound(ctx context.Context, arg SetWorkOrderCurrentRoundParams) (WorkOrder, error)
 	SetWorkOrderRoundSubmitted(ctx context.Context, arg SetWorkOrderRoundSubmittedParams) (WorkOrderRound, error)
+	TouchRefreshTokenMeta(ctx context.Context, arg TouchRefreshTokenMetaParams) error
+	TouchUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateAttachmentCaption(ctx context.Context, arg UpdateAttachmentCaptionParams) (Attachment, error)
 	UpdateCalibration(ctx context.Context, arg UpdateCalibrationParams) (Calibration, error)
 	UpdateCalibrationInstrument(ctx context.Context, arg UpdateCalibrationInstrumentParams) (CalibrationInstrument, error)
@@ -160,6 +174,7 @@ type Querier interface {
 	UpdatePanelPmDates(ctx context.Context, arg UpdatePanelPmDatesParams) (Panel, error)
 	UpdatePmReport(ctx context.Context, arg UpdatePmReportParams) (PmReport, error)
 	UpdateProblemTopic(ctx context.Context, arg UpdateProblemTopicParams) (RtuProblemTopic, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams) (WorkOrder, error)
 	// Reassigns the current round in place. Only valid before check-in — once a
 	// round has started, a rejection must open a new round instead (see

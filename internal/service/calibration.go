@@ -47,25 +47,25 @@ type CalibrationReadingInput struct {
 // validation runs; the flat /calibrations handler enforces presence
 // explicitly instead.
 type CalibrationCreateInput struct {
-	PanelDeviceID uuid.UUID                 `json:"panel_device_id"`
-	InstrumentID  uuid.UUID                 `json:"instrument_id" validate:"required"`
-	PerformedBy   *string                   `json:"performed_by" validate:"omitempty,max=100"`
-	PerformedAt   time.Time                 `json:"performed_at" validate:"required"`
-	Result        string                    `json:"result" validate:"required,oneof=PASS FAIL ADJUSTED"`
-	Remark        *string                   `json:"remark" validate:"omitempty,max=4000"`
-	WorkOrderID   *uuid.UUID                `json:"work_order_id"`
-	PmReportID    *uuid.UUID                `json:"pm_report_id"`
-	ChannelType   *string                   `json:"channel_type" validate:"omitempty,oneof=PRESSURE FLOW LEVEL RTU_READBACK"`
-	EutManufacturer  *string                `json:"eut_manufacturer" validate:"omitempty,max=255"`
-	EutModel         *string                `json:"eut_model" validate:"omitempty,max=255"`
-	EutSerialNo      *string                `json:"eut_serial_no" validate:"omitempty,max=255"`
-	EutInputRange    *string                `json:"eut_input_range" validate:"omitempty,max=100"`
-	EutAccuracyClass *string                `json:"eut_accuracy_class" validate:"omitempty,max=100"`
-	EutPowerSupply   *string                `json:"eut_power_supply" validate:"omitempty,max=100"`
-	EutOutputRange   *string                `json:"eut_output_range" validate:"omitempty,max=100"`
-	ResultType       *string                `json:"result_type" validate:"omitempty,oneof=TESTED CALIBRATED_AND_TESTED OTHER"`
-	ResultOtherText  *string                `json:"result_other_text" validate:"omitempty,max=255"`
-	Readings      []CalibrationReadingInput `json:"readings" validate:"omitempty,max=500,dive"`
+	PanelDeviceID    uuid.UUID                 `json:"panel_device_id"`
+	InstrumentID     uuid.UUID                 `json:"instrument_id" validate:"required"`
+	PerformedBy      *string                   `json:"performed_by" validate:"omitempty,max=100"`
+	PerformedAt      time.Time                 `json:"performed_at" validate:"required"`
+	Result           string                    `json:"result" validate:"required,oneof=PASS FAIL ADJUSTED"`
+	Remark           *string                   `json:"remark" validate:"omitempty,max=4000"`
+	WorkOrderID      *uuid.UUID                `json:"work_order_id"`
+	PmReportID       *uuid.UUID                `json:"pm_report_id"`
+	ChannelType      *string                   `json:"channel_type" validate:"omitempty,oneof=PRESSURE FLOW LEVEL RTU_READBACK"`
+	EutManufacturer  *string                   `json:"eut_manufacturer" validate:"omitempty,max=255"`
+	EutModel         *string                   `json:"eut_model" validate:"omitempty,max=255"`
+	EutSerialNo      *string                   `json:"eut_serial_no" validate:"omitempty,max=255"`
+	EutInputRange    *string                   `json:"eut_input_range" validate:"omitempty,max=100"`
+	EutAccuracyClass *string                   `json:"eut_accuracy_class" validate:"omitempty,max=100"`
+	EutPowerSupply   *string                   `json:"eut_power_supply" validate:"omitempty,max=100"`
+	EutOutputRange   *string                   `json:"eut_output_range" validate:"omitempty,max=100"`
+	ResultType       *string                   `json:"result_type" validate:"omitempty,oneof=TESTED CALIBRATED_AND_TESTED OTHER"`
+	ResultOtherText  *string                   `json:"result_other_text" validate:"omitempty,max=255"`
+	Readings         []CalibrationReadingInput `json:"readings" validate:"omitempty,max=500,dive"`
 }
 
 // CalibrationUpdateInput is the PATCH /calibrations/{id} body.

@@ -11,6 +11,9 @@ const COLLECTION_VARS = [
   ["base_url", "http://127.0.0.1:5020"],
   ["api_prefix", "/api/rtu/v1"],
   ["actor_id", "00000000-0000-0000-0000-000000000001"],
+  ["access_token", ""],
+  ["refresh_token", ""],
+  ["user_id", ""],
   ["panel_id", ""],
   ["panel_code", "PNL-DEMO"],
   ["device_model_id", ""],
@@ -94,6 +97,9 @@ const SAVE_ID = {
   engineer_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('engineer_id', pm.response.json().data.id);
 }`,
+  user_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
+    pm.collectionVariables.set('user_id', pm.response.json().data.id);
+}`,
   checklist_item_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('checklist_item_id', pm.response.json().data.id);
 }`,
@@ -120,6 +126,20 @@ if (d?.power_test_points?.[0]?.id) pm.collectionVariables.set('power_test_point_
   attachment_id: `if (pm.response.code === 201 && pm.response.json().data?.id) {
     pm.collectionVariables.set('attachment_id', pm.response.json().data.id);
 }`,
+  tokens: `const d = pm.response.json().data;
+if (d?.access_token) {
+    pm.collectionVariables.set('access_token', d.access_token);
+    pm.environment.set('access_token', d.access_token);
+}
+if (d?.refresh_token) {
+    pm.collectionVariables.set('refresh_token', d.refresh_token);
+    pm.environment.set('refresh_token', d.refresh_token);
+}
+if (d?.user?.id) {
+    pm.collectionVariables.set('user_id', d.user.id);
+    pm.environment.set('user_id', d.user.id);
+    pm.collectionVariables.set('actor_id', d.user.id);
+}`,
 };
 
 function urlPath(segments) {
@@ -135,12 +155,15 @@ function urlPath(segments) {
   return { raw, host: ["{{base_url}}"], path };
 }
 
-function buildRequest(method, segments, { body, formdata, query } = {}) {
+function buildRequest(method, segments, { body, formdata, query, noAuth } = {}) {
   const request = {
     method,
     header: [],
     url: urlPath(segments),
   };
+  if (noAuth) {
+    request.auth = { type: "noauth" };
+  }
   if (formdata) {
     request.body = { mode: "formdata", formdata };
   } else if (body !== undefined) {
@@ -180,7 +203,7 @@ function req(name, method, segments, opts = {}) {
   } = opts;
   const item = {
     name,
-    request: buildRequest(method, segments, { body, formdata, query }),
+    request: buildRequest(method, segments, { body, formdata, query, noAuth: opts.noAuth }),
     description: desc,
   };
   if (examples.length) {
@@ -588,14 +611,21 @@ function build() {
         "",
         "**Setup**",
         "1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)",
-        "2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)",
-        "3. Run **01 — Smoke Flow** then **02 — PM Smoke Flow** to exercise PM end-to-end",
+        "2. Run **00 — Auth → Register** (first user only) or **Login** — tokens are saved automatically",
+        "3. All other API requests send `Authorization: Bearer {{access_token}}`",
+        "4. Run **01 — Smoke Flow** then **02 — PM Smoke Flow**",
+        "",
+        "Access token TTL is 15 minutes. Use **Refresh** when you get E200_003.",
         "",
         "Alternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.",
         "Health routes return raw JSON. API routes use the MWA envelope.",
       ].join("\n"),
       schema:
         "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    },
+    auth: {
+      type: "bearer",
+      bearer: [{ key: "token", value: "{{access_token}}", type: "string" }],
     },
     event: [
       {
@@ -606,24 +636,85 @@ function build() {
     variable: COLLECTION_VARS.map(([key, value]) => ({ key, value })),
     item: [
       folder(
+        "00 — Auth",
+        [
+          req("GET Register Status", "GET", [...api, "auth", "register", "status"], {
+            noAuth: true,
+            desc: "registration_open=true only while users table is empty.",
+          }),
+          req("POST Register (first user)", "POST", [...api, "auth", "register"], {
+            noAuth: true,
+            body: {
+              employee_code: "E001",
+              title: "นาย",
+              first_name: "Somchai",
+              last_name: "Jaidee",
+              email: "somchai@example.com",
+              password: "secret123",
+              position: "Operator",
+            },
+            saveVar: "tokens",
+            desc: "Allowed only when no users exist. Saves access_token / refresh_token.",
+          }),
+          req("POST Login", "POST", [...api, "auth", "login"], {
+            noAuth: true,
+            body: {
+              username: "somchai@example.com",
+              password: "secret123",
+            },
+            saveVar: "tokens",
+            desc: "username = email or employee_code. Access token TTL 15 minutes.",
+          }),
+          req("POST Refresh", "POST", [...api, "auth", "refresh"], {
+            noAuth: true,
+            body: { refresh_token: "{{refresh_token}}" },
+            saveVar: "tokens",
+          }),
+          req("POST Logout", "POST", [...api, "auth", "logout"], {
+            noAuth: true,
+            body: { refresh_token: "{{refresh_token}}" },
+          }),
+          req("GET Me", "GET", [...api, "auth", "me"]),
+          req("POST Change Password", "POST", [...api, "auth", "change-password"], {
+            body: {
+              old_password: "secret123",
+              new_password: "newsecret1",
+            },
+          }),
+        ],
+        "Register/login/refresh/logout are public. Me and change-password require Bearer. No RBAC.",
+      ),
+      folder(
         "00 — Health & Info",
         [
-          req("GET /", "GET", [], { testKind: "root", desc: "Service root." }),
-          req("GET /health", "GET", ["health"], { testKind: "health" }),
+          req("GET /", "GET", [], { testKind: "root", desc: "Service root.", noAuth: true }),
+          req("GET /health", "GET", ["health"], { testKind: "health", noAuth: true }),
           req("GET /health/live", "GET", ["health", "live"], {
             testKind: "live",
+            noAuth: true,
           }),
           req("GET /health/ready", "GET", ["health", "ready"], {
             testKind: "health",
+            noAuth: true,
           }),
           req("GET /metrics", "GET", ["metrics"], {
             testKind: "metrics",
+            noAuth: true,
             desc: "Prometheus text format when METRICS_ENABLED=true.",
           }),
         ],
-        "No auth required while AUTH_ENABLED=false.",
+        "No Bearer required.",
       ),
       folder("01 — Smoke Flow (run in order)", [
+        req("0. Login", "POST", [...api, "auth", "login"], {
+          noAuth: true,
+          body: {
+            username: "somchai@example.com",
+            password: "secret123",
+          },
+          saveVar: "tokens",
+          desc: "Required. Register first if the users table is empty.",
+        }),
         req("1. Create Panel", "POST", [...api, "panels"], {
           body: {
             code: "{{panel_code}}",
@@ -1247,6 +1338,46 @@ function build() {
           [...api, "calibrations", "{{calibration_id}}", "attachments"],
           { formdata: ATTACHMENT_FORM, saveVar: "attachment_id" },
         ),
+      ]),
+      folder("Users", [
+        req("List", "GET", [...api, "users"], {
+          query: q([{ key: "active", value: "" }]),
+        }),
+        req("Create", "POST", [...api, "users"], {
+          body: {
+            employee_code: "E002",
+            first_name: "Nok",
+            last_name: "Rak",
+            email: "nok@example.com",
+            password: "secret123",
+            position: "Technician",
+          },
+          saveVar: "user_id",
+        }),
+        req("Get by ID", "GET", [...api, "users", "{{user_id}}"]),
+        req("Update PATCH", "PATCH", [...api, "users", "{{user_id}}"], {
+          body: { position: "Senior Technician" },
+        }),
+        req("Soft Delete", "DELETE", [...api, "users", "{{user_id}}"]),
+        req("Restore", "POST", [...api, "users", "{{user_id}}", "restore"]),
+        req("Hard Delete", "DELETE", [
+          ...api,
+          "users",
+          "{{user_id}}",
+          "permanent",
+        ]),
+      ], "Bearer required. No roles/permissions."),
+      folder("Audit Logs", [
+        req("List", "GET", [...api, "audit-logs"], {
+          query: q([
+            { key: "user_id", value: "{{user_id}}" },
+            { key: "action", value: "" },
+            { key: "resource", value: "" },
+            { key: "from", value: "" },
+            { key: "to", value: "" },
+          ]),
+          desc: "Who created/updated/deleted what. GET is not recorded.",
+        }),
       ]),
       folder("Engineers", [
         req("List", "GET", [...api, "engineers"], {

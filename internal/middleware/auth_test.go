@@ -37,7 +37,8 @@ func TestAuthAcceptsValidToken(t *testing.T) {
 			Subject:   "user-1",
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
-		UserID: "user-1",
+		UserID:    "user-1",
+		TokenType: "access",
 	})
 
 	var got httpx.AuthInfo
@@ -90,6 +91,47 @@ func TestStagingGuardAllowsGET(t *testing.T) {
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status=%d", rec.Code)
+	}
+}
+
+func TestAuthRejectsRefreshToken(t *testing.T) {
+	cfg := &config.Config{AuthEnabled: true, AuthJWTSecret: testSecret}
+	token := signToken(t, httpx.AuthClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "user-1",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+		UserID:    "user-1",
+		TokenType: "refresh",
+	})
+
+	handler := middleware.Auth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/rtu/v1/panels", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAuthRejectsMissingTokenWhenFlagOff(t *testing.T) {
+	cfg := &config.Config{AuthEnabled: false, AuthJWTSecret: testSecret}
+
+	handler := middleware.Auth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/rtu/v1/panels", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

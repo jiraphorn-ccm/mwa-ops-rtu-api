@@ -28,6 +28,21 @@ type Attachment struct {
 	UpdatedBy    *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
+type AuditLog struct {
+	ID         uuid.UUID  `db:"id" json:"id"`
+	UserID     *uuid.UUID `db:"user_id" json:"user_id"`
+	Action     string     `db:"action" json:"action"`
+	Method     string     `db:"method" json:"method"`
+	Path       string     `db:"path" json:"path"`
+	Resource   *string    `db:"resource" json:"resource"`
+	ResourceID *uuid.UUID `db:"resource_id" json:"resource_id"`
+	StatusCode *int32     `db:"status_code" json:"status_code"`
+	IpAddress  *string    `db:"ip_address" json:"ip_address"`
+	UserAgent  *string    `db:"user_agent" json:"user_agent"`
+	RequestID  *string    `db:"request_id" json:"request_id"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
+}
+
 type Calibration struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
 	PanelDeviceID    uuid.UUID  `db:"panel_device_id" json:"panel_device_id"`
@@ -322,6 +337,18 @@ type PmReport struct {
 	UpdatedBy        *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
+type RefreshToken struct {
+	ID        uuid.UUID  `db:"id" json:"id"`
+	UserID    uuid.UUID  `db:"user_id" json:"user_id"`
+	TokenHash string     `db:"token_hash" json:"token_hash"`
+	IpAddress *string    `db:"ip_address" json:"ip_address"`
+	UserAgent *string    `db:"user_agent" json:"user_agent"`
+	RevokedAt *time.Time `db:"revoked_at" json:"revoked_at"`
+	ExpiresAt time.Time  `db:"expires_at" json:"expires_at"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+}
+
 type RtuProblemTopic struct {
 	ID        uuid.UUID  `db:"id" json:"id"`
 	Code      string     `db:"code" json:"code"`
@@ -339,6 +366,23 @@ type RtuWorkOrderProblemTopic struct {
 	ProblemTopicID uuid.UUID `db:"problem_topic_id" json:"problem_topic_id"`
 	SortOrder      int16     `db:"sort_order" json:"sort_order"`
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+}
+
+type User struct {
+	ID           uuid.UUID  `db:"id" json:"id"`
+	EmployeeCode string     `db:"employee_code" json:"employee_code"`
+	Title        *string    `db:"title" json:"title"`
+	FirstName    string     `db:"first_name" json:"first_name"`
+	LastName     string     `db:"last_name" json:"last_name"`
+	Email        string     `db:"email" json:"email"`
+	PasswordHash string     `db:"password_hash" json:"password_hash"`
+	Position     *string    `db:"position" json:"position"`
+	Active       bool       `db:"active" json:"active"`
+	LastLoginAt  *time.Time `db:"last_login_at" json:"last_login_at"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
+	CreatedBy    *uuid.UUID `db:"created_by" json:"created_by"`
+	UpdatedBy    *uuid.UUID `db:"updated_by" json:"updated_by"`
 }
 
 type WoApproval struct {

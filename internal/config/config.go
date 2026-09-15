@@ -68,12 +68,16 @@ type Config struct {
 	RateLimitRequests int           `env:"RATE_LIMIT_REQUESTS" envDefault:"300"`
 	RateLimitWindow   time.Duration `env:"RATE_LIMIT_WINDOW" envDefault:"1m"`
 
-	// AuthEnabled gates every route under APIPrefix. Disabled by default in
-	// development so local smoke tests stay frictionless; production startup
-	// rejects AUTH_ENABLED=false.
-	AuthEnabled   bool   `env:"AUTH_ENABLED" envDefault:"false"`
+	// AuthEnabled is required true in production. Protected routes always
+	// require a Bearer access token regardless of this flag; only /auth/login,
+	// /auth/refresh, /auth/logout and /auth/register stay public.
+	AuthEnabled   bool   `env:"AUTH_ENABLED" envDefault:"true"`
 	AuthJWTSecret string `env:"AUTH_JWT_SECRET"`
-	AuthJWTIssuer string `env:"AUTH_JWT_ISSUER"`
+	// JWTSecret is the SOA-compatible alias for AUTH_JWT_SECRET.
+	JWTSecret      string        `env:"JWT_SECRET"`
+	AuthJWTIssuer  string        `env:"AUTH_JWT_ISSUER"`
+	JWTAccessTTL   time.Duration `env:"JWT_ACCESS_EXPIRES" envDefault:"15m"`
+	JWTRefreshDays int           `env:"JWT_REFRESH_EXPIRES_DAYS" envDefault:"7"`
 
 	MetricsEnabled bool `env:"METRICS_ENABLED" envDefault:"true"`
 
@@ -105,6 +109,16 @@ func Load() (*Config, error) {
 
 	if err := cfg.resolveDatabaseURL(); err != nil {
 		return nil, err
+	}
+
+	if strings.TrimSpace(cfg.AuthJWTSecret) == "" {
+		cfg.AuthJWTSecret = strings.TrimSpace(cfg.JWTSecret)
+	}
+	if cfg.JWTAccessTTL <= 0 {
+		cfg.JWTAccessTTL = 15 * time.Minute
+	}
+	if cfg.JWTRefreshDays <= 0 {
+		cfg.JWTRefreshDays = 7
 	}
 
 	if err := cfg.validateProduction(); err != nil {
@@ -165,6 +179,15 @@ func (c *Config) IsProduction() bool { return c.AppEnv == EnvProduction }
 
 // IsStaging reports whether the staging guard should be active.
 func (c *Config) IsStaging() bool { return c.AppEnv == EnvStaging }
+
+// JWTRefreshTTL is the absolute lifetime of a refresh session.
+func (c *Config) JWTRefreshTTL() time.Duration {
+	days := c.JWTRefreshDays
+	if days <= 0 {
+		days = 7
+	}
+	return time.Duration(days) * 24 * time.Hour
+}
 
 // S3Configured reports whether panel image uploads can reach S3.
 func (c *Config) S3Configured() bool { return strings.TrimSpace(c.S3Bucket) != "" }

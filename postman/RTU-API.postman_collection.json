@@ -2,8 +2,18 @@
   "info": {
     "_postman_id": "rtu-api-mwa-collection",
     "name": "RTU API",
-    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Server: `AUTH_ENABLED=false` during development (no Bearer token needed)\n3. Run **01 — Smoke Flow** then **02 — PM Smoke Flow** to exercise PM end-to-end\n\nAlternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.\nHealth routes return raw JSON. API routes use the MWA envelope.",
+    "description": "MWA RTU operations API — calibration + PM/CM workflow.\n\n**Setup**\n1. Set `base_url` (default `http://127.0.0.1:5020`, no trailing slash)\n2. Run **00 — Auth → Register** (first user only) or **Login** — tokens are saved automatically\n3. All other API requests send `Authorization: Bearer {{access_token}}`\n4. Run **01 — Smoke Flow** then **02 — PM Smoke Flow**\n\nAccess token TTL is 15 minutes. Use **Refresh** when you get E200_003.\n\nAlternate URLs and filter/body variants are saved as **Examples** (e.g.) on the primary request — expand the request and pick an example instead of duplicate request lines.\nHealth routes return raw JSON. API routes use the MWA envelope.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
   },
   "event": [
     {
@@ -30,6 +40,18 @@
     {
       "key": "actor_id",
       "value": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
     },
     {
       "key": "panel_id",
@@ -114,6 +136,360 @@
   ],
   "item": [
     {
+      "name": "00 — Auth",
+      "item": [
+        {
+          "name": "GET Register Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/register/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "register",
+                "status"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "description": "registration_open=true only while users table is empty.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Register (first user)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_code\": \"E001\",\n  \"title\": \"นาย\",\n  \"first_name\": \"Somchai\",\n  \"last_name\": \"Jaidee\",\n  \"email\": \"somchai@example.com\",\n  \"password\": \"secret123\",\n  \"position\": \"Operator\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Allowed only when no users exist. Saves access_token / refresh_token.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "const d = pm.response.json().data;",
+                  "if (d?.access_token) {",
+                  "    pm.collectionVariables.set('access_token', d.access_token);",
+                  "    pm.environment.set('access_token', d.access_token);",
+                  "}",
+                  "if (d?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', d.refresh_token);",
+                  "    pm.environment.set('refresh_token', d.refresh_token);",
+                  "}",
+                  "if (d?.user?.id) {",
+                  "    pm.collectionVariables.set('user_id', d.user.id);",
+                  "    pm.environment.set('user_id', d.user.id);",
+                  "    pm.collectionVariables.set('actor_id', d.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"somchai@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "username = email or employee_code. Access token TTL 15 minutes.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "const d = pm.response.json().data;",
+                  "if (d?.access_token) {",
+                  "    pm.collectionVariables.set('access_token', d.access_token);",
+                  "    pm.environment.set('access_token', d.access_token);",
+                  "}",
+                  "if (d?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', d.refresh_token);",
+                  "    pm.environment.set('refresh_token', d.refresh_token);",
+                  "}",
+                  "if (d?.user?.id) {",
+                  "    pm.collectionVariables.set('user_id', d.user.id);",
+                  "    pm.environment.set('user_id', d.user.id);",
+                  "    pm.collectionVariables.set('actor_id', d.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Refresh",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "const d = pm.response.json().data;",
+                  "if (d?.access_token) {",
+                  "    pm.collectionVariables.set('access_token', d.access_token);",
+                  "    pm.environment.set('access_token', d.access_token);",
+                  "}",
+                  "if (d?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', d.refresh_token);",
+                  "    pm.environment.set('refresh_token', d.refresh_token);",
+                  "}",
+                  "if (d?.user?.id) {",
+                  "    pm.collectionVariables.set('user_id', d.user.id);",
+                  "    pm.environment.set('user_id', d.user.id);",
+                  "    pm.collectionVariables.set('actor_id', d.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Change Password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "change-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"secret123\",\n  \"new_password\": \"newsecret1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Register/login/refresh/logout are public. Me and change-password require Bearer. No RBAC."
+    },
+    {
       "name": "00 — Health & Info",
       "item": [
         {
@@ -127,6 +503,9 @@
                 "{{base_url}}"
               ],
               "path": []
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "description": "Service root.",
@@ -160,6 +539,9 @@
               "path": [
                 "health"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "description": "",
@@ -193,6 +575,9 @@
                 "health",
                 "live"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "description": "",
@@ -223,6 +608,9 @@
                 "health",
                 "ready"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "description": "",
@@ -255,6 +643,9 @@
               "path": [
                 "metrics"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "description": "Prometheus text format when METRICS_ENABLED=true.",
@@ -274,11 +665,72 @@
           ]
         }
       ],
-      "description": "No auth required while AUTH_ENABLED=false."
+      "description": "No Bearer required."
     },
     {
       "name": "01 — Smoke Flow (run in order)",
       "item": [
+        {
+          "name": "0. Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"somchai@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Required. Register first if the users table is empty.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "const d = pm.response.json().data;",
+                  "if (d?.access_token) {",
+                  "    pm.collectionVariables.set('access_token', d.access_token);",
+                  "    pm.environment.set('access_token', d.access_token);",
+                  "}",
+                  "if (d?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', d.refresh_token);",
+                  "    pm.environment.set('refresh_token', d.refresh_token);",
+                  "}",
+                  "if (d?.user?.id) {",
+                  "    pm.collectionVariables.set('user_id', d.user.id);",
+                  "    pm.environment.set('user_id', d.user.id);",
+                  "    pm.collectionVariables.set('actor_id', d.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "1. Create Panel",
           "request": {
@@ -1827,25 +2279,11 @@
                 {
                   "key": "search",
                   "value": ""
-                },
-                {
-                  "key": "completed",
-                  "value": "",
-                  "description": "true | false"
-                },
-                {
-                  "key": "origin",
-                  "value": "",
-                  "description": "STANDALONE,PM_ONSITE_CM,PM_ESCALATED"
-                },
-                {
-                  "key": "panel_device_id",
-                  "value": "{{panel_device_id}}"
                 }
               ]
             }
           },
-          "description": "Legacy alias of repair-history. Prefer **Panel Repairs (App) → List Repair History**.",
+          "description": "",
           "event": [
             {
               "listen": "test",
@@ -1859,235 +2297,6 @@
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});"
                 ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Panel Repairs (App)",
-          "description": "App-facing repair API during PM. See doc/api/09-panel-repairs.md",
-          "item": [
-            {
-              "name": "★ App — Onsite Repair (ซ่อมหน้างานเสร็จ)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/onsite",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "onsite"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_detail\": \"พบสาย signal หลวมที่ terminal TB-3\",\n  \"root_cause\": \"ข้อต่อหลวมจาก vibration\",\n  \"error_logs\": null,\n  \"reference_info\": \"ตรวจด้วย multimeter\",\n  \"corrective_action\": \"ขันข้อต่อและทด readback ผ่าน\",\n  \"recommendation\": \"ตรวจซ้ำรอบ PM ถัดไป\",\n  \"repaired_by\": \"{{actor_id}}\",\n  \"started_at\": \"2026-08-30T08:00:00+07:00\",\n  \"ended_at\": \"2026-08-30T09:30:00+07:00\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
-                  "options": { "raw": { "language": "json" } }
-                }
-              },
-              "description": "**App ใช้เส้นนี้** เมื่อ PM แล้วพบปัญหาและซ่อมเสร็จหน้างาน\n\n`POST /panels/{panel_id}/repairs/onsite`\n\n| Field | บังคับ |\n|-------|--------|\n| pm_report_id | ✅ |\n| reported_by, assigned_to, assigned_by | ✅ |\n| problem_topic_id | ✅ |\n| submit_for_approval + actor_id | แนะนำ true — ส่ง CM เข้าอนุมัติทันที |\n\nResponse: cm_work_order_id, cm_work_order_no, cm_work_order_status, origin=PM_ONSITE_CM\n\nถ้า submit_for_approval=false ต่อด้วย Submit CM + Approvals ในโฟลเดอร์นี้",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                      "const json = pm.response.json();",
-                      "pm.test('MWA envelope', () => {",
-                      "    pm.expect(json.status).to.eql('success');",
-                      "    pm.expect(json.code).to.match(/^S\\d/);",
-                      "});",
-                      "if (pm.response.code >= 200 && pm.response.code < 300 && json.data) {",
-                      "    if (json.data.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
-                      "    if (json.data.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);",
-                      "}"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "Onsite Repair (minimal body)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/onsite",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "onsite"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"corrective_action\": \"Tightened connector\",\n  \"submit_for_approval\": false\n}",
-                  "options": { "raw": { "language": "json" } }
-                }
-              },
-              "description": "Field ขั้นต่ำ — ต้อง Submit CM + Approve แยกเอง",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                      "const json = pm.response.json();",
-                      "if (json.data?.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
-                      "if (json.data?.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);",
-                      "pm.test('submitted when requested', () => {",
-                      "    if (json.data) pm.expect(json.data.submitted_for_approval).to.eql(true);",
-                      "});"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "Escalate to CM",
-              "request": {
-                "method": "POST",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repairs/escalate",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repairs", "escalate"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"pm_report_id\": \"{{pm_report_id}}\",\n  \"pending_reason\": \"Needs spare part — cannot fix on site\",\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\"\n}",
-                  "options": { "raw": { "language": "json" } }
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                      "const json = pm.response.json();",
-                      "if (json.data?.cm_work_order_id) pm.collectionVariables.set('work_order_id', json.data.cm_work_order_id);",
-                      "if (json.data?.cm_report?.id) pm.collectionVariables.set('cm_report_id', json.data.cm_report.id);"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "List Repair History",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-history?page=1&limit=20&sort=created_at&order=DESC",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-history"],
-                  "query": [
-                    { "key": "page", "value": "1" },
-                    { "key": "limit", "value": "20" },
-                    { "key": "sort", "value": "created_at" },
-                    { "key": "order", "value": "DESC" },
-                    { "key": "completed", "value": "", "description": "true | false" },
-                    { "key": "origin", "value": "", "description": "PM_ONSITE_CM,PM_ESCALATED,STANDALONE" },
-                    { "key": "panel_device_id", "value": "{{panel_device_id}}" }
-                  ]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
-                      "pm.test('MWA envelope', () => {",
-                      "    const json = pm.response.json();",
-                      "    pm.expect(json.status).to.eql('success');",
-                      "});"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "List Repair History (completed only)",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-history?completed=true&page=1&limit=20",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-history"],
-                  "query": [
-                    { "key": "completed", "value": "true" },
-                    { "key": "page", "value": "1" },
-                    { "key": "limit", "value": "20" }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "List Repair Activity",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/panels/{{panel_id}}/repair-activity?page=1&limit=50",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "panels", "{{panel_id}}", "repair-activity"],
-                  "query": [
-                    { "key": "page", "value": "1" },
-                    { "key": "limit", "value": "50" }
-                  ]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "Submit CM Report (after onsite)",
-              "request": {
-                "method": "POST",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/cm-report/submit",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "work-orders", "{{work_order_id}}", "cm-report", "submit"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"actor_id\": \"{{actor_id}}\"\n}",
-                  "options": { "raw": { "language": "json" } }
-                }
-              },
-              "description": "Use when onsite repair was created with submit_for_approval=false. Sets work_order_id from onsite response."
-            },
-            {
-              "name": "Approve CM (after submit)",
-              "request": {
-                "method": "POST",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}{{api_prefix}}/work-orders/{{work_order_id}}/approvals",
-                  "host": ["{{base_url}}"],
-                  "path": ["{{api_prefix}}", "work-orders", "{{work_order_id}}", "approvals"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"reviewer_id\": \"{{actor_id}}\",\n  \"decision\": \"APPROVED\",\n  \"note\": \"Onsite repair approved\"\n}",
-                  "options": { "raw": { "language": "json" } }
-                }
               }
             }
           ]
@@ -4712,6 +4921,385 @@
                   "if (pm.response.code === 201 && pm.response.json().data?.id) {",
                   "    pm.collectionVariables.set('attachment_id', pm.response.json().data.id);",
                   "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "active",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_code\": \"E002\",\n  \"first_name\": \"Nok\",\n  \"last_name\": \"Rak\",\n  \"email\": \"nok@example.com\",\n  \"password\": \"secret123\",\n  \"position\": \"Technician\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});",
+                  "if (pm.response.code === 201 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('user_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": \"Senior Technician\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users/{{user_id}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users",
+                "{{user_id}}",
+                "restore"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hard Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/users/{{user_id}}/permanent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "users",
+                "{{user_id}}",
+                "permanent"
+              ]
+            }
+          },
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Bearer required. No roles/permissions."
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/audit-logs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "action",
+                  "value": ""
+                },
+                {
+                  "key": "resource",
+                  "value": ""
+                },
+                {
+                  "key": "from",
+                  "value": ""
+                },
+                {
+                  "key": "to",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "description": "Who created/updated/deleted what. GET is not recorded.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
                 ]
               }
             }
@@ -7651,12 +8239,10 @@
           ]
         },
         {
-          "name": "Create Onsite Fix (legacy)",
+          "name": "Create Onsite Fix",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}{{api_prefix}}/pm-reports/{{pm_report_id}}/onsite-fixes",
               "host": [
@@ -7671,7 +8257,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_detail\": \"พบสาย signal หลวมที่ terminal TB-3\",\n  \"root_cause\": \"ข้อต่อหลวมจาก vibration\",\n  \"error_logs\": null,\n  \"reference_info\": \"ตรวจด้วย multimeter\",\n  \"corrective_action\": \"ขันข้อต่อและทด readback ผ่าน\",\n  \"recommendation\": \"ตรวจซ้ำรอบ PM ถัดไป\",\n  \"repaired_by\": \"{{actor_id}}\",\n  \"started_at\": \"2026-08-30T08:00:00+07:00\",\n  \"ended_at\": \"2026-08-30T09:30:00+07:00\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
+              "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_id\": \"{{problem_topic_id}}\",\n  \"problem_detail\": \"Fixed on spot\",\n  \"corrective_action\": \"Tightened connector\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7679,7 +8265,7 @@
               }
             }
           },
-          "description": "**Legacy** — App ควรใช้ `Panels → Panel Repairs (App) → ★ App — Onsite Repair` แทน\n\nPath: `POST /pm-reports/{pm_report_id}/onsite-fixes` (body เหมือนกัน ยกเว้นไม่มี pm_report_id ใน body)",
+          "description": "### Problem topics (CM only)\n\n| Field | Type | When |\n|-------|------|------|\n| `problem_topic_id` | **UUID string** | topic เดียว |\n| `problem_topic_ids` | **UUID[]** | หลาย topic — ใช้ field นี้ ไม่ใช่ array ใน `problem_topic_id` |\n\nส่งทั้งสอง field พร้อมกันได้ — server merge + dedupe (single มาก่อน).\nPrerequisite: รัน **Problem Topics → List** เพื่อ set `problem_topic_id` / `problem_topic_id_2`.\n\nเปิด **Examples** (ไอคอน e.g.) ด้านล่าง request เพื่อดู body/query แต่ละกรณี.",
           "response": [
             {
               "name": "Example: multi topic",
@@ -7700,7 +8286,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"assigned_to\": \"{{actor_id}}\",\n  \"assigned_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Fixed on spot (multi-topic)\",\n  \"corrective_action\": \"Tightened connector\",\n  \"submit_for_approval\": true,\n  \"actor_id\": \"{{actor_id}}\"\n}",
+                  "raw": "{\n  \"reported_by\": \"{{actor_id}}\",\n  \"panel_device_id\": \"{{panel_device_id}}\",\n  \"problem_topic_ids\": [\n    \"{{problem_topic_id}}\",\n    \"{{problem_topic_id_2}}\"\n  ],\n  \"problem_detail\": \"Fixed on spot (multi-topic)\",\n  \"corrective_action\": \"Tightened connector\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7732,11 +8318,8 @@
                   "    pm.expect(json.status).to.eql('success');",
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});",
-                  "const d = pm.response.json().data;",
-                  "if (pm.response.code >= 200 && pm.response.code < 300 && d) {",
-                  "    if (d.cm_work_order_id) pm.collectionVariables.set('work_order_id', d.cm_work_order_id);",
-                  "    if (d.cm_report?.id) pm.collectionVariables.set('cm_report_id', d.cm_report.id);",
-                  "    else if (d.id) pm.collectionVariables.set('cm_report_id', d.id);",
+                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
                   "}"
                 ]
               }
@@ -7823,11 +8406,8 @@
                   "    pm.expect(json.status).to.eql('success');",
                   "    pm.expect(json.code).to.match(/^S\\d/);",
                   "});",
-                  "const d = pm.response.json().data;",
-                  "if (pm.response.code >= 200 && pm.response.code < 300 && d) {",
-                  "    if (d.cm_work_order_id) pm.collectionVariables.set('work_order_id', d.cm_work_order_id);",
-                  "    if (d.cm_report?.id) pm.collectionVariables.set('cm_report_id', d.cm_report.id);",
-                  "    else if (d.id) pm.collectionVariables.set('cm_report_id', d.id);",
+                  "if (pm.response.code >= 200 && pm.response.code < 300 && pm.response.json().data?.id) {",
+                  "    pm.collectionVariables.set('cm_report_id', pm.response.json().data.id);",
                   "}"
                 ]
               }

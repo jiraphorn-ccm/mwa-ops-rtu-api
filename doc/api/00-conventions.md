@@ -12,13 +12,17 @@
 
 ## Authentication
 
-เมื่อ `AUTH_ENABLED=true`:
+**ทุกเส้นใต้ `{api_prefix}` ต้องมี Bearer** ยกเว้น `/auth/login` `/auth/refresh` `/auth/logout` `/auth/register` `/auth/register/status`
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-Development มักปิด auth (`AUTH_ENABLED=false`)
+- Access token อายุ **15 นาที** · refresh **7 วัน**
+- ไม่มีระบบสิทธิ์ (RBAC) — มีแค่ users + บันทึกว่าใครทำอะไร
+- รายละเอียดเส้น: [10-auth-users.md](./10-auth-users.md)
+
+ไม่มี token → `401` `E200_001` · token หมดอายุ → `401` `E200_003` แล้วเรียก `POST /auth/refresh`
 
 ---
 
@@ -45,6 +49,9 @@ Development มักปิด auth (`AUTH_ENABLED=false`)
 | `S201_004` | 200 | Update |
 | `S201_005` | 200 | Delete (soft) |
 | `S201_007` | 200 | Restore |
+| `S201_011` | 200 | Login |
+| `S201_012` | 200 | Logout |
+| `S201_013` | 200 | Refresh token |
 
 ### Error
 
@@ -78,7 +85,7 @@ Development มักปิด auth (`AUTH_ENABLED=false`)
 
 ### แบบ paginated — มี `page` / `limit` / `meta`
 
-ใช้กับ list หลัก เช่น work-orders, panels, panel-devices, calibrations, engineers, notifications, …
+ใช้กับ list หลัก เช่น work-orders, panels, panel-devices, calibrations, engineers, users, audit-logs, notifications, …
 
 | Param | Default | หมายเหตุ |
 |-------|---------|----------|

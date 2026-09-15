@@ -1,6 +1,6 @@
 # RTU Database — ความสัมพันธ์ตารางและ Business Logic
 
-> Schema: `rtu` · PostgreSQL ≥ 14 · Migrations `000001`–`000008` · ตารางทั้งหมด **22 ตาราง**  
+> Schema: `rtu` · PostgreSQL ≥ 14 · Migrations `000001`–`000015` · ตารางทั้งหมด **25 ตาราง**  
 > Canonical ER: [`rtu-full-schema.dbml`](./rtu-full-schema.dbml) · Data dictionary: [`rtu_db_dictionary.html`](./rtu_db_dictionary.html)
 
 ---
@@ -20,14 +20,14 @@
 - **PM และ CM อยู่ตารางเดียว** (`work_orders`) แยกด้วย `work_order_type`
 - **1 ใบงาน = หลายรอบได้** (`work_order_rounds`) เมื่อ reject แล้วส่งงานใหม่
 - **1 รอบ = 1 รายงาน + 1 การอนุมัติ** (1:1 กับ `pm_reports` / `cm_reports` / `wo_approvals`)
-- **UUID ของคน** (`assigned_to`, `reviewer_id`, `actor_id`, …) **ไม่มี FK ไป users** — ระบบ auth อยู่ภายนอก (MWA)
-- **`created_by` / `updated_by`** = audit ระบบ (ใครแก้ record) ไม่ใช่ business actor
+- **UUID ของคนทางธุรกิจ** (`assigned_to`, `reviewer_id`, `actor_id`, …) **ไม่มี FK ไป `users`** — คนรับงานไม่จำเป็นต้องเป็นบัญชี login
+- **`created_by` / `updated_by`** = audit ระบบ (ใครแก้ record จาก JWT) ไม่ใช่ business actor
 - **Soft delete** = `active = false` (ยกเว้น `calibrations` / `calibration_readings` ลบจริง)
 
 ### Convention ทุกตาราง (ยกเว้น immutable log)
 
 - `created_at`, `updated_at` — `NOT NULL DEFAULT now()`; `updated_at` ขยับด้วย trigger `rtu.set_updated_at()`
-- `created_by`, `updated_by` — uuid ไม่มี FK (audit ระบบ)
+- `created_by`, `updated_by` — uuid ของ `rtu.users.id` เมื่อมี JWT (nullable แถวเก่า)
 
 ---
 
@@ -66,6 +66,8 @@ erDiagram
     pm_reports ||--o{ cm_reports : "PM_ONSITE / ESCALATED"
 
     engineers ||--o{ pm_reports : "วิศวกรลงนาม"
+    users ||--o{ refresh_tokens : "session"
+    users ||--o{ audit_logs : "ใครทำอะไร"
     attachments }o..o{ "หลาย entity" : "polymorphic"
 ```
 
@@ -96,6 +98,9 @@ panels ──< panel_devices    device_models (master catalog — ไม่ม�
    │         └──< notifications
    │
    └── engineers (อ้างอิงจาก pm_reports)
+
+users ──< refresh_tokens
+     └──< audit_logs          (login / JWT — ไม่ใช่ engineers)
 
 attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
               PM_GROUND_TEST, PM_POWER_TEST_POINT, PANEL_DEVICE)
@@ -235,6 +240,27 @@ attachments — polymorphic (WORK_ORDER, PM_REPORT, CM_REPORT, CALIBRATION,
 ---
 
 ### 3.3 Master Data (ไม่ใช่ user login)
+
+`engineers` / `checklist_items` / `problem_topics` เป็น master ของรายงาน — **คน login อยู่ที่ `rtu.users`** (migration `000015`) ไม่ใช่ตาราง engineers
+
+#### `rtu.users` — ผู้ใช้ระบบ (login)
+
+| หัวข้อ | รายละเอียด |
+|--------|------------|
+| **หน้าที่** | บัญชี login ของ RTU API — ไม่มี role/permission |
+| **unique** | `employee_code`, `email` (case-insensitive) |
+| **FK ออก** | `created_by` / `updated_by` → `users.id` |
+| **FK เข้า** | `refresh_tokens.user_id`, `audit_logs.user_id` |
+
+รหัสผ่านเก็บ `password_hash` (bcrypt) ไม่ส่งออก API
+
+#### `rtu.refresh_tokens` — session refresh
+
+เก็บ **hash** ของ refresh token · `revoked_at` เมื่อ logout / เปลี่ยนรหัส
+
+#### `rtu.audit_logs` — ใครทำ action ไหน
+
+middleware บันทึกทุก POST/PUT/PATCH/DELETE · `user_id` จาก JWT
 
 #### `rtu.engineers` — วิศวกรควบคุมงาน
 

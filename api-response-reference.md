@@ -150,6 +150,10 @@ Authorization: Bearer <access_token>
 | `S201_004` | UPDATE | Record updated successfully. | 200 | PUT/PATCH, assign, change status |
 | `S201_005` | DELETE | Record deleted successfully. | 200 | soft delete |
 | `S201_006` | RECALCULATE | Recalculation completed successfully. | 200 | POST blowoff recalculate |
+| `S201_007` | RESTORE | Record restored successfully. | 200 | POST restore |
+| `S201_011` | AUTH | Logged in successfully. | 200 | POST `/auth/login`, `/auth/register` |
+| `S201_012` | AUTH | Logged out successfully. | 200 | POST `/auth/logout` |
+| `S201_013` | AUTH | Token refreshed successfully. | 200 | POST `/auth/refresh` |
 
 ---
 
@@ -308,6 +312,7 @@ Query รองรับ: `page`, `limit` (max 500), `sort`, `order`, `search`, 
 | `E200_008` | AUTH | Invalid or expired refresh token. | **401** |
 | `E200_009` | AUTH | Refresh token has been revoked. | **401** |
 | `E200_010` | REGISTER | Registration is closed. Users already exist … | **403** |
+| `E200_011` | AUTH | Current password is incorrect. | **400** |
 
 **Login ผิด** — ใช้ business code แต่ HTTP **401**:
 
@@ -354,6 +359,9 @@ Query รองรับ: `page`, `limit` (max 500), `sort`, `order`, `search`, 
 | `E300_029` | REPAIR | This survey finding has already been referred to a repair job. | **409** |
 | `E300_030` | BLOWOFF | Cannot close blowoff job: one or more sub-jobs have incomplete water-loss calculation. | **400** |
 | `E300_031` | BLOWOFF | Blowoff point gate_size (mm) is required before water-loss can be calculated. | **400** |
+| `E300_249` | USER | User not found. | **404** |
+| `E300_250` | USER | Email already exists. | **409** |
+| `E300_251` | USER | Employee code already exists. | **409** |
 
 **`E300_030` errors[] ตัวอย่าง**
 

@@ -21,6 +21,8 @@ type (
 	PanelImageListFilter            = repository.PanelImageFilter
 	WorkOrderListFilter             = repository.WorkOrderFilter
 	EngineerListFilter              = repository.EngineerFilter
+	UserListFilter                  = repository.UserFilter
+	AuditLogListFilter              = repository.AuditLogFilter
 	NotificationListFilter          = repository.NotificationFilter
 )
 
@@ -34,6 +36,8 @@ var (
 	PanelImageSortable            = repository.PanelImageSortable
 	WorkOrderSortable             = repository.WorkOrderSortable
 	EngineerSortable              = repository.EngineerSortable
+	UserSortable                  = repository.UserSortable
+	AuditLogSortable              = repository.AuditLogSortable
 	PmReportHistorySortable       = repository.PmReportHistorySortable
 	CmReportHistorySortable       = repository.CmReportHistorySortable
 	NotificationSortable          = repository.NotificationSortable

@@ -39,6 +39,8 @@ const (
 	CtxNotification    = "NOTIFICATION"
 	CtxEngineer        = "ENGINEER"
 	CtxProblemTopic    = "PROBLEM_TOPIC"
+	CtxUser            = "USER"
+	CtxAudit           = "AUDIT"
 )
 
 // SuccessCode is a `S*` envelope code together with its context, message and
@@ -61,6 +63,9 @@ var (
 	SuccessStatus   = SuccessCode{"S201_008", CtxStatus, "Status updated successfully.", http.StatusOK}
 	SuccessSummary  = SuccessCode{"S201_009", CtxSummary, "Summary generated successfully.", http.StatusOK}
 	SuccessBulkSave = SuccessCode{"S201_010", CtxCreate, "Records saved successfully.", http.StatusCreated}
+	SuccessLogin    = SuccessCode{"S201_011", CtxAuth, "Logged in successfully.", http.StatusOK}
+	SuccessLogout   = SuccessCode{"S201_012", CtxAuth, "Logged out successfully.", http.StatusOK}
+	SuccessRefresh  = SuccessCode{"S201_013", CtxAuth, "Token refreshed successfully.", http.StatusOK}
 )
 
 // ErrorCode is an `E*` envelope code together with its context, default message
@@ -90,7 +95,14 @@ var (
 	ErrUnauthorized       = ErrorCode{"E200_004", CtxAuth, "Unauthorized.", http.StatusUnauthorized}
 	ErrAccountDisabled    = ErrorCode{"E200_005", CtxAuth, "Account is disabled.", http.StatusForbidden}
 	ErrInsufficientPerms  = ErrorCode{"E200_007", CtxAuth, "Insufficient permissions.", http.StatusForbidden}
+	ErrRefreshInvalid     = ErrorCode{"E200_008", CtxAuth, "Refresh token is invalid or expired.", http.StatusUnauthorized}
+	ErrRefreshRevoked     = ErrorCode{"E200_009", CtxAuth, "Refresh token has been revoked.", http.StatusUnauthorized}
+	ErrRegistrationClosed = ErrorCode{"E200_010", CtxAuth, "Registration is closed. Ask an existing user to create the account.", http.StatusForbidden}
+	ErrOldPasswordInvalid = ErrorCode{"E200_011", CtxAuth, "Current password is incorrect.", http.StatusBadRequest}
 	ErrInvalidCredentials = ErrorCode{"E300_001", CtxAuth, "Invalid credentials.", http.StatusUnauthorized}
+	ErrUserNotFound       = ErrorCode{"E300_249", CtxUser, "User not found.", http.StatusNotFound}
+	ErrUserEmailDup       = ErrorCode{"E300_250", CtxUser, "Email already exists.", http.StatusConflict}
+	ErrUserEmployeeDup    = ErrorCode{"E300_251", CtxUser, "Employee code already exists.", http.StatusConflict}
 )
 
 // RTU business rules (E300_1xx). The range starts at 101 so it never collides

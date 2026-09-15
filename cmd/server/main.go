@@ -87,7 +87,7 @@ func run() error {
 		logger.Warn("s3 storage not configured; panel image uploads are disabled")
 	}
 
-	services := service.New(store, s3Client, cfg.S3AppPrefix)
+	services := service.New(store, s3Client, cfg)
 	health := handler.NewHealthHandler(cfg, pool, buildVersion())
 	handlers := handler.New(cfg, services, health)
 
@@ -104,6 +104,7 @@ func run() error {
 			Logger:      logger,
 			Handlers:    handlers,
 			RateLimiter: limiter,
+			Audit:       store.AuditLogs,
 		}),
 		ReadHeaderTimeout: cfg.ReadTimeout,
 		ReadTimeout:       cfg.ReadTimeout,

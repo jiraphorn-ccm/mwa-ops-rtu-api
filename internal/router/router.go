@@ -20,6 +20,7 @@ type Deps struct {
 	Logger      *slog.Logger
 	Handlers    *handler.Handlers
 	RateLimiter *middleware.RateLimiter
+	Audit       middleware.AuditSink
 }
 
 // New builds the fully wired HTTP handler of the service.
@@ -64,23 +65,27 @@ func New(deps Deps) http.Handler {
 		r.Handle("/metrics", middleware.MetricsHandler())
 	}
 
-	// Disk-only proof upload — outside the API prefix and auth stack, no S3.
-	mountLocalImages(r, deps.Handlers)
-
 	r.Route(cfg.APIPrefix, func(api chi.Router) {
-		api.Use(middleware.Auth(cfg))
-		api.Get("/", health.Root)
-		mountPanels(api, deps.Handlers)
-		mountDeviceModels(api, deps.Handlers)
-		mountPanelDevices(api, deps.Handlers)
-		mountCalibrationInstruments(api, deps.Handlers)
-		mountCalibrations(api, deps.Handlers)
-		mountWorkOrders(api, deps.Handlers)
-		mountEngineers(api, deps.Handlers)
-		mountChecklistItems(api, deps.Handlers)
-		mountProblemTopics(api, deps.Handlers)
-		mountAttachments(api, deps.Handlers)
-		mountNotifications(api, deps.Handlers)
+		api.Use(middleware.Audit(deps.Logger, deps.Audit))
+		mountAuth(api, deps.Handlers, cfg)
+
+		api.Group(func(protected chi.Router) {
+			protected.Use(middleware.Auth(cfg))
+			protected.Get("/", health.Root)
+			mountUsers(protected, deps.Handlers)
+			mountAuditLogs(protected, deps.Handlers)
+			mountPanels(protected, deps.Handlers)
+			mountDeviceModels(protected, deps.Handlers)
+			mountPanelDevices(protected, deps.Handlers)
+			mountCalibrationInstruments(protected, deps.Handlers)
+			mountCalibrations(protected, deps.Handlers)
+			mountWorkOrders(protected, deps.Handlers)
+			mountEngineers(protected, deps.Handlers)
+			mountChecklistItems(protected, deps.Handlers)
+			mountProblemTopics(protected, deps.Handlers)
+			mountAttachments(protected, deps.Handlers)
+			mountNotifications(protected, deps.Handlers)
+		})
 	})
 
 	return r

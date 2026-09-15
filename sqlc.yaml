@@ -41,6 +41,9 @@ sql:
           rtu_cm_report: "CmReport"
           rtu_attachment: "Attachment"
           rtu_notification: "Notification"
+          rtu_user: "User"
+          rtu_refresh_token: "RefreshToken"
+          rtu_audit_log: "AuditLog"
         overrides:
           - db_type: "uuid"
             go_type: "github.com/google/uuid.UUID"

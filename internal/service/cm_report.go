@@ -54,10 +54,10 @@ type CmReportSaveInput struct {
 // "Report an issue" during a PM visit when the repair cannot be finished
 // on the spot (System Design: spawn CM Work Order, Status = Pending).
 type CmReportEscalateInput struct {
-	PendingReason string      `json:"pending_reason" validate:"required,max=4000"`
-	ReportedBy    uuid.UUID   `json:"reported_by" validate:"required"`
-	AssignedTo    uuid.UUID   `json:"assigned_to" validate:"required"`
-	AssignedBy    uuid.UUID   `json:"assigned_by" validate:"required"`
+	PendingReason   string      `json:"pending_reason" validate:"required,max=4000"`
+	ReportedBy      uuid.UUID   `json:"reported_by" validate:"required"`
+	AssignedTo      uuid.UUID   `json:"assigned_to" validate:"required"`
+	AssignedBy      uuid.UUID   `json:"assigned_by" validate:"required"`
 	PanelDeviceID   *uuid.UUID  `json:"panel_device_id"`
 	ProblemTopicID  *uuid.UUID  `json:"problem_topic_id"`
 	ProblemTopicIDs []uuid.UUID `json:"problem_topic_ids"`
@@ -70,24 +70,24 @@ type CmReportEscalateInput struct {
 // CmReportOnsiteInput is the body for an onsite PM repair that opens a CM
 // work order and records completed corrective work pending CM approval.
 type CmReportOnsiteInput struct {
-	ReportedBy       uuid.UUID   `json:"reported_by" validate:"required"`
-	AssignedTo       uuid.UUID   `json:"assigned_to" validate:"required"`
-	AssignedBy       uuid.UUID   `json:"assigned_by" validate:"required"`
-	PanelDeviceID    *uuid.UUID  `json:"panel_device_id"`
-	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
-	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
-	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
-	ErrorLogs        *string     `json:"error_logs"`
-	ProblemDetail    *string     `json:"problem_detail"`
-	RootCause        *string     `json:"root_cause"`
-	ReferenceInfo    *string     `json:"reference_info"`
-	CorrectiveAction *string     `json:"corrective_action"`
-	Recommendation   *string     `json:"recommendation"`
-	RepairedBy       *uuid.UUID  `json:"repaired_by"`
-	StartedAt        *time.Time  `json:"started_at"`
-	EndedAt          *time.Time  `json:"ended_at"`
-	SubmitForApproval bool       `json:"submit_for_approval"`
-	ActorID          *uuid.UUID  `json:"actor_id"`
+	ReportedBy        uuid.UUID   `json:"reported_by" validate:"required"`
+	AssignedTo        uuid.UUID   `json:"assigned_to" validate:"required"`
+	AssignedBy        uuid.UUID   `json:"assigned_by" validate:"required"`
+	PanelDeviceID     *uuid.UUID  `json:"panel_device_id"`
+	ProblemTopicID    *uuid.UUID  `json:"problem_topic_id"`
+	ProblemTopicIDs   []uuid.UUID `json:"problem_topic_ids"`
+	TagCode           *string     `json:"tag_code" validate:"omitempty,max=100"`
+	ErrorLogs         *string     `json:"error_logs"`
+	ProblemDetail     *string     `json:"problem_detail"`
+	RootCause         *string     `json:"root_cause"`
+	ReferenceInfo     *string     `json:"reference_info"`
+	CorrectiveAction  *string     `json:"corrective_action"`
+	Recommendation    *string     `json:"recommendation"`
+	RepairedBy        *uuid.UUID  `json:"repaired_by"`
+	StartedAt         *time.Time  `json:"started_at"`
+	EndedAt           *time.Time  `json:"ended_at"`
+	SubmitForApproval bool        `json:"submit_for_approval"`
+	ActorID           *uuid.UUID  `json:"actor_id"`
 }
 
 // PanelRepairOnsiteInput is POST /panels/{panel_id}/repairs/onsite.
@@ -104,19 +104,19 @@ type PanelRepairEscalateInput struct {
 
 // PmRepairOpenOutcome is returned when a PM visit opens a CM work order.
 type PmRepairOpenOutcome struct {
-	CmReport            sqlc.CmReport            `json:"cm_report"`
-	CmWorkOrderID       uuid.UUID                `json:"cm_work_order_id"`
-	CmWorkOrderNo       string                   `json:"cm_work_order_no"`
-	CmWorkOrderStatus   string                   `json:"cm_work_order_status"`
-	Origin              string                   `json:"origin"`
-	SubmittedForApproval bool                    `json:"submitted_for_approval"`
+	CmReport             sqlc.CmReport `json:"cm_report"`
+	CmWorkOrderID        uuid.UUID     `json:"cm_work_order_id"`
+	CmWorkOrderNo        string        `json:"cm_work_order_no"`
+	CmWorkOrderStatus    string        `json:"cm_work_order_status"`
+	Origin               string        `json:"origin"`
+	SubmittedForApproval bool          `json:"submitted_for_approval"`
 }
 
 // RepairHistoryView is an enriched cm_report row for panel repair history UIs.
 type RepairHistoryView struct {
 	repository.CmReportHistoryItem
-	Origin        string `json:"origin"`
-	IsCompleted   bool   `json:"is_completed"`
+	Origin      string `json:"origin"`
+	IsCompleted bool   `json:"is_completed"`
 }
 
 // CmReportUpdateInput is the PATCH /cm-reports/{id} body — used for any
@@ -126,17 +126,17 @@ type CmReportUpdateInput struct {
 	ProblemTopicID   *uuid.UUID  `json:"problem_topic_id"`
 	ProblemTopicIDs  []uuid.UUID `json:"problem_topic_ids"`
 	TagCode          *string     `json:"tag_code" validate:"omitempty,max=100"`
-	ErrorLogs        *string    `json:"error_logs"`
-	ProblemDetail    *string    `json:"problem_detail"`
-	RootCause        *string    `json:"root_cause"`
-	ReferenceInfo    *string    `json:"reference_info"`
-	CorrectiveAction *string    `json:"corrective_action"`
-	Recommendation   *string    `json:"recommendation"`
-	PendingReason    *string    `json:"pending_reason"`
-	RepairedBy       *uuid.UUID `json:"repaired_by"`
-	ReportedAt       *time.Time `json:"reported_at"`
-	StartedAt        *time.Time `json:"started_at"`
-	EndedAt          *time.Time `json:"ended_at"`
+	ErrorLogs        *string     `json:"error_logs"`
+	ProblemDetail    *string     `json:"problem_detail"`
+	RootCause        *string     `json:"root_cause"`
+	ReferenceInfo    *string     `json:"reference_info"`
+	CorrectiveAction *string     `json:"corrective_action"`
+	Recommendation   *string     `json:"recommendation"`
+	PendingReason    *string     `json:"pending_reason"`
+	RepairedBy       *uuid.UUID  `json:"repaired_by"`
+	ReportedAt       *time.Time  `json:"reported_at"`
+	StartedAt        *time.Time  `json:"started_at"`
+	EndedAt          *time.Time  `json:"ended_at"`
 }
 
 // CmReportSubmitInput is the POST /work-orders/{id}/cm-report/submit body.
@@ -625,23 +625,23 @@ func (s *CmReportService) EscalateFromPm(ctx context.Context, pmReportID uuid.UU
 		}
 		var err error
 		report, err = s.repo.UpdateQ(ctx, q, sqlc.UpdateCmReportParams{
-			ID:                       existing.ID,
-			PmReportID:               &pmReportID,
-			PmReportIDDoUpdate:       true,
-			PanelDeviceID:            in.PanelDeviceID,
-			PanelDeviceIDDoUpdate:    true,
-			ProblemTopicID:           primaryTopicID,
-			ProblemTopicIDDoUpdate:   true,
-			TagCode:                  tagCode,
-			TagCodeDoUpdate:          true,
-			ErrorLogs:                in.ErrorLogs,
-			ErrorLogsDoUpdate:        true,
-			ProblemDetail:            in.ProblemDetail,
-			ProblemDetailDoUpdate:    true,
-			PendingReason:            &in.PendingReason,
-			PendingReasonDoUpdate:    true,
-			ReportedAt:               &now,
-			ReportedAtDoUpdate:       true,
+			ID:                     existing.ID,
+			PmReportID:             &pmReportID,
+			PmReportIDDoUpdate:     true,
+			PanelDeviceID:          in.PanelDeviceID,
+			PanelDeviceIDDoUpdate:  true,
+			ProblemTopicID:         primaryTopicID,
+			ProblemTopicIDDoUpdate: true,
+			TagCode:                tagCode,
+			TagCodeDoUpdate:        true,
+			ErrorLogs:              in.ErrorLogs,
+			ErrorLogsDoUpdate:      true,
+			ProblemDetail:          in.ProblemDetail,
+			ProblemDetailDoUpdate:  true,
+			PendingReason:          &in.PendingReason,
+			PendingReasonDoUpdate:  true,
+			ReportedAt:             &now,
+			ReportedAtDoUpdate:     true,
 		})
 		if err != nil {
 			return err

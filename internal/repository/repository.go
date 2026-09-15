@@ -37,6 +37,9 @@ type Store struct {
 	CmReports              *CmReportRepository
 	Attachments            *AttachmentRepository
 	Notifications          *NotificationRepository
+	Users                  *UserRepository
+	RefreshTokens          *RefreshTokenRepository
+	AuditLogs              *AuditLogRepository
 }
 
 // New wires the repositories onto a connection pool.
@@ -63,6 +66,9 @@ func New(pool *pgxpool.Pool) *Store {
 		CmReports:              &CmReportRepository{pool: pool, q: q},
 		Attachments:            &AttachmentRepository{pool: pool, q: q},
 		Notifications:          &NotificationRepository{pool: pool, q: q},
+		Users:                  &UserRepository{pool: pool, q: q},
+		RefreshTokens:          &RefreshTokenRepository{pool: pool, q: q},
+		AuditLogs:              &AuditLogRepository{pool: pool, q: q},
 	}
 }
 

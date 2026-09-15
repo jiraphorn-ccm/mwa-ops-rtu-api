@@ -2,9 +2,6 @@
 *.env
 !.env.example
 
-images/*
-!images/.gitkeep
-
 bin/
 dist/
 tmp/

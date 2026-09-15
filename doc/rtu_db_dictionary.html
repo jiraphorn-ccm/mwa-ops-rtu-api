@@ -150,7 +150,7 @@
 <body>
   <header class="page-head">
     <h1>RTU Data Dictionary</h1>
-    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 22 tables · 35 foreign keys · 2026-08-28</p>
+    <p>Source: doc/rtu-full-schema.dbml · migrations/000001–000006 · schema <code>rtu</code> · 25 tables · 39 foreign keys · 2026-09-15</p>
   </header>
 
   <nav class="page-nav" aria-label="Modules"><button type="button" class="nav-btn active" data-module="all">ทั้งหมด</button>
@@ -161,7 +161,7 @@
 
   <div class="dict-toolbar">
     <input type="search" id="dictSearch" placeholder="ค้นหาตารางหรือคอลัมน์…" autocomplete="off">
-    <span id="tableCount">22 tables</span>
+    <span id="tableCount">25 tables</span>
   </div>
 
   <main class="dict-list"><section class="table-card" id="table-panels" data-module="core">
@@ -280,7 +280,7 @@
 <section class="table-card" id="table-device_models" data-module="core">
       <header class="table-card-head">
         <h2><a href="#table-device_models">rtu.device_models</a></h2>
-        <span>15 columns · 1 PK</span>
+        <span>19 columns · 1 PK</span>
       </header>
       
       <div class="table-wrap">
@@ -359,6 +359,34 @@
         <td class="col-note">วันที่หมดประกัน</td>
       </tr>
 <tr>
+        <td class="col-name">input_range</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ช่วง input — เช่น 0-25,000 mmH2O</td>
+      </tr>
+<tr>
+        <td class="col-name">accuracy_class</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">Acc/Class</td>
+      </tr>
+<tr>
+        <td class="col-name">power_supply</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">Power supply</td>
+      </tr>
+<tr>
+        <td class="col-name">output_range</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ช่วง output — เช่น 4-20 mA</td>
+      </tr>
+<tr>
         <td class="col-name">description</td>
         <td class="col-type">text</td>
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
@@ -407,9 +435,9 @@
 <section class="table-card" id="table-panel_devices" data-module="core">
       <header class="table-card-head">
         <h2><a href="#table-panel_devices">rtu.panel_devices</a></h2>
-        <span>23 columns · 1 PK · 1 FK</span>
+        <span>27 columns · 1 PK · 1 FK</span>
       </header>
-      <p class="table-note">API field (computed): operational_status = map(communication_status, health_status) CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL ไม่มี device_model_id — แก้ master ไม่กระทบ record ที่ติดตั้งแล้ว</p>
+      <p class="table-note">API field (computed): operational_status = map(communication_status, health_status) CRITICAL|OFFLINE → ABNORMAL; WARNING|DEGRADED|UNKNOWN → MONITORING; else NORMAL CM sync (service): เปิด CM + effective panel_device_id → health WARNING; CM ปิด COMPLETED → health NORMAL; CONDITIONAL → health WARNING; ไม่ overwrite communication_status ไม่มี device_model_id — แก้ master ไม่กระทบ record ที่ติดตั้งแล้ว</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -476,7 +504,7 @@
         <td class="col-type">varchar(100)</td>
         <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">unique ทั้งระบบ · UNIQUE</td>
+        <td class="col-note">หมายเลขซีเรียล (ไม่ unique — อนุญาตซ้ำได้) · UNIQUE</td>
       </tr>
 <tr>
         <td class="col-name">calibration_date</td>
@@ -491,6 +519,34 @@
         <td class="col-key">—<br><span class="col-null">NULL</span></td>
         <td class="col-ref"></td>
         <td class="col-note">วันที่หมดประกัน</td>
+      </tr>
+<tr>
+        <td class="col-name">input_range</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ช่วง input — snapshot บน panel</td>
+      </tr>
+<tr>
+        <td class="col-name">accuracy_class</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">Acc/Class — snapshot บน panel</td>
+      </tr>
+<tr>
+        <td class="col-name">power_supply</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">Power supply — snapshot บน panel</td>
+      </tr>
+<tr>
+        <td class="col-name">output_range</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">ช่วง output — snapshot บน panel</td>
       </tr>
 <tr>
         <td class="col-name">tag_name</td>
@@ -1408,7 +1464,7 @@
         <td class="col-type">varchar(100)</td>
         <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
         <td class="col-ref"></td>
-        <td class="col-note">auto-generate เช่น PM-U120-4, CM-P51-1 · UNIQUE</td>
+        <td class="col-note">server auto-generate: TYPE-panel.code-0001 (e.g. PM-RTU-011-0001); seq 10000+ unpadded · UNIQUE</td>
       </tr>
 <tr>
         <td class="col-name">work_order_type</td>
@@ -2505,7 +2561,7 @@
         <h2><a href="#table-cm_reports">rtu.cm_reports</a></h2>
         <span>23 columns · 1 PK · 5 FK</span>
       </header>
-      <p class="table-note">ไม่มีคอลัมน์ status สำหรับ CM ที่มี work_order — work_orders.status คือ single source of truth CHECK ck_cm_reports_origin: work_order_id IS NOT NULL OR pm_report_id IS NOT NULL (ต้องมีต้นทางอย่างน้อย 1 อย่าง) 3 ต้นทางของ CM report (แก้ตาม System Design &quot;แจ้งซ่อม&quot; flow, ไม่ใช่ 1 CM = 1 work_order เสมอ): 1. STANDALONE — work_order_id NOT NULL, pm_report_id NULL — Operator แจ้งปัญหาตรง (ไม่ผ่าน PM) 2. PM_ONSITE_FIX — work_order_id NULL, pm_report_id NOT NULL — กด &quot;Report a Repair&quot; ระหว่าง PM แล้วซ่อมจบในตัว &quot;แนบเป็นส่วนหนึ่งของใบงาน PM (สร้าง CM Sub-record, Status = Completed ทันที)&quot; — ไม่ต้องเปิด work_orders แถวใหม่ 3. PM_ESCALATED — work_order_id NOT NULL, pm_report_id NOT NULL — กด &quot;Report an issue&quot; ระหว่าง PM (ซ่อมไม่ได้) &quot;Submit เป็น CM Work Order เต็มรูปแบบ (Status = Pending แยกเป็นใบงานของตัวเอง รอ CM Approval ทีหลัง)&quot; origin คำนวณจาก (work_order_id, pm_report_id) ไม่ต้องเก็บเป็น column แยก สถานะ CM: STANDALONE/PM_ESCALATED (มี work_order_id) → ดูที่ work_orders.status ตามปกติ PM_ONSITE_FIX (work_order_id NULL) → ไม่มี column status เพราะไม่มี state อื่นให้เป็น — record นี้จะถูกสร้าง ก็ต่อเมื่อซ่อมสำเร็จแล้วเท่านั้น (ตามเอกสาร &quot;สร้าง CM Sub-record, Status = Completed ทันที&quot;) ถือว่า COMPLETED โดยนัยเสมอ ไม่ต้อง query ที่ไหนเพิ่ม</p>
+      <p class="table-note">ไม่มีคอลัมน์ status สำหรับ CM ที่มี work_order — work_orders.status คือ single source of truth CHECK ck_cm_reports_origin: work_order_id IS NOT NULL OR pm_report_id IS NOT NULL (ต้องมีต้นทางอย่างน้อย 1 อย่าง) 3 ต้นทางของ CM report (แก้ตาม System Design &quot;แจ้งซ่อม&quot; flow, ไม่ใช่ 1 CM = 1 work_order เสมอ): 1. STANDALONE — work_order_id NOT NULL, pm_report_id NULL — Operator แจ้งปัญหาตรง (ไม่ผ่าน PM) 2. PM_ONSITE_CM — work_order_id NOT NULL, pm_report_id NOT NULL, pending_reason ว่าง — ซ่อมหน้างาน PM แล้วเปิด CM WO + cm_report (รอ CM approval แยกจาก PM) (legacy: PM_ONSITE_FIX = work_order_id NULL — ไม่สร้างใหม่) 3. PM_ESCALATED — work_order_id NOT NULL, pm_report_id NOT NULL — กด &quot;Report an issue&quot; ระหว่าง PM (ซ่อมไม่ได้) &quot;Submit เป็น CM Work Order เต็มรูปแบบ (Status = Pending แยกเป็นใบงานของตัวเอง รอ CM Approval ทีหลัง)&quot; origin คำนวณจาก (work_order_id, pm_report_id) ไม่ต้องเก็บเป็น column แยก สถานะ CM: STANDALONE/PM_ESCALATED (มี work_order_id) → ดูที่ work_orders.status ตามปกติ PM_ONSITE_FIX (work_order_id NULL) → ไม่มี column status เพราะไม่มี state อื่นให้เป็น — record นี้จะถูกสร้าง ก็ต่อเมื่อซ่อมสำเร็จแล้วเท่านั้น (ตามเอกสาร &quot;สร้าง CM Sub-record, Status = Completed ทันที&quot;) ถือว่า COMPLETED โดยนัยเสมอ ไม่ต้อง query ที่ไหนเพิ่ม</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -2901,10 +2957,321 @@
           </tbody>
         </table>
       </div>
+    </section>
+<section class="table-card" id="table-users" data-module="core">
+      <header class="table-card-head">
+        <h2><a href="#table-users">rtu.users</a></h2>
+        <span>14 columns · 1 PK · 2 FK</span>
+      </header>
+      
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Key</th>
+              <th>Reference</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr>
+        <td class="col-name">id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag pk">PK</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">employee_code</td>
+        <td class="col-type">varchar(20)</td>
+        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">UNIQUE</td>
+      </tr>
+<tr>
+        <td class="col-name">title</td>
+        <td class="col-type">varchar(10)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">first_name</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">last_name</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">email</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">UNIQUE</td>
+      </tr>
+<tr>
+        <td class="col-name">password_hash</td>
+        <td class="col-type">text</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">bcrypt — ไม่ส่งออก API</td>
+      </tr>
+<tr>
+        <td class="col-name">position</td>
+        <td class="col-type">varchar(150)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">active</td>
+        <td class="col-type">boolean</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">last_login_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">updated_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_by</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NULL</span></td>
+        <td class="col-ref">rtu.users.id</td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">updated_by</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NULL</span></td>
+        <td class="col-ref">rtu.users.id</td>
+        <td class="col-note"></td>
+      </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+<section class="table-card" id="table-refresh_tokens" data-module="core">
+      <header class="table-card-head">
+        <h2><a href="#table-refresh_tokens">rtu.refresh_tokens</a></h2>
+        <span>9 columns · 1 PK · 1 FK</span>
+      </header>
+      
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Key</th>
+              <th>Reference</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr>
+        <td class="col-name">id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag pk">PK</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">user_id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref">rtu.users.id</td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">token_hash</td>
+        <td class="col-type">varchar(64)</td>
+        <td class="col-key"><span class="tag uq">UQ</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">sha256 hex ของ refresh token · UNIQUE</td>
+      </tr>
+<tr>
+        <td class="col-name">ip_address</td>
+        <td class="col-type">varchar(45)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">user_agent</td>
+        <td class="col-type">text</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">revoked_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">expires_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">updated_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+<section class="table-card" id="table-audit_logs" data-module="core">
+      <header class="table-card-head">
+        <h2><a href="#table-audit_logs">rtu.audit_logs</a></h2>
+        <span>12 columns · 1 PK · 1 FK</span>
+      </header>
+      
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Key</th>
+              <th>Reference</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr>
+        <td class="col-name">id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag pk">PK</span><br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">user_id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key"><span class="tag fk">FK</span><br><span class="col-null">NULL</span></td>
+        <td class="col-ref">rtu.users.id</td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">action</td>
+        <td class="col-type">varchar(50)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note">CREATE UPDATE DELETE LOGIN …</td>
+      </tr>
+<tr>
+        <td class="col-name">method</td>
+        <td class="col-type">varchar(10)</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">path</td>
+        <td class="col-type">text</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">resource</td>
+        <td class="col-type">varchar(100)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">resource_id</td>
+        <td class="col-type">uuid</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">status_code</td>
+        <td class="col-type">integer</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">ip_address</td>
+        <td class="col-type">varchar(45)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">user_agent</td>
+        <td class="col-type">text</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">request_id</td>
+        <td class="col-type">varchar(64)</td>
+        <td class="col-key">—<br><span class="col-null">NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+<tr>
+        <td class="col-name">created_at</td>
+        <td class="col-type">timestamptz</td>
+        <td class="col-key">—<br><span class="col-null">NOT NULL</span></td>
+        <td class="col-ref"></td>
+        <td class="col-note"></td>
+      </tr>
+          </tbody>
+        </table>
+      </div>
     </section></main>
 
 <script>
-    const MODULE_TABLES = {"all":["panels","device_models","panel_devices","calibration_instruments","calibrations","calibration_readings","panel_images","engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports","attachments","notifications"],"core":["panels","device_models","panel_devices","panel_images"],"calibration":["calibration_instruments","calibrations","calibration_readings"],"pm_cm":["engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports"],"files":["attachments","notifications"]};
+    const MODULE_TABLES = {"all":["panels","device_models","panel_devices","calibration_instruments","calibrations","calibration_readings","panel_images","engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports","attachments","notifications","users","refresh_tokens","audit_logs"],"core":["panels","device_models","panel_devices","panel_images"],"calibration":["calibration_instruments","calibrations","calibration_readings"],"pm_cm":["engineers","checklist_items","problem_topics","work_orders","work_order_rounds","work_order_activity_logs","wo_approvals","pm_reports","checklist_results","pm_ground_tests","pm_power_tests","pm_power_test_points","cm_reports"],"files":["attachments","notifications"]};
     let activeModule = 'all';
 
     function applyFilters() {

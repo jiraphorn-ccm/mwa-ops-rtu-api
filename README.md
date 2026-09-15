@@ -245,6 +245,27 @@ Base path: `{API_PREFIX}` (ค่าเริ่มต้น `/api/rtu/v1`)
 | GET | `/health` · `/health/ready` | 200 เมื่อ DB ต่อได้และ migration ครบ, 503 เมื่อไม่ครบ |
 | GET | `/health/live` | 200 ตราบใดที่ process ยังอยู่ |
 
+### Auth / Users / Audit
+
+รายละเอียด contract: [`doc/api/10-auth-users.md`](./doc/api/10-auth-users.md) · **ไม่มี RBAC** · access JWT 15 นาที
+
+| Method | Path | Token |
+|--------|------|-------|
+| GET | `/auth/register/status` | ไม่ต้อง |
+| POST | `/auth/register` | ไม่ต้อง (คนแรกเท่านั้น) |
+| POST | `/auth/login` | ไม่ต้อง |
+| POST | `/auth/refresh` | ไม่ต้อง |
+| POST | `/auth/logout` | ไม่ต้อง |
+| GET | `/auth/me` | Bearer |
+| POST | `/auth/change-password` | Bearer |
+| GET · POST | `/users` | Bearer |
+| GET · PUT · PATCH · DELETE | `/users/{id}` | Bearer |
+| POST | `/users/{id}/restore` | Bearer |
+| DELETE | `/users/{id}/permanent` | Bearer |
+| GET | `/audit-logs` | Bearer |
+
+`username` ของ login = email หรือ `employee_code` · `expires_in` เป็นวินาที (900)
+
 ### Panels
 
 | Method | Path |
@@ -600,14 +621,15 @@ Filter: `image_type` (`EXTERIOR`, `INTERIOR`, `DEVICE`) · Sort: `sort_order`, `
 
 ### Authentication
 
-ทุก route ภายใต้ `{API_PREFIX}` ผ่าน `middleware.Auth` เมื่อ `AUTH_ENABLED=true`
-(ค่าเริ่มต้น `false` ใน development เพื่อให้ smoke test ใช้งานได้ง่าย)
+ทุก route ภายใต้ `{API_PREFIX}` ต้องมี Bearer ยกเว้น `/auth/login` `/auth/refresh` `/auth/logout` `/auth/register` `/auth/register/status`
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-JWT ต้องเป็น HS256 และใช้ secret เดียวกับ MWA auth service (`AUTH_JWT_SECRET`)
+JWT เป็น HS256 จาก `JWT_SECRET` / `AUTH_JWT_SECRET` · access 15 นาที · refresh 7 วัน · **ไม่มี RBAC**
+รายละเอียด: [`doc/api/10-auth-users.md`](./doc/api/10-auth-users.md)
+
 Production startup จะ **ปฏิเสธ** การสตาร์ทถ้า:
 - `AUTH_ENABLED=false`
 - ไม่มี `AUTH_JWT_SECRET` หรือสั้นกว่า 32 ตัวอักษร

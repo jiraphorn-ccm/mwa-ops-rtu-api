@@ -33,7 +33,7 @@ func TestIntegrationHealthReady(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	store := repository.New(pool)
-	services := service.New(store, nil, cfg.S3AppPrefix)
+	services := service.New(store, nil, cfg)
 	handlers := handler.New(cfg, services, handler.NewHealthHandler(cfg, pool, "test"))
 	h := router.New(router.Deps{Config: cfg, Logger: logger, Handlers: handlers})
 

@@ -19,6 +19,7 @@ Base path เริ่มต้น: `{base_url}{api_prefix}` เช่น `https
 | [07-attachments-notifications.md](./07-attachments-notifications.md) | ไฟล์แนบ, แจ้งเตือน |
 | [08-pm-excel-appendix-mapping.md](./08-pm-excel-appendix-mapping.md) | Map Excel ผนวก 5.1 / 5.2 / 7 → API |
 | [09-panel-repairs.md](./09-panel-repairs.md) | **App — ซ่อมระหว่าง PM + ประวัติซ่อมตู้** |
+| [10-auth-users.md](./10-auth-users.md) | Login / JWT 15 นาที / users / audit logs — **ต้องมี Bearer** |
 
 Postman: `postman/RTU-API.postman_collection.json`  
 Error codes เต็ม: `api-response-reference.md` (repo root)
@@ -56,6 +57,19 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 | Legacy onsite | `POST` | `/pm-reports/{pm_report_id}/onsite-fixes` |
 | Legacy escalate | `POST` | `/pm-reports/{pm_report_id}/escalate` |
 | ดูรายงาน PM ฉบับเต็ม | `GET` | `/pm-reports/{id}` หรือ `/work-orders/{id}/pm-report` |
+
+### Login / ผู้ใช้
+
+| อยากทำ | Method | Path |
+|--------|--------|------|
+| สมัครคนแรก | `POST` | `/auth/register` |
+| เข้าสู่ระบบ | `POST` | `/auth/login` |
+| ต่ออายุ token | `POST` | `/auth/refresh` |
+| ดูโปรไฟล์ | `GET` | `/auth/me` |
+| รายชื่อผู้ใช้ | `GET` | `/users` |
+| ดูว่าใครทำอะไร | `GET` | `/audit-logs` |
+
+รายละเอียด: [10-auth-users.md](./10-auth-users.md)
 
 ### CM
 

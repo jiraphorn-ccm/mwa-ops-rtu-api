@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/rtu-api/internal/config"
 )
@@ -44,6 +45,7 @@ func TestLoadProductionRequiresJWTSecret(t *testing.T) {
 	setProductionDBEnv(t)
 	t.Setenv("AUTH_ENABLED", "true")
 	t.Setenv("AUTH_JWT_SECRET", "")
+	t.Setenv("JWT_SECRET", "")
 
 	_, err := config.Load()
 	if err == nil {
@@ -88,7 +90,7 @@ func TestLoadDevelopmentFromDBFields(t *testing.T) {
 		t.Fatalf("development config should load: %v", err)
 	}
 	if cfg.AuthEnabled {
-		t.Fatal("auth should default off in development")
+		t.Fatal("AUTH_ENABLED=false should disable the flag")
 	}
 	if cfg.DatabaseURL == "" {
 		t.Fatal("expected DatabaseURL to be built from DB_* fields")
@@ -97,6 +99,7 @@ func TestLoadDevelopmentFromDBFields(t *testing.T) {
 
 func TestLoadAcceptsDatabaseURLOverride(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
+	t.Setenv("AUTH_ENABLED", "false")
 	t.Setenv("DATABASE_URL", "postgres://u:p@db.local:5432/rtu?sslmode=disable")
 	t.Setenv("DB_HOST", "ignored")
 
@@ -106,6 +109,24 @@ func TestLoadAcceptsDatabaseURLOverride(t *testing.T) {
 	}
 	if cfg.DatabaseURL != "postgres://u:p@db.local:5432/rtu?sslmode=disable" {
 		t.Fatalf("got %q", cfg.DatabaseURL)
+	}
+}
+
+func TestLoadJWTSecretAlias(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	setDBEnv(t)
+	t.Setenv("AUTH_JWT_SECRET", "")
+	t.Setenv("JWT_SECRET", "alias-secret-value-at-least-32-chars!!")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.AuthJWTSecret != "alias-secret-value-at-least-32-chars!!" {
+		t.Fatalf("AuthJWTSecret=%q", cfg.AuthJWTSecret)
+	}
+	if cfg.JWTAccessTTL != 15*time.Minute {
+		t.Fatalf("JWTAccessTTL=%s", cfg.JWTAccessTTL)
 	}
 }
 

@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/rtu-api/internal/config"
 	"github.com/rtu-api/internal/repository"
 	"github.com/rtu-api/internal/storage"
 )
@@ -25,10 +26,17 @@ type Services struct {
 	CmReports              *CmReportService
 	Attachments            *AttachmentService
 	Notifications          *NotificationService
+	Users                  *UserService
+	Auth                   *AuthService
+	AuditLogs              *AuditService
 }
 
 // New wires the services onto the repository store.
-func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Services {
+func New(store *repository.Store, s3 *storage.S3Client, cfg *config.Config) *Services {
+	appPrefix := ""
+	if cfg != nil {
+		appPrefix = cfg.S3AppPrefix
+	}
 	workOrders := &WorkOrderService{
 		repo:          store.WorkOrders,
 		rounds:        store.WorkOrderRounds,
@@ -95,6 +103,14 @@ func New(store *repository.Store, s3 *storage.S3Client, appPrefix string) *Servi
 			appPrefix: appPrefix,
 		},
 		Notifications: notifications,
+		Users:         &UserService{repo: store.Users},
+		Auth: &AuthService{
+			users:  store.Users,
+			tokens: store.RefreshTokens,
+			audit:  store.AuditLogs,
+			cfg:    cfg,
+		},
+		AuditLogs: &AuditService{repo: store.AuditLogs},
 	}
 }
 
