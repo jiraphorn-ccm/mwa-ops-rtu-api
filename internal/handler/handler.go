@@ -29,6 +29,7 @@ type Handlers struct {
 	Users                  *UserHandler
 	Auth                   *AuthHandler
 	AuditLogs              *AuditHandler
+	Dashboard              *DashboardHandler
 }
 
 // New wires the handlers onto the services.
@@ -54,5 +55,6 @@ func New(cfg *config.Config, svc *service.Services, health *HealthHandler) *Hand
 		Users:                  &UserHandler{svc: svc.Users},
 		Auth:                   &AuthHandler{svc: svc.Auth},
 		AuditLogs:              &AuditHandler{svc: svc.AuditLogs},
+		Dashboard:              &DashboardHandler{svc: svc.Dashboard},
 	}
 }

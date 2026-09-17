@@ -20,6 +20,7 @@ Base path เริ่มต้น: `{base_url}{api_prefix}` เช่น `https
 | [08-pm-excel-appendix-mapping.md](./08-pm-excel-appendix-mapping.md) | Map Excel ผนวก 5.1 / 5.2 / 7 → API |
 | [09-panel-repairs.md](./09-panel-repairs.md) | **App — ซ่อมระหว่าง PM + ประวัติซ่อมตู้** |
 | [10-auth-users.md](./10-auth-users.md) | Login / JWT 15 นาที / users / audit logs — **ต้องมี Bearer** |
+| [11-dashboard.md](./11-dashboard.md) | ภาพรวมระบบ RTU — KPI, กราฟ, SLA, สถานีเสี่ยง, แผนที่ |
 
 Postman: `postman/RTU-API.postman_collection.json`  
 Error codes เต็ม: `api-response-reference.md` (repo root)
@@ -70,6 +71,16 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 | ดูว่าใครทำอะไร | `GET` | `/audit-logs` |
 
 รายละเอียด: [10-auth-users.md](./10-auth-users.md)
+
+### Dashboard (ภาพรวมระบบ RTU)
+
+| อยากทำ | Method | Path |
+|--------|------|------|
+| โหลดหน้า dashboard ทั้งชุด | `GET` | `/dashboard?period=MONTH` (`TODAY` / `7D` / `MONTH` / `YEAR`) |
+| แผนที่สถานีที่เปิดใช้งาน | `GET` | `/dashboard/map` |
+| สถานีที่ต้องให้ความสนใจทั้งชุด | `GET` | `/dashboard/stations-at-risk` |
+
+รายละเอียด: [11-dashboard.md](./11-dashboard.md)
 
 ### CM
 

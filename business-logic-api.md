@@ -477,4 +477,23 @@ flowchart TD
 
 ---
 
+## Dashboard (ภาพรวมระบบ RTU)
+
+เส้น: `GET /dashboard`, `GET /dashboard/map`, `GET /dashboard/stations-at-risk`  
+Contract: [`doc/api/11-dashboard.md`](./doc/api/11-dashboard.md)
+
+| กฎ | ที่มาในโค้ด |
+|-----|-------------|
+| ปฏิทิน `Asia/Bangkok` · `period` default `MONTH` | `internal/service/dashboard_period.go` |
+| สถานีออนไลน์ = `operational_status=NORMAL` (snapshot) | `panelStatusExprSQL` เดียวกับ `GET /panels` |
+| MONITORING ชนะ ABNORMAL ชนะ NORMAL | `domain.AggregatePanelStatus` |
+| PM สำเร็จตามแผน = ปิดงาน `COMPLETED`/`CONDITIONAL` และวันปิด ≤ `due_date` | `DashboardRepository.PMPlan` |
+| CM คงค้าง = CM ที่ยังไม่ `closed_at` ณ `period.to` | `DashboardRepository.CMOpen` |
+| รออนุมัติเกิน SLA = `PENDING_APPROVAL` และ `submitted_at` เก่ากว่า 8 ชม. | `DashboardApprovalSLAHours` |
+| กราฟความพร้อมใช้งานจุดล่าสุด = telemetry จริง จุดย้อนหลัง = proxy จาก CM เปิดคาบเกี่ยวถังเวลา | `overlayLiveAvailability` |
+| “CM ไม่มีผู้รับผิดชอบ” = HIGH + `ASSIGNED` (ยังไม่ check-in) | `assigned_to` บน round เป็น NOT NULL ตั้งแต่สร้างใบ |
+| แผนที่ = ตู้ `active` ที่มี lat/lng ทั้งชุด | `GET /dashboard/map` |
+
+---
+
 *Generated from codebase scrutinize — อัปเดตเมื่อแก้ `internal/service/` หรือ migrations*

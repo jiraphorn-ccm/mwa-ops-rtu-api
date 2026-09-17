@@ -82,7 +82,7 @@ make run            # รัน API
 
 | ไฟล์ | ใช้ทำอะไร |
 |------|-----------|
-| [`postman/RTU-API.postman_collection.json`](./postman/RTU-API.postman_collection.json) | Collection ครบทุก route (155 routes — regenerate ด้วย script ด้านล่าง) |
+| [`postman/RTU-API.postman_collection.json`](./postman/RTU-API.postman_collection.json) | Collection ครบทุก route (regenerate ด้วย script ด้านล่าง) |
 | [`postman/RTU-API.local.postman_environment.json`](./postman/RTU-API.local.postman_environment.json) | Environment local (`base_url`, `actor_id`, …) |
 
 Import ทั้งสองไฟล์ใน Postman แล้วรัน folder **01 — Smoke Flow** เพื่อเติม collection variables
@@ -265,6 +265,16 @@ Base path: `{API_PREFIX}` (ค่าเริ่มต้น `/api/rtu/v1`)
 | GET | `/audit-logs` | Bearer |
 
 `username` ของ login = email หรือ `employee_code` · `expires_in` เป็นวินาที (900)
+
+### Dashboard
+
+รายละเอียด contract: [`doc/api/11-dashboard.md`](./doc/api/11-dashboard.md) · ปฏิทิน `Asia/Bangkok`
+
+| Method | Path | ใช้ทำอะไร |
+|--------|------|-----------|
+| GET | `/dashboard` | KPI + กราฟ + SLA + decisions + สถานีเสี่ยง top 10 · `?period=TODAY\|7D\|MONTH\|YEAR` (default `MONTH`) |
+| GET | `/dashboard/map` | ตู้ที่เปิดใช้งานและมีพิกัด (ทั้งชุด ไม่ paginate) |
+| GET | `/dashboard/stations-at-risk` | สถานี ABNORMAL/MONITORING เรียงความเร่งด่วน · `?limit=` default 50 สูงสุด 200 |
 
 ### Panels
 

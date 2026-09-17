@@ -165,6 +165,9 @@ const EXPECTED = [
   ["GET", "{{api_prefix}}/notifications/{{notification_id}}"],
   ["DELETE", "{{api_prefix}}/notifications/{{notification_id}}"],
   ["POST", "{{api_prefix}}/notifications/{{notification_id}}/read"],
+  ["GET", "{{api_prefix}}/dashboard"],
+  ["GET", "{{api_prefix}}/dashboard/map"],
+  ["GET", "{{api_prefix}}/dashboard/stations-at-risk"],
 ];
 
 function normalize(raw) {

@@ -884,6 +884,34 @@ function build() {
       folder("API Root", [
         req("GET /api/rtu/v1/", "GET", [...api], { desc: "Service root under API prefix." }),
       ]),
+      folder(
+        "Dashboard",
+        [
+          req("Overview", "GET", [...api, "dashboard"], {
+            query: [{ key: "period", value: "MONTH" }],
+            desc: "KPI, charts, SLA, decisions, top-10 stations at risk. period=TODAY|7D|MONTH|YEAR (default MONTH). Calendar Asia/Bangkok. See doc/api/11-dashboard.md.",
+            examples: [
+              example("period=TODAY", "GET", [...api, "dashboard"], {
+                query: [{ key: "period", value: "TODAY" }],
+              }),
+              example("period=7D", "GET", [...api, "dashboard"], {
+                query: [{ key: "period", value: "7D" }],
+              }),
+              example("period=YEAR", "GET", [...api, "dashboard"], {
+                query: [{ key: "period", value: "YEAR" }],
+              }),
+            ],
+          }),
+          req("Map", "GET", [...api, "dashboard", "map"], {
+            desc: "Active panels with coordinates for the dashboard map. Full collection, not paginated.",
+          }),
+          req("Stations at risk", "GET", [...api, "dashboard", "stations-at-risk"], {
+            query: [{ key: "limit", value: "50" }],
+            desc: "ABNORMAL/MONITORING stations ranked by severity, open work, downtime. limit 1–200 (default 50).",
+          }),
+        ],
+        "Executive RTU dashboard — replaces mock data on the frontend dashboard page.",
+      ),
       folder("Panels", [
         req("List", "GET", [...api, "panels"], {
           query: q([{ key: "active", value: "" }]),

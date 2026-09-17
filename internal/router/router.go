@@ -85,6 +85,7 @@ func New(deps Deps) http.Handler {
 			mountProblemTopics(protected, deps.Handlers)
 			mountAttachments(protected, deps.Handlers)
 			mountNotifications(protected, deps.Handlers)
+			mountDashboard(protected, deps.Handlers)
 		})
 	})
 
@@ -370,5 +371,13 @@ func mountNotifications(api chi.Router, h *handler.Handlers) {
 			r.Delete("/", h.Notifications.Delete)
 			r.Post("/read", h.Notifications.MarkRead)
 		})
+	})
+}
+
+func mountDashboard(api chi.Router, h *handler.Handlers) {
+	api.Route("/dashboard", func(r chi.Router) {
+		r.Get("/", h.Dashboard.Overview)
+		r.Get("/map", h.Dashboard.Map)
+		r.Get("/stations-at-risk", h.Dashboard.StationsAtRisk)
 	})
 }

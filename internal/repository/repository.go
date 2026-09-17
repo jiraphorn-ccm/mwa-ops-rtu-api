@@ -40,6 +40,7 @@ type Store struct {
 	Users                  *UserRepository
 	RefreshTokens          *RefreshTokenRepository
 	AuditLogs              *AuditLogRepository
+	Dashboard              *DashboardRepository
 }
 
 // New wires the repositories onto a connection pool.
@@ -69,6 +70,7 @@ func New(pool *pgxpool.Pool) *Store {
 		Users:                  &UserRepository{pool: pool, q: q},
 		RefreshTokens:          &RefreshTokenRepository{pool: pool, q: q},
 		AuditLogs:              &AuditLogRepository{pool: pool, q: q},
+		Dashboard:              &DashboardRepository{pool: pool},
 	}
 }
 

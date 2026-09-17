@@ -29,6 +29,7 @@ type Services struct {
 	Users                  *UserService
 	Auth                   *AuthService
 	AuditLogs              *AuditService
+	Dashboard              *DashboardService
 }
 
 // New wires the services onto the repository store.
@@ -111,6 +112,7 @@ func New(store *repository.Store, s3 *storage.S3Client, cfg *config.Config) *Ser
 			cfg:    cfg,
 		},
 		AuditLogs: &AuditService{repo: store.AuditLogs},
+		Dashboard: &DashboardService{repo: store.Dashboard},
 	}
 }
 

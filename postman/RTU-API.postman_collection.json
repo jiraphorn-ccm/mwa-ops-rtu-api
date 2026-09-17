@@ -1407,6 +1407,229 @@
       ]
     },
     {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "MONTH"
+                }
+              ]
+            }
+          },
+          "description": "KPI, charts, SLA, decisions, top-10 stations at risk. period=TODAY|7D|MONTH|YEAR (default MONTH). Calendar Asia/Bangkok. See doc/api/11-dashboard.md.",
+          "response": [
+            {
+              "name": "Example: period=TODAY",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/dashboard",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "dashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "TODAY"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: period=7D",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/dashboard",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "dashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "7D"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "Example: period=YEAR",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}{{api_prefix}}/dashboard",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "{{api_prefix}}",
+                    "dashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "YEAR"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/dashboard/map",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "dashboard",
+                "map"
+              ]
+            }
+          },
+          "description": "Active panels with coordinates for the dashboard map. Full collection, not paginated.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stations at risk",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/dashboard/stations-at-risk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "{{api_prefix}}",
+                "dashboard",
+                "stations-at-risk"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "description": "ABNORMAL/MONITORING stations ranked by severity, open work, downtime. limit 1–200 (default 50).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP success', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('MWA envelope', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('success');",
+                  "    pm.expect(json.code).to.match(/^S\\d/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Executive RTU dashboard — replaces mock data on the frontend dashboard page."
+    },
+    {
       "name": "Panels",
       "item": [
         {

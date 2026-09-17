@@ -49,6 +49,7 @@ Authorization: Bearer <access_token>
 | `S201_004` | 200 | Update |
 | `S201_005` | 200 | Delete (soft) |
 | `S201_007` | 200 | Restore |
+| `S201_009` | 200 | Summary (เช่น calibrations/summary, dashboard) |
 | `S201_011` | 200 | Login |
 | `S201_012` | 200 | Logout |
 | `S201_013` | 200 | Refresh token |
@@ -111,6 +112,9 @@ Response: `data.items[]` + `data.meta` (page, limit, total, has_next, …)
 | `GET /work-orders/{id}/approvals` | — |
 | `GET /work-orders/{id}/pm-reports` (history ใต้ใบงาน) | — |
 | `GET /work-orders/{id}/cm-reports` (history ใต้ใบงาน) | — |
+| `GET /dashboard` | `period` |
+| `GET /dashboard/map` | — |
+| `GET /dashboard/stations-at-risk` | `limit` |
 
 **หมาย:** ประวัติใต้ `/panels/{id}/pm-reports`, `/panels/{id}/cm-reports`, `/panel-devices/{id}/cm-reports` เป็น **paginated** — ดู [02-pm-reports.md](./02-pm-reports.md) / [03-cm-reports.md](./03-cm-reports.md)
 
