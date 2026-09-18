@@ -484,7 +484,7 @@ func (s *WorkOrderService) MarkSubmitted(ctx context.Context, id uuid.UUID, subm
 
 // OpenNewRound reopens a work order for rework after a round was rejected,
 // per rtu.wo_approvals: the same work order gets round_no+1, newStatus is
-// typically PENDING. Exposed for ApprovalService.
+// typically ASSIGNED. Exposed for ApprovalService.
 func (s *WorkOrderService) OpenNewRound(
 	ctx context.Context, id uuid.UUID, assignedTo, assignedBy uuid.UUID, newStatus string, actorID uuid.UUID,
 ) (repository.WorkOrderView, error) {

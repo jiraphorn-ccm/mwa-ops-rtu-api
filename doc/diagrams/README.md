@@ -61,7 +61,7 @@ node scripts/generate_workflow_diagrams.mjs
 ```
 ASSIGNED → IN_PROGRESS → PENDING_APPROVAL → COMPLETED / CONDITIONAL
                               ↓ REJECTED
-                           PENDING → (round ใหม่) → IN_PROGRESS
+                           ASSIGNED → (round ใหม่) → IN_PROGRESS
 ```
 
 **หมายเหตุ:** check-out **ไม่เปลี่ยน** status · `REJECTED` เป็น `decision` ใน approvals ไม่ใช่ WO status
@@ -91,7 +91,7 @@ Precondition: PM WO + check-in + มี PM report draft
 `POST .../approvals` เมื่อ `PENDING_APPROVAL`:
 
 - `APPROVED` / `APPROVED_CONDITION`
-- `REJECTED` → rework (PENDING + round ใหม่)
+- `REJECTED` → rework (ASSIGNED + round ใหม่)
 - `REJECTED` + `escalate=true` → spawn/reuse CM (ต่างจาก escalate หน้างาน)
 
 ---

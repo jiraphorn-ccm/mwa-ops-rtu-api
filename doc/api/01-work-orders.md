@@ -291,7 +291,7 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 
 | `action` | เมื่อไหร่ | หมายเหตุ |
 |----------|-----------|----------|
-| `ASSIGNED` | สร้างใบ / เปิดรอบ rework ใหม่ | หลัง reject: `from_status`=`to_status`=`PENDING` (transition อยู่ที่ `REJECTED`) |
+| `ASSIGNED` | สร้างใบ / เปิดรอบ rework ใหม่ | หลัง reject: `to_status`=`ASSIGNED` + `to_assignee` (transition อยู่ที่ `REJECTED`) |
 | `REASSIGNED` | เปลี่ยนผู้รับก่อน check-in | |
 | `CHECKED_IN` | เริ่มงานหน้างาน | |
 | `CHECKED_OUT` | ออกจากหน้างาน | ไม่เปลี่ยน `work_orders.status` |
@@ -303,7 +303,7 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 | `CM_SPAWNED` | escalate จาก PM → CM | `note` มีเลขใบ CM |
 | `ONSITE_CM_OPENED` | ซ่อมหน้างาน PM → เปิด CM WO | `note` มีเลขใบ CM |
 
-**Rework หลัง reject:** `REJECTED` (`PENDING_APPROVAL`→`PENDING`) แล้วตามด้วย `ASSIGNED` รอบใหม่  
+**Rework หลัง reject:** `REJECTED` (`PENDING_APPROVAL`→`ASSIGNED`) แล้วตามด้วย `ASSIGNED` รอบใหม่  
 **Escalate จาก PM:** `REJECTED` (`PENDING_APPROVAL`→`CONDITIONAL`) + `CM_SPAWNED` — รหัส CM อยู่ใน `note` และ `GET .../approvals` → `new_work_order_id`
 
 ---
@@ -325,7 +325,7 @@ Prefix: `{api_prefix}/work-orders` และ nested ใต้ `/panels/{panel_id
 | `problem_topic_id` | UUID | **บังคับเมื่อ escalate=true** |
 | `assigned_to` | UUID | บังคับเมื่อ escalate=true **และ** ไม่มี CM เปิด topic นี้อยู่แล้ว |
 
-**ผล REJECTED rework:** ใบเดิม status → `PENDING`, เปิด round ใหม่ (assignee จาก `reassign_to` หรือคนเดิม)
+**ผล REJECTED rework:** ใบเดิม status → `ASSIGNED`, เปิด round ใหม่ (assignee จาก `reassign_to` หรือคนเดิม)
 
 **ผล REJECTED escalate:** ใบ PM → `CONDITIONAL` + spawn หรือ **reuse** CM ที่เปิด topic เดียวกันบน panel แล้ว (ไม่ error duplicate — ต่างจาก `POST /pm-reports/{id}/escalate`)
 

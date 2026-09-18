@@ -440,8 +440,8 @@ Nested ใต้ panel / device:
 Filter work orders: `work_order_type`, `pm_schedule_type`, `status`, `priority`, `active`,
 `assigned_to`, `panel_id`, `panel_device_id`, `planned_from/to`, `due_from/to`
 
-Workflow สถานะ: `ASSIGNED` → `IN_PROGRESS` (check-in) → `PENDING` (check-out) →
-`PENDING_APPROVAL` (submit report) → `COMPLETED` / `CONDITIONAL` / rework (reject)
+Workflow สถานะ: `ASSIGNED` → `IN_PROGRESS` (check-in) →
+`PENDING_APPROVAL` (submit report) → `COMPLETED` / `CONDITIONAL` / rework → `ASSIGNED`
 
 ### PM reports
 

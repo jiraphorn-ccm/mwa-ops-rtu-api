@@ -24,8 +24,8 @@ func TestBuildApprovalOutcomeRejectedRework(t *testing.T) {
 	if notify == nil || *notify != assignee {
 		t.Fatalf("notify rework assignee: got %v", notify)
 	}
-	if outcome.NewStatus != "PENDING" || outcome.Rework == nil {
-		t.Fatalf("expected PENDING rework outcome, got %+v", outcome)
+	if outcome.NewStatus != "ASSIGNED" || outcome.Rework == nil {
+		t.Fatalf("expected ASSIGNED rework outcome, got %+v", outcome)
 	}
 	if len(outcome.ActivityLogs) != 1 {
 		t.Fatalf("expected 1 activity log, got %d", len(outcome.ActivityLogs))
@@ -37,7 +37,7 @@ func TestBuildApprovalOutcomeRejectedRework(t *testing.T) {
 	if log.FromStatus == nil || *log.FromStatus != "PENDING_APPROVAL" {
 		t.Fatalf("from_status: %+v", log.FromStatus)
 	}
-	if log.ToStatus == nil || *log.ToStatus != "PENDING" {
+	if log.ToStatus == nil || *log.ToStatus != "ASSIGNED" {
 		t.Fatalf("to_status: %+v", log.ToStatus)
 	}
 }

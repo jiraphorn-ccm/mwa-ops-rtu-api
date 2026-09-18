@@ -404,8 +404,7 @@ func (r *WorkOrderRepository) CreateWithFirstRound(
 
 // OpenNewRound closes out a rejected round by opening round_no+1 on the same
 // work order, pointing current_round_id at it, moving the work order back to
-// newStatus (PENDING for rework, unchanged for a CM escalation that stays on
-// its own approval track) and recording the ASSIGNED activity. Everything
+// newStatus (ASSIGNED for rework) and recording the ASSIGNED activity. Everything
 // commits in one transaction so the work order is never left pointing at a
 // round that failed to insert.
 func (r *WorkOrderRepository) OpenNewRound(

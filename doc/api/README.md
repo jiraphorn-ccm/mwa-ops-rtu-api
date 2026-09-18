@@ -96,7 +96,7 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 
 สถานะใบงาน (`work_order.status`) มีได้แค่:  
 `ASSIGNED` → `IN_PROGRESS` → `PENDING_APPROVAL` → `COMPLETED` / `CONDITIONAL` / `CANCELLED`  
-และ `PENDING` (rework หลัง reject เท่านั้น)
+และ `PENDING` (สถานะเดิมที่ยังรับได้ เช่น เริ่มงานจาก report)
 
 ```
 สร้างใบ ──► ASSIGNED ──check-in──► IN_PROGRESS ──check-out──► IN_PROGRESS (ยัง)
@@ -113,7 +113,7 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
                                       │                                              │
                                       │                              ┌───────────────┴───────────────┐
                                       │                              ▼                               ▼
-                                      │                    rework → PENDING              escalate → CONDITIONAL
+                                      │                    rework → ASSIGNED             escalate → CONDITIONAL
                                       │                    (round ใหม่)                  + spawn/reuse CM
                                       │                              │
                                       └──────────────── check-in ────┘
@@ -122,7 +122,7 @@ Error codes เต็ม: `api-response-reference.md` (repo root)
 **หมายเหตุสำคัญ**
 - **ไม่มี status `REJECTED` บนใบงาน** — `REJECTED` เป็น `decision` ใน body ของ `POST .../approvals` เท่านั้น
 - **check-out ไม่เปลี่ยน status** — ยัง `IN_PROGRESS` จนกว่าจะ submit report → `PENDING_APPROVAL`
-- **`PENDING`** = รอ rework หลัง reject (round ใหม่) — **ไม่ใช่** หลัง check-out
+- **rework หลัง reject** = ใบเดิมกลับเป็น `ASSIGNED` (มอบหมาย) + round ใหม่ — **ไม่ใช่** `PENDING`
 - **สถานะเปลี่ยนผ่าน action endpoint เท่านั้น** — ห้ามส่ง `status` ใน PATCH ใบงาน
 
 ---

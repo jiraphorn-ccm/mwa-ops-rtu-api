@@ -16,7 +16,7 @@ import (
 //
 //	APPROVED            -> work order COMPLETED
 //	APPROVED_CONDITION  -> work order CONDITIONAL
-//	REJECTED, rework    -> same work order opens round_no+1, status PENDING
+//	REJECTED, rework    -> same work order opens round_no+1, status ASSIGNED
 //	REJECTED, escalate  -> problem is not the PM contractor's responsibility;
 //	                       work order goes CONDITIONAL and a CM work order is
 //	                       created (or an existing open one reused) — see
@@ -245,10 +245,10 @@ func buildApprovalOutcome(
 			ActivityLogs: logs,
 		}, nil
 	default:
-		to := "PENDING"
+		to := "ASSIGNED"
 		now := time.Now()
 		return repository.ApprovalOutcome{
-			NewStatus: "PENDING",
+			NewStatus: "ASSIGNED",
 			ActivityLogs: []sqlc.CreateWorkOrderActivityLogParams{
 				approvalReviewActivity(wo.ID, reviewedRoundID, in.ReviewerID, "REJECTED", from, to, in.Note),
 			},

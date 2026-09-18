@@ -139,15 +139,14 @@ func (r *WoApprovalRepository) DecideAndApply(
 			if err != nil {
 				return db.Translate(err)
 			}
-			// Status transition is recorded by the preceding REJECTED log; this
-			// row marks the new round and assignee only.
-			st := wo.Status
+			// REJECTED already recorded PENDING_APPROVAL → ASSIGNED. This row
+			// marks the new round and assignee, same shape as first-round create.
+			toStatus := wo.Status
 			if _, err := q.CreateWorkOrderActivityLog(ctx, sqlc.CreateWorkOrderActivityLogParams{
 				WorkOrderID:      woID,
 				WorkOrderRoundID: &round.ID,
 				Action:           "ASSIGNED",
-				FromStatus:       &st,
-				ToStatus:         &st,
+				ToStatus:         &toStatus,
 				ToAssignee:       &rw.AssignedTo,
 				ActorID:          rw.ActorID,
 			}); err != nil {

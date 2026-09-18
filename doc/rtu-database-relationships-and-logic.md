@@ -556,7 +556,7 @@ PENDING_APPROVAL
     │  POST /work-orders/{id}/approvals
     ├─ APPROVED ──────────────► COMPLETED
     ├─ APPROVED_CONDITION ────► CONDITIONAL
-    └─ REJECTED ──────────────► PENDING (+ round ใหม่)
+    └─ REJECTED ──────────────► ASSIGNED (+ round ใหม่)
                                 หรือ spawn CM + CONDITIONAL/COMPLETED
 ```
 

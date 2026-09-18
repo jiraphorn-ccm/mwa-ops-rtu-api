@@ -75,13 +75,13 @@
         <mxCell id="c11" value="APPROVED / APPROVED_CONDITION&amp;#xa;status → COMPLETED | CONDITIONAL&amp;#xa;sync panel PM dates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="120" y="610" width="280" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="c12" value="REJECTED rework&amp;#xa;status → PENDING · round ใหม่&amp;#xa;reassign_to (optional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <mxCell id="c12" value="REJECTED rework&amp;#xa;status → ASSIGNED · round ใหม่&amp;#xa;reassign_to (optional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="460" y="610" width="280" height="70" as="geometry" />
         </mxCell>
         <mxCell id="c13" value="REJECTED + escalate=true&amp;#xa;PM → CONDITIONAL · spawn/reuse CM&amp;#xa;(ดู tab 06)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="800" y="610" width="280" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="c14" value="PENDING → check-in รอบใหม่ → IN_PROGRESS (loop)" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFCC;strokeColor=#CCCC00;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <mxCell id="c14" value="ASSIGNED → check-in รอบใหม่ → IN_PROGRESS (loop)" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFCC;strokeColor=#CCCC00;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="460" y="700" width="280" height="45" as="geometry" />
         </mxCell>
         <mxCell id="c15" value="Terminal: COMPLETED · CONDITIONAL · CANCELLED" style="ellipse;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1" vertex="1" parent="1">
@@ -152,7 +152,7 @@
         <mxCell id="c8" value="POST .../cm-report/submit · actor_id&amp;#xa;→ PENDING_APPROVAL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="400" y="390" width="400" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="c9" value="POST .../approvals&amp;#xa;APPROVED → COMPLETED&amp;#xa;REJECTED → PENDING + round ใหม่" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <mxCell id="c9" value="POST .../approvals&amp;#xa;APPROVED → COMPLETED&amp;#xa;REJECTED → ASSIGNED + round ใหม่" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="400" y="460" width="400" height="60" as="geometry" />
         </mxCell>
         <mxCell id="c10" value="Multi-topic: duplicate ตรวจทีละ topic&amp;#xa;GET .../open-cm-work-orders — UI เตือน CM เปิดบนตู้" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFCC;strokeColor=#CCCC00;align=left;spacingLeft=8;" vertex="1" parent="1">
@@ -361,7 +361,7 @@
         <mxCell id="c7" value="escalate?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontStyle=1" vertex="1" parent="1">
           <mxGeometry x="500" y="300" width="180" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="c8" value="Rework&amp;#xa;status → PENDING&amp;#xa;round ใหม่ · reassign_to optional&amp;#xa;→ check-in ทำใหม่" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <mxCell id="c8" value="Rework&amp;#xa;status → ASSIGNED&amp;#xa;round ใหม่ · reassign_to optional&amp;#xa;→ check-in ทำใหม่" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="760" y="220" width="260" height="80" as="geometry" />
         </mxCell>
         <mxCell id="c9" value="Escalate CM&amp;#xa;PM → CONDITIONAL&amp;#xa;repair_date + problem_topic_id บังคับ&amp;#xa;reuse CM เปิด topic เดียวกันได้" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;align=left;spacingLeft=8;" vertex="1" parent="1">
